@@ -18,6 +18,11 @@ on:
     branches:
       - main
       - harnessing
+  schedule:
+    # Weekly, Monday 06:00 UTC: the advisory database changes without this repository
+    # changing, so a trigger is needed that does not depend on anyone committing.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 concurrency:
   group: quality-${{ github.ref }}
@@ -144,3 +149,40 @@ jobs:
         # (deleting unreachable code), where a dynamic import the static walker cannot see
         # would otherwise delete live code.
         run: cd packages/pastebar-app-ui && npx vite build
+
+  # ---------------------------------------------------------------------------
+  # Dependency advisories. Runs on a schedule rather than on every PR, because the
+  # pre-existing advisory count (ISSUE-032: 51 production, 30 high) must not block
+  # unrelated work — but it must not be invisible either, which is how it went
+  # un-audited for the life of the repository.
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency advisories
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Production advisories (strict)
+        # Fails on ANY high/critical production advisory, so the debt surfaces on a timer.
+        # `--strict` is deliberately not in check-all.sh: a PR should not go red for debt it
+        # did not introduce. See docs/harness/gates.md gate 7b.
+        continue-on-error: true
+        run: node scripts/harness/audit-ratchet.mjs --strict
+
+      - name: Ratchet regression check
+        # This one DOES block: it fails only if the count grew past the baseline.
+        run: node scripts/harness/audit-ratchet.mjs
+
+      - name: Report (for the job summary)
+        if: always()
+        run: node scripts/harness/audit-ratchet.mjs --report

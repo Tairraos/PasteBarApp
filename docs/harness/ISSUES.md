@@ -418,6 +418,24 @@ commit messages written against this revision. **No action required.**
 `行为变更 | 无（打包产物解析的 React 版本不变，仅去除重复安装）`
 `所属阶段 | 5`
 
+### ISSUE-032 · 51 production dependency vulnerabilities, 30 high, never audited
+
+`ID | ISSUE-032`
+`位置 | npm audit --omit=dev, run 2026-09-16 on the harnessing branch`
+`类型 | RISK`
+`风险等级 | P1`
+`影响范围 | Shipped renderer bundle and the developer toolchain`
+`现象与依据 |` Nothing in this repository had ever run a dependency audit: no `npm audit` script, no scheduled workflow, and `ci`/`install` steps pass `--no-audit`, which suppresses even npm's default warning. The first run reports **51 production vulnerabilities (2 low, 19 moderate, 30 high)**. Three high-severity findings are in **direct** dependencies that reach the shipped bundle, not just the build toolchain:
+
+- `react-router-dom` — unexpected external redirect via untrusted input, and XSS via open redirect. Imported by `src/main.tsx:16` and used in `src/App.tsx:11`, so it is live in the renderer.
+- `lodash-es` — code injection via `_.template` imports.
+- `js-yaml` — prototype pollution in merge (`<<`).
+  The remaining high findings are transitive, mostly through `@babel/*` and `@svgr/webpack` in the build chain. A desktop app ships its renderer, so a renderer-side XSS is not a theoretical concern: the webview holds the user's clipboard history and the IPC bridge is exposed to it.
+  This was not in the plan's pre-scan at all (§3.1 task 1.5 listed `npm audit` as an input, but the task was executed as a no-op because `--no-audit` was everywhere).
+  `建议方案 |` Two parts. (1) A scheduled `audit` job in `quality.yml` so the count is visible and cannot drift back to "never run" — it must not block PRs, matching the plan's §3.9 "小门禁快、大扫描定时". The count is pinned in `docs/harness/audit-baseline.json` so it may only shrink, and a scheduled run fails when it grows. (2) Upgrading `react-router-dom`, `lodash-es` and `js-yaml` is real work with real regression risk and belongs in its own wave (W2), not bolted onto the gate.
+  `行为变更 | 无（门禁与记录；升级本身属 W2，尚未执行）`
+  `所属阶段 | 3（门禁）→ 4 (W2, 升级)`
+
 ---
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)

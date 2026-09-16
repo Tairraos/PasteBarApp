@@ -8,11 +8,11 @@ matching test vocabulary were vendored Cypress copies (ISSUE-006).
 
 Current state:
 
-|                  | Backend (`cargo test`) | Frontend (`vitest`)                   |
-| ---------------- | ---------------------- | ------------------------------------- |
-| Tests            | 11                     | 24                                    |
-| Coverage ratchet | n/a                    | 5.02% lines (baseline, may only rise) |
-| Gate             | `check-all.sh` gate 9  | `check-all.sh` gate 10                |
+|                  | Backend (`cargo test`)              | Frontend (`vitest`)                    |
+| ---------------- | ----------------------------------- | -------------------------------------- |
+| Tests            | 26                                  | 33                                     |
+| Coverage ratchet | n/a                                 | 30.27% lines (baseline, may only rise) |
+| Gate             | `check-all.sh` gate 9 (`test-rust`) | `check-all.sh` gate 9 (`test-js`)      |
 
 Run them with `bash scripts/harness/check-all.sh`, or individually:
 `bash scripts/harness/run-tests.sh` and `npm run test:rust`.

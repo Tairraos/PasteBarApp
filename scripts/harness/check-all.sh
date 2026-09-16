@@ -160,6 +160,17 @@ gate_format() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate 7b — dependency advisory ratchet
+# ---------------------------------------------------------------------------
+gate_audit() {
+  # Fails when the production advisory count GROWS past docs/harness/audit-baseline.json.
+  # Pre-existing advisories (ISSUE-032: 51, of which 30 high) do not block a PR, but a new
+  # one does. Requires network; skipped under --fast, and CI runs it on a schedule with
+  # --strict so the debt stays visible.
+  node scripts/harness/audit-ratchet.mjs
+}
+
+# ---------------------------------------------------------------------------
 # Gate 8 — Rust clippy
 # ---------------------------------------------------------------------------
 gate_clippy() {
@@ -197,9 +208,11 @@ run_gate "typecheck"      gate_typecheck
 run_gate "lint"           gate_lint
 run_gate "format"         gate_format
 if [ "$FAST" -eq 1 ]; then
+  skip_gate "audit" "--fast (network)"
   skip_gate "clippy" "--fast"
   skip_gate "test-rust" "--fast"
 else
+  run_gate "audit"        gate_audit
   run_gate "clippy"       gate_clippy
   run_gate "test-rust"    gate_test_rust
 fi

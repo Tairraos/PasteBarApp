@@ -38,6 +38,11 @@ if [ "$WANT_COVERAGE" -eq 0 ]; then
   exit $?
 fi
 
+# A stale summary from an interrupted or concurrent run would be read as this run's result,
+# which produces a coverage failure that has nothing to do with the code being tested. Delete
+# it first so the file's existence is proof that *this* run produced it.
+rm -f "$SUMMARY"
+
 npx --no-install vitest run --coverage --reporter=dot ${ARGS+"${ARGS[@]}"} || exit 1
 
 if [ ! -f "$SUMMARY" ]; then

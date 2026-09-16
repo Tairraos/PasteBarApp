@@ -31,6 +31,7 @@ elapsed time, followed by a summary naming what failed.
 | 5   | **typecheck**  | `npx tsc --noEmit -p tsconfig.json`                 | TypeScript errors. **Advisory until W4a** — see below                                                                                                                                                | W4a onward              |
 | 6   | **lint**       | `npx eslint . --ext .ts,.tsx`                       | any error above the per-file baseline in `DEBT-BASELINE.md`                                                                                                                                          | PR                      |
 | 7   | **format**     | `prettier --check` + `cargo fmt --check`            | any file is not Prettier/rustfmt-clean                                                                                                                                                               | PR                      |
+| 7b  | **audit**      | `node scripts/harness/audit-ratchet.mjs`            | the production advisory count grows past `audit-baseline.json`, or the advisory database cannot be reached                                                                                           | PR                      |
 | 8   | **clippy**     | `node scripts/harness/clippy-ratchet.mjs`           | the count of `clippy::*` lints in this crate grows past the baseline                                                                                                                                 | PR (macOS runner only)  |
 | 9   | **test-rust**  | `cargo test`                                        | any test fails                                                                                                                                                                                       | PR                      |
 | 10  | **test-js**    | `vitest run`                                        | any test fails, or coverage drops below the ratchet                                                                                                                                                  | PR                      |
@@ -147,6 +148,40 @@ plus `cargo fmt`. `cargo fmt --check` is skipped under `--fast`.
 
 ---
 
+## Gate 7b — dependency advisories
+
+**Purpose:** nothing in this repository had ever run a dependency audit. `npm audit` was
+not scripted, no workflow ran it, and every install site passed `--no-audit`, suppressing
+even npm's own warning.
+
+**First run: 51 production advisories, 30 of them high** (ISSUE-032). Three are direct
+dependencies that reach the shipped renderer — `react-router-dom` (XSS via open redirect,
+imported at `main.tsx:16`), `lodash-es` (code injection via `_.template`) and `js-yaml`
+(prototype pollution). A desktop app ships its renderer, and that webview holds the user's
+clipboard history with the IPC bridge exposed to it.
+
+**Why it is a ratchet and not `--strict` in `check-all.sh`:** the pre-existing advisories
+must not block unrelated PRs, but the failure mode that actually matters is _silence_. So:
+
+| Invocation | Behaviour                                                   | Where                                      |
+| ---------- | ----------------------------------------------------------- | ------------------------------------------ |
+| default    | fails only if the count **grew** past `audit-baseline.json` | `check-all.sh` gate 7b, and CI on every PR |
+| `--strict` | fails on **any** high/critical advisory                     | CI `audit` job, weekly schedule            |
+
+**Inconclusive is a failure.** When the registry is unreachable, npm reports a zero count —
+which naive code reads as "no vulnerabilities". The gate detects a missing
+`metadata.dependencies.prod` (only filled by a completed audit) or an `error` field and
+fails with `AUDIT GATE INCONCLUSIVE`. A security gate that passes because the network was
+down is a false green that trains people to ignore the job.
+
+**On failure:** upgrade the dependency, or explain in the PR why the advisory does not apply
+and update the baseline in its own commit. The count may only shrink.
+
+**Dev-only advisories are excluded** (`--omit=dev`): real, but a different blast radius, and
+mixing them makes the number useless as a signal.
+
+---
+
 ## Gates 8–9 — Rust
 
 `cargo test` runs from `src-tauri/`. It currently reports **0 tests** (ISSUE-006); Phase 5
@@ -208,7 +243,7 @@ The rule (GOLDEN-RULES R9): a baseline number may only move down. Raising one is
 | `quality` | `ubuntu-latest` | hygiene, scan, ipc-drift, docs-lint, lint, format (prettier only), typecheck (advisory) |
 | `rust`    | `macos-latest`  | clippy, cargo test, `cargo fmt --check` (macOS-only code must be type-checked on macOS) |
 | `tests`   | `ubuntu-latest` | vitest (Phase 5)                                                                        |
-| `audit`   | `ubuntu-latest` | `npm audit --omit=dev` — scheduled weekly, does not block PRs                           |
+| `audit`   | `ubuntu-latest` | gate 7b (`audit-ratchet.mjs`); runs `--strict` on a weekly schedule                     |
 
 `.github/workflows/build-test.yml` remains the release-bundle workflow. Its `push` trigger
 stays commented out and its `workflow_dispatch` entry point is unchanged; version bumping
@@ -216,6 +251,30 @@ belongs in a release workflow, not in a quality gate (HARNESS_PLAN §5.2 task 3.
 
 **Expected CI duration:** ~3–5 minutes for `quality` and `tests`; the `rust` job is longer
 because it compiles Tauri, and is the reason the plan's 15-minute budget excludes bundling.
+
+---
+
+## Verification: the gates actually fail
+
+Plan §5.4 requires proving the gates go red, not just green. Each was verified by
+deliberately introducing the fault it exists to catch. A gate that has never been observed
+failing is an untested gate.
+
+| Fault introduced                                    | Gate             | Observed                                                                                          |
+| --------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| `git add -f .env`                                   | gate 1 hygiene   | `HYGIENE FAIL: .env is tracked`, exit 1                                                           |
+| `invoke('this_command_does_not_exist_anywhere')`    | gate 3 ipc-drift | `ghost commands: this_command_does_not_exist_anywhere`, exit 1                                    |
+| `const x: number = 'a string'`                      | gate 5 typecheck | error count 307 → 308; fails under `HARNESS_TYPECHECK_STRICT=1` (advisory by default, see gate 5) |
+| Lowering `audit-baseline.json` below the real count | gate 7b audit    | `AUDIT RATCHET FAILED: production advisories 51 exceeds baseline 40`, exit 1                      |
+| Pointing npm at an unreachable registry             | gate 7b audit    | `AUDIT GATE INCONCLUSIVE`, exit 1 — **not** a pass                                                |
+| Reverting `get_default_data_dir()`'s fix            | gate 9 test-rust | 2 tests fail, both with a panic                                                                   |
+| Removing `regex::escape(name)`                      | gate 9 test-rust | 2 tests fail (metacharacter and catastrophic-backtracking cases)                                  |
+| Deleting `DB_POOL_CONNECTION` init guard            | gate 9 test-js   | coverage ratchet reports the dropped metric                                                       |
+
+The audit-inconclusive row is the one worth keeping: the first implementation of that gate
+_passed_ when the registry was unreachable, because npm reports a zero count in that case.
+It now fails, since a security gate that passes because the network was down is worse than
+no gate at all.
 
 ---
 

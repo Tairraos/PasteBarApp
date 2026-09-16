@@ -185,6 +185,33 @@ the conservative default (no amnesty granted before the count is known).
 
 ---
 
+## 4b. Dependency advisory baseline — 51 production, 30 high
+
+Measured at Phase 3 with `npm audit --omit=dev` (ISSUE-032). Nothing in this repository had
+ever run an audit before; every install site passed `--no-audit`.
+
+| Severity  | Count  |
+| --------- | ------ |
+| critical  | 0      |
+| high      | 30     |
+| moderate  | 19     |
+| low       | 2      |
+| **total** | **51** |
+
+Direct high/critical dependencies — the ones a human can act on — are listed in
+`audit-baseline.json`. Three reach the shipped renderer: `react-router-dom`,
+`lodash-es`, `js-yaml`; the rest (`@svgr/webpack`, `glob-all`, `linkify-it`, `rimraf`) are
+build-chain.
+
+**Enforcement:** the count may only shrink. `check-all.sh` gate 7b and the PR CI job fail if
+it grows; the weekly scheduled `audit` job runs `--strict` and fails on any high/critical, so
+the debt surfaces on a timer without blocking unrelated PRs.
+
+**Dev-only advisories are excluded.** There are more of them; they are a different blast
+radius, and mixing them makes the number useless as a signal.
+
+---
+
 ## 5. Deliberate non-targets
 
 Recorded so they are not re-investigated every phase:
