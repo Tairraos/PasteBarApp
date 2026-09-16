@@ -15,16 +15,16 @@
 
 原文要点与本项目现状的映射：
 
-| # | 原文最佳实践 | PasteBarApp 现状 | 差距 |
-|---|---|---|---|
-| 1 | 仓库即记录系统：知识、计划、技术债全部版本化进仓库 | 无 `docs/`；知识散落在 CLAUDE.md 和口头 | 高 |
-| 2 | AGENTS.md 是 ~100 行"地图/目录"，渐进披露到 docs/ | 无 AGENTS.md；CLAUDE.md 256 行百科全书（且自述"无测试"已过时） | 高 |
-| 3 | 计划是一等工件：执行计划 + 进度 + 决策日志入库 | 无任何入库计划 | 高 |
-| 4 | 机械可执行：格式化/lint/类型/测试/结构约束全部可一条命令执行并进门禁 | eslint 配置存在但 **eslint 本身未安装、无 lint 脚本、任何 CI 都不会跑它**；无任何测试 | 极高 |
-| 5 | 规范架构：固定分层、有限依赖边、由 linter/结构测试强制执行 | commands→services→models 分层雏形存在，但无强制；前端无分层约束 | 中 |
-| 6 | 品味不变式编成"黄金原则"+lint 规则（文件行数、认知复杂度等） | sonarjs 认知复杂度阈值被设为 **200**（等于关闭）；存在 3368 行的页面组件 | 高 |
-| 7 | 边界处解析数据（parse, don't validate） | 前端 invoke 返回基本未做运行时校验（zod 在依赖里但 IPC 边界未用） | 中 |
-| 8 | 持续小额偿还债务（GC 循环），而非攒大重构 | 一次性大重构成本高，本计划按小步 commit 执行 | — |
+| #   | 原文最佳实践                                                         | PasteBarApp 现状                                                                      | 差距 |
+| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---- |
+| 1   | 仓库即记录系统：知识、计划、技术债全部版本化进仓库                   | 无 `docs/`；知识散落在 CLAUDE.md 和口头                                               | 高   |
+| 2   | AGENTS.md 是 ~100 行"地图/目录"，渐进披露到 docs/                    | 无 AGENTS.md；CLAUDE.md 256 行百科全书（且自述"无测试"已过时）                        | 高   |
+| 3   | 计划是一等工件：执行计划 + 进度 + 决策日志入库                       | 无任何入库计划                                                                        | 高   |
+| 4   | 机械可执行：格式化/lint/类型/测试/结构约束全部可一条命令执行并进门禁 | eslint 配置存在但 **eslint 本身未安装、无 lint 脚本、任何 CI 都不会跑它**；无任何测试 | 极高 |
+| 5   | 规范架构：固定分层、有限依赖边、由 linter/结构测试强制执行           | commands→services→models 分层雏形存在，但无强制；前端无分层约束                       | 中   |
+| 6   | 品味不变式编成"黄金原则"+lint 规则（文件行数、认知复杂度等）         | sonarjs 认知复杂度阈值被设为 **200**（等于关闭）；存在 3368 行的页面组件              | 高   |
+| 7   | 边界处解析数据（parse, don't validate）                              | 前端 invoke 返回基本未做运行时校验（zod 在依赖里但 IPC 边界未用）                     | 中   |
+| 8   | 持续小额偿还债务（GC 循环），而非攒大重构                            | 一次性大重构成本高，本计划按小步 commit 执行                                          | —    |
 
 **本次改造的非目标**：不改变业务功能行为（唯一例外是阶段 1 中标注为 `BUG` 的既有缺陷修复，
 且逐条在问题清单中说明）；不更换技术栈（Tauri 1.x / Diesel / React 保持）；不做与 harness 无关的功能开发。
@@ -62,14 +62,14 @@
 
 ### 3.1 子任务
 
-| 子任务 | 内容 | 方法/产出 |
-|---|---|---|
-| 1.1 指标化静态扫描 | 固化本次扫描口径并扩展：文件行数分布、函数复杂度（sonarjs 恢复阈值后跑通得到真实分布）、`unwrap/expect/panic`、空 catch、`any`、`console.*`、TODO/FIXME、重复代码块（jscpd）、死导出 | 脚本化：`scripts/harness/scan.sh`，输出可重跑、可对比 |
-| 1.2 关键路径人工深读 | 按风险排序读：剪贴板采集链（`clipboard/mod.rs`）、DB 层与迁移（`db.rs` + `migrations/`）、history/items/collections service、`main.rs` 启动与托盘、前端 store 同步与 QuickPaste 多窗口链路 | 逐条记录问题进清单 |
-| 1.3 IPC 契约核实 | 生成"前端调用命令 × 后端注册命令 × 事件"三向对照表，找出：死命令、未注册却被调用（运行期才炸）、参数无类型校验的边界 | 对照表进 `docs/contracts/tauri-ipc.md`（阶段 2 正式化） |
-| 1.4 异常与边界 case 审查 | 错误被吞/被 unwrap 的路径；磁盘满、DB 锁、路径含空格/非 ASCII、图片文件丢失、并发粘贴等边界 | 问题逐条入清单 |
-| 1.5 依赖与安全卫生 | `npm audit --omit=dev`、`cargo` 依赖过期/重复（同包多版本）、git 跟踪卫生（.env、构建产物）、vendored libs 范围圈定 | 入清单 + 阶段 3 门禁取材 |
-| 1.6 风险分级与排序 | 统一定级标准（见 3.3），分配 `BUG / DEBT / RISK / HYGIENE` 类型标签 | 解决计划 `fix-plan.md` |
+| 子任务                   | 内容                                                                                                                                                                                       | 方法/产出                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| 1.1 指标化静态扫描       | 固化本次扫描口径并扩展：文件行数分布、函数复杂度（sonarjs 恢复阈值后跑通得到真实分布）、`unwrap/expect/panic`、空 catch、`any`、`console.*`、TODO/FIXME、重复代码块（jscpd）、死导出       | 脚本化：`scripts/harness/scan.sh`，输出可重跑、可对比   |
+| 1.2 关键路径人工深读     | 按风险排序读：剪贴板采集链（`clipboard/mod.rs`）、DB 层与迁移（`db.rs` + `migrations/`）、history/items/collections service、`main.rs` 启动与托盘、前端 store 同步与 QuickPaste 多窗口链路 | 逐条记录问题进清单                                      |
+| 1.3 IPC 契约核实         | 生成"前端调用命令 × 后端注册命令 × 事件"三向对照表，找出：死命令、未注册却被调用（运行期才炸）、参数无类型校验的边界                                                                       | 对照表进 `docs/contracts/tauri-ipc.md`（阶段 2 正式化） |
+| 1.4 异常与边界 case 审查 | 错误被吞/被 unwrap 的路径；磁盘满、DB 锁、路径含空格/非 ASCII、图片文件丢失、并发粘贴等边界                                                                                                | 问题逐条入清单                                          |
+| 1.5 依赖与安全卫生       | `npm audit --omit=dev`、`cargo` 依赖过期/重复（同包多版本）、git 跟踪卫生（.env、构建产物）、vendored libs 范围圈定                                                                        | 入清单 + 阶段 3 门禁取材                                |
+| 1.6 风险分级与排序       | 统一定级标准（见 3.3），分配 `BUG / DEBT / RISK / HYGIENE` 类型标签                                                                                                                        | 解决计划 `fix-plan.md`                                  |
 
 ### 3.2 产出物
 
@@ -101,15 +101,15 @@
 
 ### 4.1 子任务
 
-| 子任务 | 内容 |
-|---|---|
-| 2.1 建 `docs/` 骨架 | `docs/README.md`（目录+每篇一句话+状态）；`docs/architecture.md`；`docs/modules/`；`docs/contracts/`；`docs/reference/`（构建、发布、迁移等既有指南归位） |
-| 2.2 写 `AGENTS.md`（≈100 行） | 地图而非手册：项目一句话、技术栈、目录地图、命令速查（dev/build/test/lint）、分层规则摘要、"去哪看深层文档"索引、禁止事项。CLAUDE.md 收敛为指向 AGENTS.md 的薄壳，消除双份漂移 |
-| 2.3 后端模块文档 | `docs/modules/backend-*.md`：commands 层、services 层（history/items/collections/request/link_metadata）、clipboard 采集链、db.rs 与路径变换约定（`{{base_folder}}`）、menu/多窗口/事件流；每篇含**职责边界、输入输出、异常定义、已知限制** |
-| 2.4 前端模块文档 | `docs/modules/frontend-*.md`：多入口（main/history/quickpaste）、store 清单与同步机制、`lib/commands.ts` invoke 封装约定、i18n、vendored libs 豁免说明 |
-| 2.5 IPC 契约文档 | `docs/contracts/tauri-ipc.md`：全部命令与事件的**请求/响应 shape、错误字符串约定、调用方**；由脚本从代码生成初稿（阶段 3 做漂移门禁），人工补语义 |
-| 2.6 架构图 | mermaid：模块依赖图（commands→services→models/db 分层图、前端 store↔页面、多窗口事件流），入 `docs/architecture.md` |
-| 2.7 过时文档清理 | CLAUDE.md 中"无测试"等表述随阶段 5 更新；`WHATS_NEW_0.7.0.md`、`BUILD_GUIDE_ARM64_WINDOWS.md` 移入 `docs/reference/` 并加"最后核对日期"；`docs/harness/GOLDEN-RULES.md`（黄金原则，阶段 3/4 lint 规则的依据文档） |
+| 子任务                        | 内容                                                                                                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1 建 `docs/` 骨架           | `docs/README.md`（目录+每篇一句话+状态）；`docs/architecture.md`；`docs/modules/`；`docs/contracts/`；`docs/reference/`（构建、发布、迁移等既有指南归位）                                                                                   |
+| 2.2 写 `AGENTS.md`（≈100 行） | 地图而非手册：项目一句话、技术栈、目录地图、命令速查（dev/build/test/lint）、分层规则摘要、"去哪看深层文档"索引、禁止事项。CLAUDE.md 收敛为指向 AGENTS.md 的薄壳，消除双份漂移                                                              |
+| 2.3 后端模块文档              | `docs/modules/backend-*.md`：commands 层、services 层（history/items/collections/request/link_metadata）、clipboard 采集链、db.rs 与路径变换约定（`{{base_folder}}`）、menu/多窗口/事件流；每篇含**职责边界、输入输出、异常定义、已知限制** |
+| 2.4 前端模块文档              | `docs/modules/frontend-*.md`：多入口（main/history/quickpaste）、store 清单与同步机制、`lib/commands.ts` invoke 封装约定、i18n、vendored libs 豁免说明                                                                                      |
+| 2.5 IPC 契约文档              | `docs/contracts/tauri-ipc.md`：全部命令与事件的**请求/响应 shape、错误字符串约定、调用方**；由脚本从代码生成初稿（阶段 3 做漂移门禁），人工补语义                                                                                           |
+| 2.6 架构图                    | mermaid：模块依赖图（commands→services→models/db 分层图、前端 store↔页面、多窗口事件流），入 `docs/architecture.md`                                                                                                                        |
+| 2.7 过时文档清理              | CLAUDE.md 中"无测试"等表述随阶段 5 更新；`WHATS_NEW_0.7.0.md`、`BUILD_GUIDE_ARM64_WINDOWS.md` 移入 `docs/reference/` 并加"最后核对日期"；`docs/harness/GOLDEN-RULES.md`（黄金原则，阶段 3/4 lint 规则的依据文档）                           |
 
 ### 4.2 产出物
 
@@ -136,19 +136,19 @@
 
 ### 5.2 子任务
 
-| 子任务 | 门禁 | 实现 | 分级策略 |
-|---|---|---|---|
-| 3.1 修 TS lint | `npm run lint` | 补装 `eslint@8 + @typescript-eslint` 等缺失依赖，保留 `.eslintrc` 格式（升级 v9 flat 记为后续项）；认知复杂度阈值 200→**40（初期基线）** | 先 error 级仅新增违规（基线豁免文件），阶段 4 逐步收紧 |
-| 3.2 类型门禁 | `npm run typecheck` | `tsc --noEmit`（根 + UI 包），UI 包补 script | 直接 fail |
-| 3.3 格式门禁 | `npm run format:check` | `prettier --check` + `cargo fmt --check` | 直接 fail |
-| 3.4 Rust 静态门禁 | `cargo clippy -- -D warnings` | 基线：`clippy.toml` + `#[allow]` 清单入 `docs/harness/DEBT-BASELINE.md`，逐里程碑删 allow | 从 warn 计数阈值过渡到 `-D warnings` |
-| 3.5 测试门禁 | `npm test` / `cargo test` | 阶段 5 的 vitest + cargo test 接入 CI（macOS + ubuntu 双 runner 冒烟） | 直接 fail |
-| 3.6 契约漂移门禁 | `scripts/harness/check-ipc-drift.mjs` | 前端 invoke 命令集合 ⊆ 后端注册集合，且均在 `docs/contracts/tauri-ipc.md` 有条目，否则 CI 失败 | 直接 fail |
-| 3.7 文档新鲜度门禁 | `scripts/harness/docs-lint.sh` | 链接有效性 + `docs/` 内"最后核对日期"超 90 天告警（对齐原文 doc-gardening，人工版） | warn→fail |
-| 3.8 仓库卫生门禁 | hygiene job | `git ls-files` 拒绝匹配 `.env`/`*.timestamp-*`/`node_modules` 等模式 | 直接 fail |
-| 3.9 依赖审计 | `npm run audit:prod`、`cargo audit`（可选，需 runner 装 cargo-audit） | 每周定时 workflow（不阻塞 PR，对齐"小门禁快、大扫描定时"） | 定时报 issue |
-| 3.10 workflow 重构 | `.github/workflows/quality.yml` | PR/push 触发上述 3.1–3.8；`build-test.yml` 的 push 注释解除并拆分职责（version-bump 归 release.yml） | — |
-| 3.11 本地等价 | `scripts/harness/check-all.sh` | 单入口串起所有门禁，AGENTS.md 首推此命令 | — |
+| 子任务             | 门禁                                                                  | 实现                                                                                                                                     | 分级策略                                               |
+| ------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 3.1 修 TS lint     | `npm run lint`                                                        | 补装 `eslint@8 + @typescript-eslint` 等缺失依赖，保留 `.eslintrc` 格式（升级 v9 flat 记为后续项）；认知复杂度阈值 200→**40（初期基线）** | 先 error 级仅新增违规（基线豁免文件），阶段 4 逐步收紧 |
+| 3.2 类型门禁       | `npm run typecheck`                                                   | `tsc --noEmit`（根 + UI 包），UI 包补 script                                                                                             | 直接 fail                                              |
+| 3.3 格式门禁       | `npm run format:check`                                                | `prettier --check` + `cargo fmt --check`                                                                                                 | 直接 fail                                              |
+| 3.4 Rust 静态门禁  | `cargo clippy -- -D warnings`                                         | 基线：`clippy.toml` + `#[allow]` 清单入 `docs/harness/DEBT-BASELINE.md`，逐里程碑删 allow                                                | 从 warn 计数阈值过渡到 `-D warnings`                   |
+| 3.5 测试门禁       | `npm test` / `cargo test`                                             | 阶段 5 的 vitest + cargo test 接入 CI（macOS + ubuntu 双 runner 冒烟）                                                                   | 直接 fail                                              |
+| 3.6 契约漂移门禁   | `scripts/harness/check-ipc-drift.mjs`                                 | 前端 invoke 命令集合 ⊆ 后端注册集合，且均在 `docs/contracts/tauri-ipc.md` 有条目，否则 CI 失败                                           | 直接 fail                                              |
+| 3.7 文档新鲜度门禁 | `scripts/harness/docs-lint.sh`                                        | 链接有效性 + `docs/` 内"最后核对日期"超 90 天告警（对齐原文 doc-gardening，人工版）                                                      | warn→fail                                              |
+| 3.8 仓库卫生门禁   | hygiene job                                                           | `git ls-files` 拒绝匹配 `.env`/`*.timestamp-*`/`node_modules` 等模式                                                                     | 直接 fail                                              |
+| 3.9 依赖审计       | `npm run audit:prod`、`cargo audit`（可选，需 runner 装 cargo-audit） | 每周定时 workflow（不阻塞 PR，对齐"小门禁快、大扫描定时"）                                                                               | 定时报 issue                                           |
+| 3.10 workflow 重构 | `.github/workflows/quality.yml`                                       | PR/push 触发上述 3.1–3.8；`build-test.yml` 的 push 注释解除并拆分职责（version-bump 归 release.yml）                                     | —                                                      |
+| 3.11 本地等价      | `scripts/harness/check-all.sh`                                        | 单入口串起所有门禁，AGENTS.md 首推此命令                                                                                                 | —                                                      |
 
 ### 5.3 产出物
 
@@ -185,14 +185,14 @@
 
 ### 6.2 重构波次（按 FIX-PLAN 优先级实例化，以下为当前预判）
 
-| 波次 | 内容 | 预估范围 |
-|---|---|---|
-| W1 后端异常与日志统一 | `main.rs` 86 处 unwrap 中启动路径改为带错误弹窗/日志的 fail-safe；152 处 `println!` 收敛到 `debug_output`/tauri-plugin-log；定义统一错误类型（沿用 anyhow + 命令层 `Result<_, String>` 边界转换，**不改前端可见错误格式**） | main.rs、clipboard、db、menu |
-| W2 IPC 边界 typed 化 | 后端命令注册表收敛为单一来源（消除 101 条手写列表漂移）；前端 `lib/commands.ts` 升级为带 zod schema 的类型化封装，逐模块迁移调用点（先 history/items，后其余）；死命令按清单删除（标 BUG/DEBT 说明） | 前端 58 处 invoke + 后端 mod.rs |
-| W3 后端巨型文件拆分 | `main.rs`(1410) → 启动/tray/hotkey/window 分模块；`history_service.rs`(1356) → CRUD/查询/清理/脱敏分离；`clipboard_commands.rs`(795)、`link_metadata_commands.rs`(605) 同法；纯移动不改逻辑 | src-tauri 约 8 文件 |
-| W4 前端巨型组件拆分 | `ClipboardHistoryPage.tsx`(3368)、`ClipEditContent`、`NavBar`、`Dashboard`、`settingsStore.ts`(1341)：提取自定义 hooks 与子组件，store 按域拆分；认知复杂度阈值随拆分逐文件从基线豁免中移除 | ui 包约 10 文件 |
-| W5 重复逻辑提炼 | scan（jscpd）识别的重复块：格式化转换器、copy/paste 操作 hooks、路径处理等收敛到 `lib/`；阈值：单重复块 ≥ 3 处或 ≥ 30 行 | 跨模块 |
-| W6 复杂度棘轮收紧 | sonarjs 阈值 40→25；`cargo clippy` 摘 allow 清单；文件行数 lint 规则（新增文件 >500 行告警）生效 | 配置 |
+| 波次                  | 内容                                                                                                                                                                                                                        | 预估范围                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| W1 后端异常与日志统一 | `main.rs` 86 处 unwrap 中启动路径改为带错误弹窗/日志的 fail-safe；152 处 `println!` 收敛到 `debug_output`/tauri-plugin-log；定义统一错误类型（沿用 anyhow + 命令层 `Result<_, String>` 边界转换，**不改前端可见错误格式**） | main.rs、clipboard、db、menu    |
+| W2 IPC 边界 typed 化  | 后端命令注册表收敛为单一来源（消除 101 条手写列表漂移）；前端 `lib/commands.ts` 升级为带 zod schema 的类型化封装，逐模块迁移调用点（先 history/items，后其余）；死命令按清单删除（标 BUG/DEBT 说明）                        | 前端 58 处 invoke + 后端 mod.rs |
+| W3 后端巨型文件拆分   | `main.rs`(1410) → 启动/tray/hotkey/window 分模块；`history_service.rs`(1356) → CRUD/查询/清理/脱敏分离；`clipboard_commands.rs`(795)、`link_metadata_commands.rs`(605) 同法；纯移动不改逻辑                                 | src-tauri 约 8 文件             |
+| W4 前端巨型组件拆分   | `ClipboardHistoryPage.tsx`(3368)、`ClipEditContent`、`NavBar`、`Dashboard`、`settingsStore.ts`(1341)：提取自定义 hooks 与子组件，store 按域拆分；认知复杂度阈值随拆分逐文件从基线豁免中移除                                 | ui 包约 10 文件                 |
+| W5 重复逻辑提炼       | scan（jscpd）识别的重复块：格式化转换器、copy/paste 操作 hooks、路径处理等收敛到 `lib/`；阈值：单重复块 ≥ 3 处或 ≥ 30 行                                                                                                    | 跨模块                          |
+| W6 复杂度棘轮收紧     | sonarjs 阈值 40→25；`cargo clippy` 摘 allow 清单；文件行数 lint 规则（新增文件 >500 行告警）生效                                                                                                                            | 配置                            |
 
 ### 6.3 BUG 类修复范围
 
@@ -219,15 +219,15 @@
 
 ### 7.1 子任务
 
-| 子任务 | 内容 |
-|---|---|
-| 5.1 前端单测基建 | `vitest + @testing-library/react + jsdom` 进 UI 包；`npm run test:unit`；mock Tauri `invoke`（基于 5.2 的 typed 层做假实现，天然可 mock）；配置豁免 vendored libs |
-| 5.2 IPC 层假后端 | 内存版 Tauri command 处理器（按 `docs/contracts/tauri-ipc.md` schema 校验请求/响应），所有前端 store/hooks 测试跑在其上 |
-| 5.3 后端单测 | `cargo test`：services 层纯逻辑（脱敏、路径变换 `{{base_folder}}`、时间清理、格式转换、语言检测）+ 基于 SQLite in-memory 跑 Diesel 查询（migration 用真实 `migrations/`） |
-| 5.4 边界与异常用例 | 对阶段 1 清单每条 P0/P1：至少 1 正例 + 1 边界 + 1 异常（空 DB、超长文本、非 ASCII 路径、并发写入、损坏图片引用、脱敏正则回溯） |
-| 5.5 回归/冒烟测试 | `quickcheck`/proptest 覆盖路径变换往返、格式转换往返（json↔yaml↔csv 等纯函数） |
-| 5.6 覆盖率棘轮 | `vitest --coverage` + `cargo-tllvm` 太重，改用：前端 istanbul 覆盖率入基线文件；后端仅对 `services/` 出报告。CI 门禁 `coverage >= 基线值`，基线只许上调；目标：阶段 5 结束 前端 lib/store/hooks ≥50%、后端 services ≥60%，重构波及文件 ≥80% |
-| 5.7 门禁接入 | 阶段 3 的 `test` job 由"骨架"转为全量；`npm test` 与 `cargo test` 均为 PR 必过；测试文件命名与目录约定入 GOLDEN-RULES |
+| 子任务             | 内容                                                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1 前端单测基建   | `vitest + @testing-library/react + jsdom` 进 UI 包；`npm run test:unit`；mock Tauri `invoke`（基于 5.2 的 typed 层做假实现，天然可 mock）；配置豁免 vendored libs                                                                           |
+| 5.2 IPC 层假后端   | 内存版 Tauri command 处理器（按 `docs/contracts/tauri-ipc.md` schema 校验请求/响应），所有前端 store/hooks 测试跑在其上                                                                                                                     |
+| 5.3 后端单测       | `cargo test`：services 层纯逻辑（脱敏、路径变换 `{{base_folder}}`、时间清理、格式转换、语言检测）+ 基于 SQLite in-memory 跑 Diesel 查询（migration 用真实 `migrations/`）                                                                   |
+| 5.4 边界与异常用例 | 对阶段 1 清单每条 P0/P1：至少 1 正例 + 1 边界 + 1 异常（空 DB、超长文本、非 ASCII 路径、并发写入、损坏图片引用、脱敏正则回溯）                                                                                                              |
+| 5.5 回归/冒烟测试  | `quickcheck`/proptest 覆盖路径变换往返、格式转换往返（json↔yaml↔csv 等纯函数）                                                                                                                                                            |
+| 5.6 覆盖率棘轮     | `vitest --coverage` + `cargo-tllvm` 太重，改用：前端 istanbul 覆盖率入基线文件；后端仅对 `services/` 出报告。CI 门禁 `coverage >= 基线值`，基线只许上调；目标：阶段 5 结束 前端 lib/store/hooks ≥50%、后端 services ≥60%，重构波及文件 ≥80% |
+| 5.7 门禁接入       | 阶段 3 的 `test` job 由"骨架"转为全量；`npm test` 与 `cargo test` 均为 PR 必过；测试文件命名与目录约定入 GOLDEN-RULES                                                                                                                       |
 
 ### 7.2 产出物
 
@@ -259,14 +259,14 @@ vitest/cargo 测试配置、≥ 每模块 1 个测试文件、`docs/testing.md`�
 
 ## 9. 风险与对策
 
-| 风险 | 对策 |
-|---|---|
-| 大文件拆分引入行为漂移 | 每波冒烟清单 + 契约 diff + 可独立 revert 的小 commit |
-| eslint 补装后存量违规爆炸导致门禁瘫痪 | 基线豁免清单（逐文件），阈值棘轮收紧，不追求一步到位 |
-| `cargo clippy -D warnings` 存量报错过多 | 3.4 的 warn 计数阈值过渡 |
-| macOS 专属代码（tray/ax）CI 覆盖不了 | quality.yml 用 macos-latest 跑 test job；重活放定时 workflow |
-| 阶段 4/5 互相依赖（无测试不敢重构） | W1/W2 先铺最小子集（5.2 假后端 + 契约测试），再进大拆分 |
-| 工作量失控 | 各波预估进 FIX-PLAN，超预算 50% 触发范围重评审而非硬撑 |
+| 风险                                    | 对策                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| 大文件拆分引入行为漂移                  | 每波冒烟清单 + 契约 diff + 可独立 revert 的小 commit         |
+| eslint 补装后存量违规爆炸导致门禁瘫痪   | 基线豁免清单（逐文件），阈值棘轮收紧，不追求一步到位         |
+| `cargo clippy -D warnings` 存量报错过多 | 3.4 的 warn 计数阈值过渡                                     |
+| macOS 专属代码（tray/ax）CI 覆盖不了    | quality.yml 用 macos-latest 跑 test job；重活放定时 workflow |
+| 阶段 4/5 互相依赖（无测试不敢重构）     | W1/W2 先铺最小子集（5.2 假后端 + 契约测试），再进大拆分      |
+| 工作量失控                              | 各波预估进 FIX-PLAN，超预算 50% 触发范围重评审而非硬撑       |
 
 ---
 

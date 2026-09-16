@@ -1,8 +1,7 @@
 # PasteBar Harness — Issue Inventory (Phase 1)
 
 > **Status:** complete (Phase 1 deliverable, v1)
-> **Scope:** static scan + manual deep-read of critical paths, on branch `harnessing`
-> **Baseline artifact:** `docs/harness/scan-baseline.txt` (regenerate with `bash scripts/harness/scan.sh --save`)
+> **Scope:** static scan + manual deep-read of critical paths, on branch `harnessing` > **Baseline artifact:** `docs/harness/scan-baseline.txt` (regenerate with `bash scripts/harness/scan.sh --save`)
 > **Severity legend:** P0 data-loss/crash/security · P1 iteration-blocking · P2 maintenance risk · P3 hygiene
 > **Type legend:** `BUG` (behaviour change allowed) · `DEBT` · `RISK` · `HYGIENE`
 >
@@ -14,22 +13,22 @@
 
 ## 0. Scan baseline (excluded from metrics: vendored libs + generated files)
 
-| Metric | Value |
-|---|---|
-| Rust source files / lines | 41 / 12 586 |
-| TS/TSX source files / lines | 428 / 80 895 |
-| `unwrap()`/`expect()` (Rust) | **199** (main.rs 96) |
-| `println!`/`eprintln!` (Rust) | 152 |
-| `panic!`/`todo!`/`unimplemented!` | 2 |
-| `#[cfg(test)]`/`#[test]` markers | **0** |
-| `console.*` (TS) | 167 |
-| `: any` / `as any` (TS) | 30 |
-| `@ts-ignore`/`@ts-expect-error`/`@ts-nocheck` | **76** |
-| Empty `catch {}` / silent `.catch()` | 6 |
-| Source files > 1000 lines | **22** |
-| Source files > 500 lines | 55 |
-| Frontend-invoked IPC commands / backend-registered | 58 / 115 |
-| Tracked `.env` / build artifacts / generated safelist | 1 / 1 / 2 |
+| Metric                                                | Value                |
+| ----------------------------------------------------- | -------------------- |
+| Rust source files / lines                             | 41 / 12 586          |
+| TS/TSX source files / lines                           | 428 / 80 895         |
+| `unwrap()`/`expect()` (Rust)                          | **199** (main.rs 96) |
+| `println!`/`eprintln!` (Rust)                         | 152                  |
+| `panic!`/`todo!`/`unimplemented!`                     | 2                    |
+| `#[cfg(test)]`/`#[test]` markers                      | **0**                |
+| `console.*` (TS)                                      | 167                  |
+| `: any` / `as any` (TS)                               | 30                   |
+| `@ts-ignore`/`@ts-expect-error`/`@ts-nocheck`         | **76**               |
+| Empty `catch {}` / silent `.catch()`                  | 6                    |
+| Source files > 1000 lines                             | **22**               |
+| Source files > 500 lines                              | 55                   |
+| Frontend-invoked IPC commands / backend-registered    | 58 / 115             |
+| Tracked `.env` / build artifacts / generated safelist | 1 / 1 / 2            |
 
 ---
 
@@ -42,8 +41,8 @@
 `类型 | BUG`
 `风险等级 | P0`
 `影响范围 | Data-location feature (0.7.0 headline feature): every write path, every image path transform, every auto-clear job`
-`现象与依据 |` `get_config_file_path()` returns a path derived from `APP_CONSTANTS.app_data_dir` / `app_dev_data_dir` — it can only ever be the **default** directory. `load_user_config()` reads that fixed path. `get_data_dir()` (db.rs:231) *itself* calls `load_user_config()` and then returns `custom_db_path` from it. Consequence: the config file that records the custom location is never found inside the new location, so `custom_db_path` is only ever read from the *default* directory — the design relies on the user never moving that file. `cmd_set_and_relocate_data` moves only `["pastebar-db.data", "clip-images", "clipboard-images"]` (user_settings_command.rs:157) and then re-initialises the pool, returning "Please restart the application." Because `get_config_file_path()` ignores the custom path entirely, this is fragile by construction and the flow's own message documents that a restart is mandatory. Any environment where the default-dir config is lost (fresh install on a machine pointed at a pre-existing data dir, restored backup) silently falls back to a **new empty database**, which the user perceives as total data loss.
-`建议方案 |` Make the config location itself bootstrap-independent: resolve `pastebar_settings.yaml` from a fixed OS-standard location (or take a `--data-dir` / env override), and treat `custom_db_path` as an *input* to `get_data_dir()` rather than a value read through it. Add a startup consistency check that refuses to silently create a fresh DB when a relocated DB is detected but the config is missing. Phase 4 W1 + regression tests in Phase 5.
+`现象与依据 |` `get_config_file_path()` returns a path derived from `APP_CONSTANTS.app_data_dir` / `app_dev_data_dir` — it can only ever be the **default** directory. `load_user_config()` reads that fixed path. `get_data_dir()` (db.rs:231) _itself_ calls `load_user_config()` and then returns `custom_db_path` from it. Consequence: the config file that records the custom location is never found inside the new location, so `custom_db_path` is only ever read from the _default_ directory — the design relies on the user never moving that file. `cmd_set_and_relocate_data` moves only `["pastebar-db.data", "clip-images", "clipboard-images"]` (user*settings_command.rs:157) and then re-initialises the pool, returning "Please restart the application." Because `get_config_file_path()` ignores the custom path entirely, this is fragile by construction and the flow's own message documents that a restart is mandatory. Any environment where the default-dir config is lost (fresh install on a machine pointed at a pre-existing data dir, restored backup) silently falls back to a **new empty database**, which the user perceives as total data loss.
+`建议方案 |` Make the config location itself bootstrap-independent: resolve `pastebar_settings.yaml` from a fixed OS-standard location (or take a `--data-dir` / env override), and treat `custom_db_path` as an \_input* to `get_data_dir()` rather than a value read through it. Add a startup consistency check that refuses to silently create a fresh DB when a relocated DB is detected but the config is missing. Phase 4 W1 + regression tests in Phase 5.
 `行为变更 | BUG（允许）`
 `所属阶段 | 1 记录 → 4 (W1) → 5.4`
 
@@ -54,7 +53,7 @@
 `类型 | BUG`
 `风险等级 | P0`
 `影响范围 | App startup on every platform; clipboard capture thread`
-`现象与依据 |` `tauri::Builder` runs plugin `.setup` closures *before* the app `.setup` closure. `clipboard::init()`'s plugin setup immediately spawns `Master::new(ClipboardMonitor…).run()` on the async runtime (mod.rs:520-527), and that thread's `on_clipboard_change` calls `history_service::increment_history_insert_count()` → `establish_pool_db_connection()` (mod.rs:72-92) → `DB_POOL_CONNECTION.read().unwrap().get().unwrap_or_else(|_| panic!("Error connecting to db pool"))` (db.rs:191-196). `db::init(app)` — which creates the DB file and runs migrations (db.rs:166-170) — only runs later, in the app `.setup` at main.rs:1061. The pool is a `lazy_static` initialised at first touch (db.rs:43); Tauri plugins are registered after `.setup()` in the builder chain (main.rs:1060 vs 1401), so the monitor thread starts first. A copy performed in the startup window therefore hits a `panic!` inside the clipboard thread.
+`现象与依据 |` `tauri::Builder` runs plugin `.setup` closures _before_ the app `.setup` closure. `clipboard::init()`'s plugin setup immediately spawns `Master::new(ClipboardMonitor…).run()` on the async runtime (mod.rs:520-527), and that thread's `on_clipboard_change` calls `history_service::increment_history_insert_count()` → `establish_pool_db_connection()` (mod.rs:72-92) → `DB_POOL_CONNECTION.read().unwrap().get().unwrap_or_else(|_| panic!("Error connecting to db pool"))` (db.rs:191-196). `db::init(app)` — which creates the DB file and runs migrations (db.rs:166-170) — only runs later, in the app `.setup` at main.rs:1061. The pool is a `lazy_static` initialised at first touch (db.rs:43); Tauri plugins are registered after `.setup()` in the builder chain (main.rs:1060 vs 1401), so the monitor thread starts first. A copy performed in the startup window therefore hits a `panic!` inside the clipboard thread.
 `建议方案 |` Gate the monitor start on a "db ready" signal (e.g. start the clipboard thread at the end of the app `.setup`, after `db::init`), and make `establish_pool_db_connection` return `Result` instead of panicking so transient failures degrade to a logged drop rather than a thread panic. Phase 4 W1.
 `行为变更 | BUG（允许）`
 `所属阶段 | 1 → 4 (W1) → 5.4`
@@ -114,10 +113,10 @@
 ### ISSUE-007 · ESLint is configured but not installed, so no lint gate can run
 
 `ID | ISSUE-007`
-`位置 | .eslintrc.js, package.json (no `lint` script, no `eslint` dependency), packages/pastebar-app-ui/.eslintrc.js`
+`位置 | .eslintrc.js, package.json (no `lint`script, no`eslint` dependency), packages/pastebar-app-ui/.eslintrc.js`
 `类型 | DEBT`
 `风险等级 | P1`
-`影响范围 | All TS/TSX code; 167 `console.*`, 30 `any`, 76 `@ts-*` suppressions unguarded`
+`影响范围 | All TS/TSX code; 167 `console._`, 30 `any`, 76 `@ts-_` suppressions unguarded`
 `现象与依据 |` Both `.eslintrc.js` files declare `plugins: ['@typescript-eslint', 'prettier', 'sonarjs']` and extend `plugin:@typescript-eslint/recommended`, but `eslint` and `@typescript-eslint/*` appear in **no** `package.json` dependency list, and there is no `lint` npm script. The config is eslintrc-format (v8), incompatible with the eslint v9 that `npx eslint` would fetch. `sonarjs/cognitive-complexity` is set to `['error', 200]`, which is effectively "off" for this codebase.
 `建议方案 |` Phase 3.1: pin `eslint@8` + `@typescript-eslint@7` + the three plugins as devDeps, add `npm run lint`, lower the complexity threshold to a 40 baseline with a per-file exemption list, then ratchet down in W6.
 `行为变更 | 无`
@@ -150,11 +149,10 @@
 ### ISSUE-010 · IPC command surface has 57 backend commands with no frontend caller
 
 `ID | ISSUE-010`
-`位置 | src-tauri/src/main.rs:1282-1400 (115 registered names) vs 58 distinct names invoked from `packages/pastebar-app-ui/src` |
-`类型 | DEBT`
+`位置 | src-tauri/src/main.rs:1282-1400 (115 registered names) vs 58 distinct names invoked from `packages/pastebar-app-ui/src`|`类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | IPC contract, dead code, attack surface |
-`现象与依据 |` Cross-referencing the generated handler list against every `invoke('…')` literal yields 115 registered − 58 invoked = **57 commands never called** by the UI (e.g. `insert_clipboard_history`, `update_clipboard_history_by_ids`, `delete_link_metadata`, `cmd_create_directory`, `set_icon`). The plan's pre-scan suspected *unregistered* commands too: that is **disproved** — every name the frontend invokes is registered. The real drift is in the other direction, plus two commands invoked only through a computed string in `ClipEditContent.tsx:1734,1848` (`run_web_request`, `run_web_scraping`), which a naive literal scan would miss.
+`现象与依据 |` Cross-referencing the generated handler list against every `invoke('…')` literal yields 115 registered − 58 invoked = **57 commands never called** by the UI (e.g. `insert_clipboard_history`, `update_clipboard_history_by_ids`, `delete_link_metadata`, `cmd_create_directory`, `set_icon`). The plan's pre-scan suspected _unregistered_ commands too: that is **disproved** — every name the frontend invokes is registered. The real drift is in the other direction, plus two commands invoked only through a computed string in `ClipEditContent.tsx:1734,1848` (`run_web_request`, `run_web_scraping`), which a naive literal scan would miss.
 `建议方案 |` Phase 2.5 publishes the three-way contract table; Phase 3.6 adds `check-ipc-drift.mjs`; Phase 4 W2 removes provably dead commands with a per-command note (several are plausibly intended API surface and are kept but marked).
 `行为变更 | 无（删除死命令需逐条确认）`
 `所属阶段 | 2.5 → 3.6 → 4 (W2)`
@@ -166,9 +164,7 @@
 `类型 | BUG`
 `风险等级 | P1`
 `影响范围 | Clipboard-history live refresh in the main window, history window and QuickPaste window |
-`现象与依据 |` The Rust clipboard monitor emits `"clipboard://clipboard-monitor/update"` (mod.rs:286-289) but **emits** `"clips://clips-monitor/update"` in `commands/clipboard_commands.rs:761`. The frontend listens on `"clipboard://clipboard-monitor/update"` in five places and on `"clips://clips-monitor/update"` in exactly one (App.tsx:412). Neither side shares a constant, so the pairing is accidentally consistent at best. `"clipboard://clipboard-monitor/update/error"` is emitted (mod.rs:297) but has **no listener anywhere** — clipboard I/O failures are invisible to the user.
-`建议方案 |` Phase 2.5 documents events alongside commands; Phase 3.6 extends drift checking to event names; Phase 4 W2 introduces shared event-name constants and either wires or removes the error event.
-`行为变更 | BUG（未监听的错误事件）`
+`现象与依据 |`The Rust clipboard monitor emits`"clipboard://clipboard-monitor/update"`(mod.rs:286-289) but **emits**`"clips://clips-monitor/update"`in`src-tauri/src/commands/clipboard_commands.rs:761`. The frontend listens on `"clipboard://clipboard-monitor/update"`in five places and on`"clips://clips-monitor/update"`in exactly one (App.tsx:412). Neither side shares a constant, so the pairing is accidentally consistent at best.`"clipboard://clipboard-monitor/update/error"`is emitted (mod.rs:297) but has **no listener anywhere** — clipboard I/O failures are invisible to the user.`建议方案 |`Phase 2.5 documents events alongside commands; Phase 3.6 extends drift checking to event names; Phase 4 W2 introduces shared event-name constants and either wires or removes the error event.`行为变更 | BUG（未监听的错误事件）`
 `所属阶段 | 2.5 → 3.6 → 4 (W2)`
 
 ### ISSUE-012 · 96 of 199 Rust `unwrap()/expect()` calls are on the startup path in `main.rs`
@@ -178,7 +174,7 @@
 `类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | Startup, tray menu, window management |
-`现象与依据 |` `scan.sh` reports 199 total and 96 in main.rs. Examples on the startup path: `main.rs:696-699` (`app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`), `main.rs:1048`, `db.rs:191-196` (`panic!("Error connecting to db pool")`), `db.rs:218-221` (`fs::create_dir_all(…).unwrap()`, `fs::File::create(…).unwrap()`), `menu.rs:43`. Any of these aborts the process from inside a tray callback or a window event handler, which the user sees as the app vanishing.
+`现象与依据 |` `scan.sh` reports 199 total and 96 in main.rs. Examples on the startup path: `src-tauri/src/main.rs:696-699` (`app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`), `src-tauri/src/main.rs:1048`, `db.rs:191-196` (`panic!("Error connecting to db pool")`), `db.rs:218-221` (`fs::create_dir_all(…).unwrap()`, `fs::File::create(…).unwrap()`), `src-tauri/src/menu.rs:43`. Any of these aborts the process from inside a tray callback or a window event handler, which the user sees as the app vanishing.
 `建议方案 |` Phase 4 W1: replace startup-path unwraps with logged, recoverable error handling; keep a `debug_output` trace; do not change the frontend-visible error strings.
 `行为变更 | 无（错误处理路径）`
 `所属阶段 | 4 (W1)`
@@ -190,7 +186,7 @@
 `类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | Release builds (Windows ships with `windows_subsystem = "windows"`, main.rs:1-4, so stdout is discarded), diagnostics
-`现象与依据 |` CLAUDE.md documents `debug_output(|| println!(…))` as the project convention so release builds stay quiet. 152 call sites ignore it — including `db.rs:200`, `history_service.rs:250`, `settings_service.rs:319`. On Windows release builds stdout has no console, so this diagnostic output is written nowhere.
+`现象与依据 |` CLAUDE.md documents `debug_output(|| println!(…))` as the project convention so release builds stay quiet. 152 call sites ignore it — concentrated in `src-tauri/src/main.rs` (35), `commands/backup_restore_commands.rs` (17), `services/items_service.rs` (15), `services/history_service.rs` (13), `commands/clipboard_commands.rs` (13), `db.rs` (12), `clipboard/mod.rs` (7). On Windows release builds stdout has no console, so this diagnostic output is written nowhere.
 `建议方案 |` Phase 4 W1: converge on `debug_output` plus `tauri-plugin-log` for release-visible diagnostics.
 `行为变更 | 无`
 `所属阶段 | 4 (W1)`
@@ -202,9 +198,7 @@
 `类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | Auto-clear clipboard history (age-based retention) |
-`现象与依据 |` `setup_cron_jobs` registers an hourly `run_history_cleanup_job` on a global `clokwerk::Scheduler`, but `Scheduler::run_pending()` is only ever called from `clipboard/mod.rs:92` — and only once every 200 clipboard inserts (`history_service::HISTORY_INSERT_COUNT` reaches 200). There is no timer thread driving the scheduler. Consequently the "auto clear history older than N" retention setting is effectively inert for a user who copies fewer than 200 items, and fires unpredictably otherwise.
-`建议方案 |` Drive the scheduler from a real interval thread (or a tokio interval task) and keep the 200-insert nudge as a secondary trigger. Phase 4 W1.
-`行为变更 | BUG（保留策略从未按时执行）`
+`现象与依据 |` `setup_cron_jobs`registers an hourly`run_history_cleanup_job`on a global`clokwerk::Scheduler`, but `Scheduler::run_pending()`is only ever called from`src-tauri/src/clipboard/mod.rs:92` — and only once every 200 clipboard inserts (`history_service::HISTORY_INSERT_COUNT`reaches 200). There is no timer thread driving the scheduler. Consequently the "auto clear history older than N" retention setting is effectively inert for a user who copies fewer than 200 items, and fires unpredictably otherwise.`建议方案 |`Drive the scheduler from a real interval thread (or a tokio interval task) and keep the 200-insert nudge as a secondary trigger. Phase 4 W1.`行为变更 | BUG（保留策略从未按时执行）`
 `所属阶段 | 4 (W1) → 5.4`
 
 ### ISSUE-015 · The tray menu holds the settings mutex across database queries
@@ -242,9 +236,7 @@
 `类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | Backend architecture |
-`现象与依据 |` The three-tier shape exists on disk but nothing enforces it: `services/history_service.rs` calls `crate::db::*` directly, `services/utils.rs:22` imports `super::collections_service`, and `main.rs` reaches into every layer (`use crate::services::…`, `use commands::…`) and itself defines Tauri commands (`app_ready`, `open_history_window`, …) alongside the `commands/` modules. There is no structural test or lint rule that would reject a new `services → commands` edge.
-`建议方案 |` Phase 3 records the rule in `GOLDEN-RULES.md`; Phase 4 W3 moves the main.rs commands into `commands/` and adds an import-direction check script.
-`行为变更 | 无`
+`现象与依据 |`The three-tier shape exists on disk but nothing enforces it:`services/history_service.rs`calls`crate::db::\*`directly,`src-tauri/src/services/utils.rs:22`imports`super::collections_service`, and `main.rs` reaches into every layer (`use crate::services::…`, `use commands::…`) and itself defines Tauri commands (`app_ready`, `open_history_window`, …) alongside the `commands/`modules. There is no structural test or lint rule that would reject a new`services → commands`edge.`建议方案 |`Phase 3 records the rule in`GOLDEN-RULES.md`; Phase 4 W3 moves the main.rs commands into `commands/`and adds an import-direction check script.`行为变更 | 无`
 `所属阶段 | 2 (rules) → 4 (W3)`
 
 ### ISSUE-018 · 22 source files exceed 1000 lines
@@ -274,8 +266,7 @@
 ### ISSUE-020 · Frontend invokes have no runtime response validation
 
 `ID | ISSUE-020`
-`位置 | packages/pastebar-app-ui/src/lib/commands.ts:10-14, packages/pastebar-app-ui/src/hooks/queries/use-invoke.ts:4-13, 35 files calling `invoke(` |
-`类型 | DEBT`
+`位置 | packages/pastebar-app-ui/src/lib/commands.ts:10-14, packages/pastebar-app-ui/src/hooks/queries/use-invoke.ts:4-13, 35 files calling `invoke(`|`类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | Every backend response crossing into the UI |
 `现象与依据 |` `commands.ts` wraps `invoke()` in a bare generic cast (`invoke()<null>('app_ready')`) and `use-invoke.ts` does `invoke(command, args)` with the result cast to `TResult`. `zod` is already a dependency (root and UI `package.json`) but is not used at the IPC boundary, so a backend shape change surfaces as an `undefined` deep inside a component instead of a named error at the boundary. CLAUDE.md's "parse, don't validate" gap.
@@ -290,7 +281,7 @@
 `类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | Clipboard read/copy paths, custom-location settings, code viewer |
-`现象与依据 |` `scan.sh` reports 6 matches for empty catch / `.catch(() => {})`. `CustomDatabaseLocationSettings.tsx:380,485` are inside the data-location flow already flagged as P0 (ISSUE-001/003), so failures there are invisible. Two of the six are vendored (`components/libs/react-resizable-panels`), which the metric currently counts — the Phase 3 baseline must exclude vendored paths.
+`现象与依据 |` `scan.sh`reports 6 matches for empty catch /`.catch(() => {})`. `CustomDatabaseLocationSettings.tsx:380,485` are inside the data-location flow already flagged as P0 (ISSUE-001/003), so failures there are invisible. Two of the six are vendored (`components/libs/react-resizable-panels`), which the metric currently counts — the Phase 3 baseline must exclude vendored paths.
 `建议方案 |` Phase 4 W1/W4: log with context; Phase 3 lint rule (`no-empty`) at error level for non-vendored paths.
 `行为变更 | 无`
 `所属阶段 | 4 (W1)`
@@ -314,7 +305,7 @@
 `类型 | RISK`
 `风险等级 | P2`
 `影响范围 | Database growth, IPC payload size, renderer memory |
-`现象与依据 |` The capture path only *excludes* text longer than `clipTextMaxLength`; when that setting is `0` (or the value is under the cap) the text is stored verbatim. The 160-char preview truncation in `process_history_item` (history_service.rs:1313-1347) is display-only — `value` still carries the whole payload across the IPC boundary for every list query.
+`现象与依据 |` The capture path only _excludes_ text longer than `clipTextMaxLength`; when that setting is `0` (or the value is under the cap) the text is stored verbatim. The 160-char preview truncation in `process_history_item` (history_service.rs:1313-1347) is display-only — `value` still carries the whole payload across the IPC boundary for every list query.
 `建议方案 |` Decide and document a storage policy (hard cap with an explicit "truncated" flag, or a true streaming/lazy `value` fetch). Phase 4 W2 introduces a `get_clipboard_history_value` command for on-demand full text; Phase 5 tests the boundary.
 `行为变更 | 可能变更（需 DECISIONS 记录）`
 `所属阶段 | 4 (W2) → 5.4`
@@ -326,7 +317,7 @@
 `类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | History list latency with auto-mask enabled |
-`现象与依据 |` For every returned history item whose `has_masked_words` is set, `process_history_item` rebuilds `Regex::new` for every entry in `auto_mask_words_list` (history_service.rs:1293-1296) and then does a `to_lowercase()` copy of the whole value per item. `utils.rs:29-32` already provides a `REGEX_CACHE` for exactly this problem (used by `apply_global_templates`), so the cache exists and is simply not used here.
+`现象与依据 |` For every returned history item whose `has_masked_words` is set, `process_history_item` rebuilds `Regex::new` for every entry in `auto_mask_words_list` (history_service.rs:1293-1296) and then does a `to_lowercase()` copy of the whole value per item. `src-tauri/src/services/utils.rs:25` already provides a `REGEX_CACHE` for exactly this problem (used by `apply_global_templates`), so the cache exists and is simply not used here.
 `建议方案 |` Phase 4 W5: route the auto-mask patterns through the existing cache and mask in a single pass.
 `行为变更 | 无`
 `所属阶段 | 4 (W5)`
@@ -338,9 +329,7 @@
 `类型 | BUG`
 `风险等级 | P2`
 `影响范围 | History preview metadata |
-`现象与依据 |` `let more_line = lines - preview.lines().count();` where `lines` is `_value.lines().count()` and `preview` is the first 160 chars. Both counts are of `usize`, and `lines()` counts non-trailing-newline-terminated lines, so a value whose 160-char window contains more line breaks than the total is not reachable — but a value with exactly one line and no trailing newline plus a very long single line yields `lines == 1` and `preview.lines().count() == 1`; the subtraction is safe only for this specific shape. Any change to the 160 constant or to trimming makes this an unchecked `usize` subtraction (panic in debug, wrap in release).
-`建议方案 |` Use `saturating_sub` and add a property test over the truncation function. Phase 4 W1 + Phase 5.5.
-`行为变更 | 无`
+`现象与依据 |` `let more_line = lines - preview.lines().count();`where`lines`is`\_value.lines().count()`and`preview`is the first 160 chars. Both counts are of`usize`, and `lines()`counts non-trailing-newline-terminated lines, so a value whose 160-char window contains more line breaks than the total is not reachable — but a value with exactly one line and no trailing newline plus a very long single line yields`lines == 1`and`preview.lines().count() == 1`; the subtraction is safe only for this specific shape. Any change to the 160 constant or to trimming makes this an unchecked `usize`subtraction (panic in debug, wrap in release).`建议方案 |`Use`saturating_sub`and add a property test over the truncation function. Phase 4 W1 + Phase 5.5.`行为变更 | 无`
 `所属阶段 | 4 (W1) → 5.5`
 
 ### ISSUE-026 · (withdrawn — merged into ISSUE-005)
@@ -366,6 +355,18 @@ commit messages written against this revision. **No action required.**
 
 ## 4. P3 — hygiene
 
+### ISSUE-030 · 191 of 428 tracked frontend source files are unreachable dead code
+
+`ID | ISSUE-030`
+`位置 | 191 files under packages/pastebar-app-ui/src (list: `node scripts/harness/reachability.mjs`) |
+`类型 | DEBT`
+`风险等级 | P1`
+`影响范围 | Type-check gate viability, review noise, agent context budget, bundle-adjacent confusion |
+`现象与依据 |` A Vite-entry import walk (`scripts/harness/reachability.mjs`, entries read from `vite.config.mts` `rollupOptions.input`) reaches only **237 of 428** tracked TS/TSX sources. The other 191 are dead: they include a whole Medusa-derived design system (`components/atoms/fundamentals/icons/**` ≈ 100 icon components, `components/molecules/select/**`, `components/search-modal/**`, `components/notification`, `libs/hooks/_useAuth.ts`, `types/auth.ts`, most of `components/ui/**`). Decisive corroboration: `react-select`, `react-datepicker` and `moment` are imported by these modules and are **absent from `node_modules` and from every `package.json`** — the code cannot even resolve, which is exactly why `tsc` emits 408 errors (301 of them in vendored `components/libs/react-twitter-embed/tests/**`, 107 in project files, the large majority in dead modules). This is the true cause of the "no working typecheck" situation and it was not visible in the Phase 1 pre-scan.
+`建议方案 |` Phase 4 W4a (new wave, executed before W4): delete the unreachable set in reviewed batches (per top-level directory, one commit each, each verified by `node scripts/harness/reachability.mjs --count` and a successful `vite build`), then make 3.2's typecheck gate green for the reachable set. Deletion must be confirmed by a production build, not only by the import walk.
+`行为变更 | 无（删除不可达代码）`
+`所属阶段 | 4 (W4a) → 3.2 gate turns green |
+
 ### ISSUE-028 · 167 `console.*` calls and 30 `any` usages are unguarded
 
 `ID | ISSUE-028`
@@ -381,8 +382,7 @@ commit messages written against this revision. **No action required.**
 ### ISSUE-029 · Four TODO/FIXME markers with no tracked owner
 
 `ID | ISSUE-029`
-`位置 | `grep -rn 'TODO|FIXME|XXX:'` over tracked source (4 hits) |
-`类型 | HYGIENE`
+`位置 | `grep -rn 'TODO|FIXME|XXX:'`over tracked source (4 hits) |`类型 | HYGIENE`
 `风险等级 | P3`
 `影响范围 | Debt discoverability |
 `现象与依据 |` Four markers exist in source with no issue reference, so they cannot be triaged or closed.
@@ -394,15 +394,36 @@ commit messages written against this revision. **No action required.**
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)
 
-| Plan §2 claim | Verification result |
-|---|---|
-| "前端 58 个 invoke 命令名 vs 后端 101 条注册命令，名称集合无法直接对齐（疑似存在死命令与命名漂移）" | **Partly wrong.** Every frontend-invoked name *is* registered — there are **no** unregistered/ghost commands. The registered count is 115 (not 101). The real drift is 57 registered-but-never-invoked commands (ISSUE-010). |
-| "199 处 unwrap/expect（main.rs 独占 86 处）" | **Confirmed and refined:** 199 total, **96** in main.rs (not 86). |
-| "`any` 113 处" | **Overcounted.** A word-boundary-anchored scan over tracked source gives **30**. The 113 figure came from substring matching (`company`, `many`, …). |
-| "`console.*` 222 处" | **Overcounted.** 167 over tracked, non-vendored source. |
-| "空 catch {} 8 处" | **Close:** 6, two of which are in vendored code. |
-| "前端唯一的 *.spec.tsx 属于 vendored" | **Confirmed.** All 5 files matching test vocabulary are under `components/libs/`. |
-| "eslint 与 @typescript-eslint/* 均不在任何 package.json 依赖里" | **Confirmed.** Also confirmed: no `lint` script anywhere. |
+| Plan §2 claim                                                                                       | Verification result                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "前端 58 个 invoke 命令名 vs 后端 101 条注册命令，名称集合无法直接对齐（疑似存在死命令与命名漂移）" | **Partly wrong.** Every frontend-invoked name _is_ registered — there are **no** unregistered/ghost commands. The registered count is 115 (not 101). The real drift is 57 registered-but-never-invoked commands (ISSUE-010). |
+| "199 处 unwrap/expect（main.rs 独占 86 处）"                                                        | **Confirmed and refined:** 199 total, **96** in main.rs (not 86).                                                                                                                                                            |
+| "`any` 113 处"                                                                                      | **Overcounted.** A word-boundary-anchored scan over tracked source gives **30**. The 113 figure came from substring matching (`company`, `many`, …).                                                                         |
+| "`console.*` 222 处"                                                                                | **Overcounted.** 167 over tracked, non-vendored source.                                                                                                                                                                      |
+| "空 catch {} 8 处"                                                                                  | **Close:** 6, two of which are in vendored code.                                                                                                                                                                             |
+| "前端唯一的 \*.spec.tsx 属于 vendored"                                                              | **Confirmed.** All 5 files matching test vocabulary are under `components/libs/`.                                                                                                                                            |
+| "eslint 与 @typescript-eslint/\* 均不在任何 package.json 依赖里"                                    | **Confirmed.** Also confirmed: no `lint` script anywhere.                                                                                                                                                                    |
+| "`eslint-plugin-react-compiler` 在 `.eslintrc` 中被引用"                                            | **Wrong** — the plugin appears only in the UI `package.json`; the eslintrc `plugins` array lists only `@typescript-eslint`, `prettier`, `sonarjs`.                                                                           |
+
+### Newly discovered during Phase 1 (not in the plan's pre-scan)
+
+| Finding                                                                                                                                            | Issue     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 191 of 428 frontend sources are unreachable dead code; three imported packages are entirely absent from the dependency tree                        | ISSUE-030 |
+| The clipboard monitor thread can start before `db::init`, panicking on a startup-window copy                                                       | ISSUE-002 |
+| `get_config_file_path()` is derived from the _default_ data dir while `get_data_dir()` reads `custom_db_path` out of it — circular by construction | ISSUE-001 |
+| `cmd_set_and_relocate_data` never calls the validator that exists for it                                                                           | ISSUE-003 |
+| The cron scheduler is registered but never driven by a timer                                                                                       | ISSUE-014 |
+| Relocation moves only the DB and image dirs, not the config that records the custom path                                                           | ISSUE-001 |
+
+### Environment note recorded for reproducibility
+
+`npm ci` fails on this machine with `EALLOWSCRIPTS` inside the nested install of the two
+GitHub dependencies. Root cause found: a global `~/.npmrc` line
+`allow-scripts = ["esbuild,esbuild,esbuild,esbuild"]` is forwarded by npm 11.17 to the
+git-dependency preparation install, which rejects it as project-scoped. Workaround used
+throughout this overhaul: `npm ci --ignore-scripts --userconfig /dev/null`. CI runners have
+no such user config and are unaffected. Documented in `AGENTS.md`.
 
 ---
 
