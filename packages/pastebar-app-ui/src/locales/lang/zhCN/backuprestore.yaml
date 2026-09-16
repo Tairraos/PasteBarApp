@@ -44,3 +44,9 @@ Restoring a backup will automatically restart the application.: 恢复备份将�
 Backup on Restore: 恢复时备份
 Restore from {{filename}}? This will replace all current data.: 从 {{filename}} 恢复？这将替换所有当前数据。
 Restoring...: 恢复中...
+Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.: 备份前清理数据库失败，因此没有创建备份。这通常是暂时的——数据库可能正忙。你可以重试，或直接创建备份。
+Could not reclaim database space: 无法回收数据库空间
+Create backup anyway: 仍然创建备份
+This will back up your clips, collections, menus and settings.: 将备份你的片段、集合、菜单和设置。
+Your clipboard history is not included.: 不包含剪贴板历史记录。
+Clip images are included.: 包含片段图片。

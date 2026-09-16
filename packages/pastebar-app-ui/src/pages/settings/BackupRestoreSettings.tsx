@@ -81,6 +81,9 @@ export default function BackupRestoreSettings() {
     localStorage.setItem('backupOnRestore', JSON.stringify(backupOnRestore))
   }, [backupOnRestore])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
+  // Non-null while the "vacuum failed, back up anyway?" dialog is open. Holds the backend's
+  // error text so the user can see WHY it failed before deciding.
+  const [vacuumFailure, setVacuumFailure] = useState<string | null>(null)
   const [isRestoring, setIsRestoring] = useState(false)
   const [restoringFromFile, setRestoringFromFile] = useState(false)
   const [restoringBackupPath, setRestoringBackupPath] = useState<string | null>(null)
@@ -135,11 +138,13 @@ export default function BackupRestoreSettings() {
     loadBackups()
   }, [])
 
-  const handleCreateBackup = async () => {
+  const handleCreateBackup = async (forceWithoutVacuum = false) => {
     setIsCreatingBackup(true)
+    setVacuumFailure(null)
     try {
       let backupPath = await invoke<string>('create_backup', {
         includeImages,
+        forceWithoutVacuum,
       })
 
       // Normalize path for Windows display
@@ -160,13 +165,24 @@ export default function BackupRestoreSettings() {
       await loadBackups()
     } catch (error) {
       console.error('Failed to create backup:', error)
+      const message = String(error)
+
+      // The backend refuses to back up when it cannot vacuum first, and marks that case with
+      // a `VACUUM_FAILED:` prefix. It gets a dialog rather than a toast because the user has
+      // a real decision to make — retry, or accept the risk — and a 3-second toast would
+      // discard the only chance to make it.
+      if (message.includes('VACUUM_FAILED')) {
+        setVacuumFailure(message.replace(/^.*VACUUM_FAILED:\s*/, ''))
+        return
+      }
+
       toast({
         id: 'backup-create-error',
         title: t('Error', { ns: 'common' }),
         duration: 3000,
         description: (
           <Box className="word-break">
-            {t('Failed to create backup', { ns: 'backuprestore' })}: {String(error)}
+            {t('Failed to create backup', { ns: 'backuprestore' })}: {message}
           </Box>
         ),
         variant: 'destructive',
@@ -452,22 +468,74 @@ export default function BackupRestoreSettings() {
                               })}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
+                              {/* Names what is and is not included, because "a backup"
+                                  would reasonably be read as "everything". The clipboard
+                                  history is the surprising exclusion, so it is called out
+                                  rather than left to be discovered on restore. */}
                               {t(
-                                'This will create a backup file containing your database',
+                                'This will back up your clips, collections, menus and settings.',
                                 { ns: 'backuprestore' }
-                              )}
+                              )}{' '}
+                              {t('Your clipboard history is not included.', {
+                                ns: 'backuprestore',
+                              })}
                               {includeImages
-                                ? t('and images', { ns: 'backuprestore' })
+                                ? ' ' +
+                                  t('Clip images are included.', {
+                                    ns: 'backuprestore',
+                                  })
                                 : ''}
-                              .
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>
                               {t('Cancel', { ns: 'common' })}
                             </AlertDialogCancel>
-                            <AlertDialogAction onClick={handleCreateBackup}>
+                            <AlertDialogAction onClick={() => handleCreateBackup()}>
                               {t('Create Backup', { ns: 'backuprestore' })}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+
+                      {/* Controlled by `vacuumFailure` rather than a trigger: it opens from
+                          a failed invoke, not from a click. */}
+                      <AlertDialog
+                        open={vacuumFailure !== null}
+                        onOpenChange={isOpen => {
+                          if (!isOpen) setVacuumFailure(null)
+                        }}
+                      >
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              {t('Could not reclaim database space', {
+                                ns: 'backuprestore',
+                              })}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {t(
+                                'Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.',
+                                { ns: 'backuprestore' }
+                              )}
+                              {vacuumFailure ? (
+                                <Box className="word-break mt-2 text-slate-500">
+                                  {vacuumFailure}
+                                </Box>
+                              ) : null}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>
+                              {t('Cancel', { ns: 'common' })}
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => {
+                                setVacuumFailure(null)
+                                handleCreateBackup(true)
+                              }}
+                            >
+                              {t('Create backup anyway', { ns: 'backuprestore' })}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

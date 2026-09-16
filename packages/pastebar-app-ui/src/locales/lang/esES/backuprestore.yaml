@@ -44,3 +44,9 @@ Restoring a backup will automatically restart the application.: Restaurar una co
 Backup on Restore: Copia de seguridad al restaurar
 Restore from {{filename}}? This will replace all current data.: ¿Restaurar desde {{filename}}? Esto reemplazará todos los datos actuales.
 Restoring...: Restaurando...
+Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.: Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.
+Could not reclaim database space: Could not reclaim database space
+Create backup anyway: Create backup anyway
+This will back up your clips, collections, menus and settings.: This will back up your clips, collections, menus and settings.
+Your clipboard history is not included.: Your clipboard history is not included.
+Clip images are included.: Clip images are included.

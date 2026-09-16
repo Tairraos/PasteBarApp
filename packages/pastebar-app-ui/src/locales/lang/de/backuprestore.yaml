@@ -44,3 +44,9 @@ Total backup space {{size}}: 'Gesamter Backup-Speicherplatz: {{size}}'
 and images: und Bilder
 selected file: ausgewählte Datei
 will be permanently deleted.: wird dauerhaft gelöscht.
+Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.: Cleaning up the database before the backup failed, so the backup was not created. This is often temporary — the database may be busy. You can try again, or create the backup anyway.
+Could not reclaim database space: Could not reclaim database space
+Create backup anyway: Create backup anyway
+This will back up your clips, collections, menus and settings.: This will back up your clips, collections, menus and settings.
+Your clipboard history is not included.: Your clipboard history is not included.
+Clip images are included.: Clip images are included.
