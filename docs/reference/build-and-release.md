@@ -53,16 +53,49 @@ server fails fast rather than silently moving ports.
 All build variants pass `--config src-tauri/tauri.release.conf.json` explicitly
 (`package.json:11-15`):
 
-| Script                            | Target                    | Notes                                                               |
-| --------------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| `npm run app:build`               | host default target       | also reachable as `npm run build` (`package.json:10`).              |
-| `npm run app:build:debug`         | host default target       | adds `--debug`; release _config_, debug _code_.                     |
-| `npm run app:build:osx:universal` | `universal-apple-darwin`  | Intel + Apple Silicon in one bundle.                                |
-| `npm run app:build:osx:x86_64`    | `x86_64-apple-darwin`     | Intel only.                                                         |
-| `npm run app:build:windows:arm`   | `aarch64-pc-windows-msvc` | see [`build-guide-arm64-windows.md`](build-guide-arm64-windows.md). |
+| Script                            | Target                    | Notes                                                                      |
+| --------------------------------- | ------------------------- | -------------------------------------------------------------------------- |
+| `npm run app:build`               | host default target       | **the release path.** Bumps the patch version, builds, collects, cleans.   |
+| `npm run app:build:no-bump`       | host default target       | same, without the version bump.                                            |
+| `npm run app:build:osx:universal` | `universal-apple-darwin`  | Intel + Apple Silicon in one bundle. Raw `tauri build` (no collect/clean). |
+| `npm run app:build:osx:x86_64`    | `x86_64-apple-darwin`     | Intel only. Raw `tauri build`.                                             |
+| `npm run app:build:windows:arm`   | `aarch64-pc-windows-msvc` | see [`build-guide-arm64-windows.md`](build-guide-arm64-windows.md).        |
 
 There is **no** `app:build:osx:arm64` script, and no Windows x64 script — those rely on the
 host default target of `app:build`.
+
+### The release wrapper (`scripts/build-app.mjs`)
+
+`npm run app:build` does not call `tauri build` directly. It wraps it, because three things
+must happen around the build and each was previously done by hand:
+
+1. **Bump the version first.** `tauri.conf.json` reads `version` from `package.json`, and
+   Tauri bakes it into the bundle name, the DMG filename and `Info.plist`. Bumping after the
+   build — or in a separate step that can be forgotten — ships a binary whose version does
+   not match its filename. Note that **two** manifests hold the version:
+   `packages/pastebar-app-ui/package.json` is the source of truth and
+   `scripts/sync-version.js` copies it to the root, so a bump writes both.
+   Use `--version 1.2.3` for a deliberate release, `--no-bump` to rebuild as-is.
+
+2. **Collect into `target/`.** Output lands at the project root, not buried under
+   `src-tauri/`:
+
+   ```
+   target/PasteBar.app
+   target/PasteBar_<version>_<arch>.dmg
+   ```
+
+3. **Clean intermediates.** `src-tauri/target` reached **6.4 GB** of state that nothing
+   removed. The wrapper drops `debug/`, `release/bundle/` and the standalone binary — and
+   keeps `release/` itself, which is Cargo's cache, so the next build does not recompile
+   every dependency. Measured: 6.4 GB → 1.9 GB. `--keep-build-dir` skips this.
+
+The DMG is built by the wrapper rather than by Tauri when Tauri's own bundler fails. Tauri
+1.x runs `bundle_dmg.sh`, which calls `bless` and a cosmetic AppleScript; both need
+privileges a sandboxed or CI shell may not have, and Tauri 1.x has no configuration to pass
+`--sandbox-safe` through. The wrapper has no such dependency — it uses the plain `hdiutil`
+sequence (create → attach → populate → detach → convert) and fails only if `hdiutil` itself
+is unavailable.
 
 ### `tauri.conf.json` vs `tauri.release.conf.json`
 

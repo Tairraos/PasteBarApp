@@ -11,8 +11,13 @@ with unlimited clipboard history, custom clips, collections and multi-window pas
 
 ```bash
 npm start                     # dev mode: Vite on :4422 + tauri dev
-npm run build                 # production bundle (tauri build, release conf)
-npm run app:build:debug       # debug bundle
+
+# Release build — bumps the patch version, builds, collects target/, cleans intermediates.
+# Produces target/PasteBar.app and target/PasteBar_<version>_<arch>.dmg
+npm run app:build             # 0.7.0 -> 0.7.1, then build
+npm run app:build:no-bump     # rebuild the current version
+node scripts/build-app.mjs --version 1.2.3   # explicit version
+node scripts/build-app.mjs --keep-build-dir  # keep src-tauri/target for debugging
 
 # Harness gates — run this before claiming any task is done
 bash scripts/harness/check-all.sh     # every gate, same set as CI (Phase 3)
