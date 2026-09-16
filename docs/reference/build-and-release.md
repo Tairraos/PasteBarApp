@@ -216,3 +216,58 @@ why the pipeline uses plain `npm install` / `npm i` and never hits this.
 
 See also: [`build-guide-arm64-windows.md`](build-guide-arm64-windows.md) ·
 [`database-migrations.md`](database-migrations.md) · [`../harness/ISSUES.md`](../harness/ISSUES.md)
+
+---
+
+## Building on this machine: two environment traps
+
+Both of these are properties of the machine, not of the repository. Neither affects CI.
+
+### 1. `node` on `PATH` is a shim that renames the process
+
+`/Users/xiaole/Library/Application Support/dsh-desktop/harness/.desktop-bin/node` is a shell
+script that `exec`s `DSH Desktop Helper`. Node-based CLIs that read `process.argv[0]` or rely
+on their own process name therefore see `DSH Desktop Helper` instead of the script — and
+`tauri build` fails with:
+
+```
+error: unrecognized subcommand '/Applications/DSH Desktop.app/.../DSH Desktop Helper'
+```
+
+**Fix:** put a real Node earlier on `PATH` for the build:
+
+```bash
+env -i PATH="/opt/homebrew/bin:$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    HOME="$HOME" CLANG_MODULE_CACHE_PATH=/tmp/pb-modcache \
+    ./node_modules/.bin/tauri build --config src-tauri/tauri.release.conf.json
+```
+
+### 2. clang cannot write its module cache under the default `$TMPDIR`
+
+`mac-notification-sys` compiles Objective-C against `Cocoa`, and clang fails with
+`unable to open output file '…/ModuleCache/…/Cocoa-*.pcm': 'Operation not permitted'`,
+which surfaces as `failed to run custom build command for mac-notification-sys`. Redirecting
+the cache is enough:
+
+```bash
+export CLANG_MODULE_CACHE_PATH=/tmp/pb-modcache
+```
+
+### Producing a bundle without the DMG step
+
+`tauri build` finishes the `.app` and then fails at `bundle_dmg.sh`, which mounts a disk
+image — not permitted in a restricted environment. **The `.app` is already complete at that
+point**, so a failed DMG step is not a failed build:
+
+```bash
+cp -R src-tauri/target/release/bundle/macos/PasteBar.app dist-app/
+xattr -cr dist-app/PasteBar.app          # clear provenance/quarantine
+open dist-app/PasteBar.app
+```
+
+The bundle is ad-hoc signed (`Signature=adhoc`), which is expected for a local build and
+sufficient for local testing. It is not distributable — that needs a Developer ID identity.
+
+**Note on first launch:** the app writes to `~/Library/Application Support/app.anothervision.pasteBar`
+(database, clip images) and `~/Library/Caches/app.anothervision.pasteBar` (WebKit). If either
+is read-only, startup fails with `Failed to save window state` / `Operation not permitted`.
