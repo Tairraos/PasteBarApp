@@ -13,6 +13,27 @@ pub fn setup_cron_jobs() {
   scheduler
     .every(clokwerk::Interval::Hours(1))
     .run(run_history_cleanup_job);
+
+  // Same hourly cadence, but the job itself decides whether it is due: VACUUM holds an
+  // exclusive lock for its whole duration, so it runs at most once per 120 hours
+  // (`maintenance_service::VACUUM_COOLDOWN_SECS`). The hourly tick is what makes a FAILED
+  // attempt retry soon — a failed vacuum does not start the cooldown.
+  scheduler
+    .every(clokwerk::Interval::Hours(1))
+    .run(run_vacuum_job);
+}
+
+/// Hourly: vacuum the database if the cooldown has elapsed.
+///
+/// Never returns an error upward. The scheduler has nowhere to put one, and the retry
+/// policy already handles failure — `run_vacuum_if_due` leaves the timestamp alone so the
+/// next tick tries again.
+fn run_vacuum_job() {
+  if crate::services::maintenance_service::run_vacuum_if_due() {
+    debug_output(|| {
+      println!("Database vacuumed");
+    });
+  }
 }
 
 fn run_history_cleanup_job() {

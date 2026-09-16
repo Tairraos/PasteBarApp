@@ -2,6 +2,7 @@ pub mod collections_service;
 pub mod history_service;
 pub mod items_service;
 pub mod link_metadata_service;
+pub mod maintenance_service;
 pub mod request_service;
 pub mod settings_service;
 pub mod shell_service;

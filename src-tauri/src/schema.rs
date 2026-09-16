@@ -188,6 +188,14 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    maintenance_log (task) {
+        task -> Text,
+        last_run_at -> BigInt,
+        run_count -> BigInt,
+    }
+}
+
 diesel::joinable!(collection_clips -> collections (collection_id));
 diesel::joinable!(collection_clips -> tabs (tab_id));
 diesel::joinable!(collection_menu -> collections (collection_id));
@@ -202,6 +210,7 @@ diesel::allow_tables_to_appear_in_same_query!(
   collections,
   items,
   link_metadata,
+  maintenance_log,
   settings,
   tabs,
 );
