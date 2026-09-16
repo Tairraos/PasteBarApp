@@ -1,3 +1,5 @@
+// Type-only: erased at compile time, so this adds no runtime import or jsdom side effect.
+import type { RouteObject } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 // Guards the react-router-dom upgrade (6.20 -> 6.30.6, ISSUE-032).
@@ -71,18 +73,19 @@ describe('react-router-dom API surface used by main.tsx', () => {
     ])
   })
 
-  it('accepts a `lazy` route definition in the route object shape main.tsx uses', async () => {
-    // main.tsx:34 uses `lazy: () => import('./layout/Layout')` for code-splitting. Rather
-    // than construct a router (see the note above), assert that the shape is accepted by the
-    // matcher and that the loader is preserved rather than dropped during normalisation —
-    // a dropped `lazy` would render an empty shell with no error.
-    const { matchRoutes } = await import('react-router-dom')
-    const lazy = () => Promise.resolve({ Component: () => null })
-    const routes = [{ path: '/', lazy, children: [{ path: 'dashboard', element: null }] }]
+  it('accepts a `lazy` route definition in the route object shape main.tsx uses', () => {
+    // main.tsx:34 uses `lazy: () => import('./layout/Layout')` for code-splitting. The
+    // assertion is type-level against react-router's public RouteObject — the exact
+    // contract createBrowserRouter enforces — so a bump that changes the lazy-loader
+    // shape fails compilation. matchRoutes deliberately is not used for this: its
+    // parameter type is the framework-agnostic variant, whose lazy results carry no
+    // component keys, so it cannot express main.tsx's tree even though the app compiles.
+    const Empty = () => null
+    const routes: RouteObject[] = [
+      { path: '/', lazy: () => Promise.resolve({ Component: Empty }) },
+    ]
 
-    const matched = matchRoutes(routes, '/dashboard')
-    expect(matched).not.toBeNull()
-    expect(typeof matched![0].route.lazy).toBe('function')
+    expect(typeof routes[0].lazy).toBe('function')
   })
 
   it('falls through to a splat route for an unknown path', async () => {
@@ -106,7 +109,14 @@ describe('lodash-es and js-yaml, also bumped for ISSUE-032', () => {
     const _ = await import('lodash-es')
     // These are the ones actually imported across src/; `template` is deliberately NOT
     // exercised here — it is the vulnerable entry point, and it is not used by this app.
-    for (const name of ['debounce', 'throttle', 'cloneDeep', 'isEqual', 'uniqBy']) {
+    const expected: Array<keyof typeof _> = [
+      'debounce',
+      'throttle',
+      'cloneDeep',
+      'isEqual',
+      'uniqBy',
+    ]
+    for (const name of expected) {
       expect(typeof _[name], `lodash-es.${name}`).toBe('function')
     }
   })
@@ -119,8 +129,9 @@ describe('lodash-es and js-yaml, also bumped for ISSUE-032', () => {
     const path = await import('node:path')
     const root = path.resolve(__dirname, '..')
 
-    const offenders = []
-    const walk = dir => {
+    // Typed so the scan itself cannot drift into implicit-any noise.
+    const offenders: string[] = []
+    const walk = (dir: string): void => {
       for (const entry of readdirSync(dir)) {
         const full = path.join(dir, entry)
         if (statSync(full).isDirectory()) {

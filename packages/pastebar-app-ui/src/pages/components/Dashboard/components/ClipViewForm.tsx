@@ -26,6 +26,10 @@ export const ClipFormKeyPressDisplayValueMap = {
   Tab: 'Tab',
   Enter: 'Enter',
   TabTab: '2 Tabs',
+  // Was missing here while present in ClipEditForm's copy of this map, so a clip set to
+  // "press Enter twice after paste" rendered an empty badge in the view form. The
+  // typecheck gate caught it once the vendored-test noise stopped burying real errors.
+  EnterEnter: '2 Enters',
   TabTabTab: '3 Tabs',
   TabEnter: 'Tab, Enter',
   TabTabEnter: '2Tabs, Enter',

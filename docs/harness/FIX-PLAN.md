@@ -102,12 +102,13 @@ Deleting that code was moved _ahead_ of W3/W4 for three reasons:
 
 ### Status at the end of this overhaul
 
-| Wave               | State                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| W0                 | ✅ done as part of Phase 5 — the React version split was found to be a live defect (ISSUE-031) and fixed |
-| W1                 | ✅ done — ISSUE-001/002/003, plus four silent-failure sites found while auditing them                    |
-| W4a                | ✅ done — 186 files deleted across 3 build-verified batches                                              |
-| W2, W3, W4, W5, W6 | ⬜ not started — scoped and sequenced in the wave table above                                            |
+| Wave           | State                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| W0             | ✅ done as part of Phase 5 — the React version split was found to be a live defect (ISSUE-031) and fixed                                                                                                                                                                                                                                                                            |
+| W1             | ✅ done — ISSUE-001/002/003, plus four silent-failure sites found while auditing them                                                                                                                                                                                                                                                                                               |
+| W4a            | ✅ done — 186 files deleted across 3 build-verified batches                                                                                                                                                                                                                                                                                                                         |
+| W2 (partial)   | 🟡 dependency prune done (ISSUE-033: 95 declarations removed, 315 packages gone). The **typed IPC boundary is not**: zod was deleted as unused rather than adopted, so typing that boundary is now a deliberate start-from-scratch decision in a future wave rather than an accident of cleanup. Event-name constants and the uncalled-command classification are also outstanding. |
+| W3, W4, W5, W6 | ⬜ not started — scoped and sequenced in the wave table above                                                                                                                                                                                                                                                                                                                       |
 
 **W2–W6 remain open by design, not by omission.** The plan sequences them after the gates
 and tests exist, which is now true. They are ordinary engineering work with a defined

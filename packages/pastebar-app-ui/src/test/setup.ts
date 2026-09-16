@@ -17,6 +17,37 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, vi } from 'vitest'
 
 // --- jsdom gaps ----------------------------------------------------------------------
+
+// Node >=23 defines `localStorage`/`sessionStorage` as lazy globals that evaluate to
+// `undefined` unless the process runs with `--localstorage-file`. Vitest's jsdom
+// environment copies jsdom's window properties onto globalThis but skips ones that
+// already exist, so on such Node the jsdom Storage is shadowed by Node's placeholder and
+// every test that touches storage dies with "Cannot read properties of undefined".
+// Installing an in-memory Storage when the ambient one is broken keeps the suite
+// deterministic on any Node a developer happens to run (CI uses lts/*, but that rotates).
+function memoryStorage(): Storage {
+  const map = new Map<string, string>()
+  return {
+    get length() {
+      return map.size
+    },
+    key: (index: number) => [...map.keys()][index] ?? null,
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, String(v)),
+    removeItem: (k: string) => void map.delete(k),
+    clear: () => map.clear(),
+  } as Storage
+}
+for (const name of ['localStorage', 'sessionStorage'] as const) {
+  if (typeof globalThis[name] === 'undefined') {
+    Object.defineProperty(globalThis, name, {
+      value: memoryStorage(),
+      writable: true,
+      configurable: true,
+    })
+  }
+}
+
 // jsdom implements neither of these, and the app reaches for both during render.
 
 if (!window.matchMedia) {

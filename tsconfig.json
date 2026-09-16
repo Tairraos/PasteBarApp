@@ -22,7 +22,13 @@
     }
   },
   "include": ["packages/pastebar-app-ui/src"],
-  "exclude": ["node_modules", "src-tauri", "dist-frontend", ".next"],
+  "exclude": [
+    "node_modules",
+    "src-tauri",
+    "dist-frontend",
+    ".next",
+    "packages/pastebar-app-ui/src/components/libs/react-twitter-embed/tests"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

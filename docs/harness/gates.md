@@ -28,7 +28,7 @@ elapsed time, followed by a summary naming what failed.
 | 3   | **ipc-drift**  | `node scripts/harness/gen-ipc-contract.mjs --check` | a frontend-invoked command is not registered, or a registered command has no `#[tauri::command]` definition                                                                                          | PR                      |
 | 4   | **docs-lint**  | `scripts/harness/docs-lint.sh`                      | a doc is unreachable from `docs/README.md`/`AGENTS.md`, a relative link dangles, a `file:line` reference points at a missing file or an out-of-range line, or a "Last verified" date exceeds 90 days | PR                      |
 | 4b  | **issue-refs** | `node scripts/harness/check-issue-refs.mjs`         | an ISSUE-ID is duplicated, a `file:line` reference in `ISSUES.md` cannot be resolved, or points past the end of its file                                                                             | PR                      |
-| 5   | **typecheck**  | `npx tsc --noEmit -p tsconfig.json`                 | TypeScript errors. **Advisory until W4a** — see below                                                                                                                                                | W4a onward              |
+| 5   | **typecheck**  | `node scripts/harness/typecheck-ratchet.mjs`        | any type error in project code, or the vendored error set growing past `typecheck-baseline.json`                                                                                                     | PR                      |
 | 6   | **lint**       | `npx eslint . --ext .ts,.tsx`                       | any error above the per-file baseline in `DEBT-BASELINE.md`                                                                                                                                          | PR                      |
 | 7   | **format**     | `prettier --check` + `cargo fmt --check`            | any file is not Prettier/rustfmt-clean                                                                                                                                                               | PR                      |
 | 7b  | **audit**      | `node scripts/harness/audit-ratchet.mjs`            | the production advisory count grows past `audit-baseline.json`, or the advisory database cannot be reached                                                                                           | PR                      |
@@ -110,17 +110,25 @@ defect.
 **On failure:** fix the reference, or update the line numbers if the code moved. The gate
 found a genuine gap the first time it ran (a cited id with no row).
 
-## Gate 5 — typecheck (advisory until W4a)
+## Gate 5 — typecheck (hard, ratcheted)
 
 **Purpose:** type errors are compile errors that TypeScript only reports if you ask.
 
-**Current state: 408 errors, ~301 of them in vendored code and the rest almost entirely in
-the 191 unreachable source files** (ISSUE-030). The gate therefore cannot be hard yet: making
-it fail today would block every PR on pre-existing dead code unrelated to the change.
+**Command:** `node scripts/harness/typecheck-ratchet.mjs`, which wraps
+`npx tsc --noEmit -p tsconfig.json` and fails when **any error lands in project code**.
+The 9 remaining errors are all inside vendored copies (`src/components/libs/**`,
+GOLDEN-RULES R7) and are frozen per-file in `docs/harness/typecheck-baseline.json`:
+the total may not grow, and a newly failing vendored file is itself a regression — it means
+something new started depending on broken vendored code. `--strict` (used by the scheduled
+CI job) fails on any error including the vendored tail, so it stays visible.
 
-**This is a deliberate, bounded exemption with a named exit:** wave W4a deletes the
-unreachable set, after which the typecheck gate becomes a hard failure and this paragraph is
-deleted. Tracked in `DEBT-BASELINE.md` §3.
+**Why it could not ship this way in Phase 3** (DECISIONS D-005): the gate started at 408
+errors, almost all of them in the 191 unreachable files (ISSUE-030) and the vendored
+cypress tests. W4a deleted the dead set, and the dependency prune (ISSUE-032 follow-up)
+removed the hoisted transitive packages those vendored tests silently resolved, which let
+`tsconfig.json` exclude them. D-005's named exit condition is met; the advisory mode is
+retired. The default gate is now hard for project code; `HARNESS_TYPECHECK_STRICT=1` adds
+the vendored tail on top (used by the scheduled CI job so the R7 debt stays visible).
 
 ---
 
@@ -240,7 +248,7 @@ The rule (GOLDEN-RULES R9): a baseline number may only move down. Raising one is
 
 | Job       | Runner          | Gates                                                                                   |
 | --------- | --------------- | --------------------------------------------------------------------------------------- |
-| `quality` | `ubuntu-latest` | hygiene, scan, ipc-drift, docs-lint, lint, format (prettier only), typecheck (advisory) |
+| `quality` | `ubuntu-latest` | hygiene, scan, ipc-drift, docs-lint, lint, format (prettier only), typecheck (ratchet)  |
 | `rust`    | `macos-latest`  | clippy, cargo test, `cargo fmt --check` (macOS-only code must be type-checked on macOS) |
 | `tests`   | `ubuntu-latest` | vitest (Phase 5)                                                                        |
 | `audit`   | `ubuntu-latest` | gate 7b (`audit-ratchet.mjs`); runs `--strict` on a weekly schedule                     |
@@ -260,16 +268,16 @@ Plan §5.4 requires proving the gates go red, not just green. Each was verified 
 deliberately introducing the fault it exists to catch. A gate that has never been observed
 failing is an untested gate.
 
-| Fault introduced                                    | Gate             | Observed                                                                                          |
-| --------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
-| `git add -f .env`                                   | gate 1 hygiene   | `HYGIENE FAIL: .env is tracked`, exit 1                                                           |
-| `invoke('this_command_does_not_exist_anywhere')`    | gate 3 ipc-drift | `ghost commands: this_command_does_not_exist_anywhere`, exit 1                                    |
-| `const x: number = 'a string'`                      | gate 5 typecheck | error count 307 → 308; fails under `HARNESS_TYPECHECK_STRICT=1` (advisory by default, see gate 5) |
-| Lowering `audit-baseline.json` below the real count | gate 7b audit    | `AUDIT RATCHET FAILED: production advisories 51 exceeds baseline 40`, exit 1                      |
-| Pointing npm at an unreachable registry             | gate 7b audit    | `AUDIT GATE INCONCLUSIVE`, exit 1 — **not** a pass                                                |
-| Reverting `get_default_data_dir()`'s fix            | gate 9 test-rust | 2 tests fail, both with a panic                                                                   |
-| Removing `regex::escape(name)`                      | gate 9 test-rust | 2 tests fail (metacharacter and catastrophic-backtracking cases)                                  |
-| Deleting `DB_POOL_CONNECTION` init guard            | gate 9 test-js   | coverage ratchet reports the dropped metric                                                       |
+| Fault introduced                                    | Gate             | Observed                                                                                      |
+| --------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------- |
+| `git add -f .env`                                   | gate 1 hygiene   | `HYGIENE FAIL: .env is tracked`, exit 1                                                       |
+| `invoke('this_command_does_not_exist_anywhere')`    | gate 3 ipc-drift | `ghost commands: this_command_does_not_exist_anywhere`, exit 1                                |
+| `const x: number = 'a string'`                      | gate 5 typecheck | project error 0 → 1, `TYPECHECK RATCHET FAILED` even without `--strict` — blocking by default |
+| Lowering `audit-baseline.json` below the real count | gate 7b audit    | `AUDIT RATCHET FAILED: production advisories 51 exceeds baseline 40`, exit 1                  |
+| Pointing npm at an unreachable registry             | gate 7b audit    | `AUDIT GATE INCONCLUSIVE`, exit 1 — **not** a pass                                            |
+| Reverting `get_default_data_dir()`'s fix            | gate 9 test-rust | 2 tests fail, both with a panic                                                               |
+| Removing `regex::escape(name)`                      | gate 9 test-rust | 2 tests fail (metacharacter and catastrophic-backtracking cases)                              |
+| Deleting `DB_POOL_CONNECTION` init guard            | gate 9 test-js   | coverage ratchet reports the dropped metric                                                   |
 
 The audit-inconclusive row is the one worth keeping: the first implementation of that gate
 _passed_ when the registry was unreachable, because npm reports a zero count in that case.

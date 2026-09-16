@@ -1,0 +1,17 @@
+{
+  "$comment": "TypeScript ratchet baseline. Project code must stay at zero errors; the count may only go DOWN (docs/harness/GOLDEN-RULES.md R9). Vendored files (src/components/libs/**) are recorded per-file because R7 forbids editing them. Regenerate: node scripts/harness/typecheck-ratchet.mjs --update",
+  "updatedFor": "2026-09-16",
+  "total": 9,
+  "project": [],
+  "vendored": [
+    "packages/pastebar-app-ui/src/components/libs/react-arborist/interfaces/node-api.ts (TS2322)",
+    "packages/pastebar-app-ui/src/components/libs/react-arborist/interfaces/node-api.ts (TS2345)",
+    "packages/pastebar-app-ui/src/components/libs/react-arborist/interfaces/node-api.ts (TS2345)",
+    "packages/pastebar-app-ui/src/components/libs/react-arborist/interfaces/tree-api.ts (TS2869)",
+    "packages/pastebar-app-ui/src/components/libs/react-arborist/interfaces/tree-api.ts (TS2869)",
+    "packages/pastebar-app-ui/src/components/libs/social-media-embed/components/embeds/YouTubeEmbed.tsx (TS7016)",
+    "packages/pastebar-app-ui/src/components/libs/social-media-embed/components/embeds/YouTubeEmbed.tsx (TS7006)",
+    "packages/pastebar-app-ui/src/components/libs/split-view/SplitView.tsx (TS2322)",
+    "packages/pastebar-app-ui/src/components/libs/split-view/SplitView.tsx (TS2322)"
+  ]
+}

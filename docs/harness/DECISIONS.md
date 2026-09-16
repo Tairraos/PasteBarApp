@@ -121,6 +121,28 @@ This is a real weakening and is why the exit is named explicitly rather than lef
 
 **Revisit when.** W4a completes. **This entry is the trigger to delete the advisory mode.**
 
+**Outcome (2026-09-16): the exit condition is met and the advisory mode is retired.** The
+sequence was not the one predicted, which is worth recording because it is the useful part:
+
+1. W4a deleted the 186 unreachable files. The count fell 408 → 307, but not to zero: 301 of
+   the remainder were in vendored `react-twitter-embed` cypress tests, which resolved
+   `@cypress/react` only because a transitive dependency happened to hoist it.
+2. The dependency prune (ISSUE-032's follow-up) removed 315 packages, including whatever was
+   hoisting `@cypress/react`. That turned 9 silent resolutions into hard `TS2307` errors —
+   and made the vendored test files excludable from the tsconfig, because nothing legitimate
+   depended on them compiling.
+3. Excluding them dropped the count 312 → 20. Fixing the project-code errors among those 20
+   (and the ones in this session's own test files) left **9, all vendored**.
+
+So the honest state is: **project code compiles clean**, and the gate is hard for it. The
+vendored 9 are frozen per-file in `docs/harness/typecheck-baseline.json` and cannot be fixed
+without editing vendored copies, which R7 forbids.
+
+Gate 5 is now `node scripts/harness/typecheck-ratchet.mjs`: any error in project code fails
+immediately, the total may not grow, and a newly failing vendored file is itself a
+regression. `HARNESS_TYPECHECK_STRICT=1` (`--strict`, used by the scheduled CI job) fails on
+the vendored tail too, so R7 debt stays visible rather than becoming a permanent exemption.
+
 ---
 
 ## D-006 · `.env` is untracked; the app does not read it at runtime

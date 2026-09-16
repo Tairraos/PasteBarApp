@@ -29,7 +29,7 @@ const InputHeader: React.FC<InputHeaderProps> = ({
       {required && <div className="text-rose-50 "> *</div>}
       {tooltip || tooltipContent ? (
         <div className="ml-1.5 flex">
-          {tooltip || <IconTooltip content={tooltipContent} />}
+          {tooltip || <IconTooltip text={tooltipContent} />}
         </div>
       ) : null}
     </div>

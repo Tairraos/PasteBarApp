@@ -102,31 +102,22 @@ gate_issue_refs() {
 }
 
 # ---------------------------------------------------------------------------
-# Gate 5 — TypeScript type check
+# Gate 5 — TypeScript type check (ratchet)
 # ---------------------------------------------------------------------------
 gate_typecheck() {
   if [ ! -d node_modules/typescript ]; then
     echo "typescript not installed; run: npm ci $NPM_CI_ARGS" >&2
     return 1
   fi
-  # ADVISORY until wave W4a. `tsc --noEmit` reports 408 pre-existing errors, ~301 of them
-  # in vendored react-twitter-embed tests and almost all of the remainder inside the 191
-  # unreachable source files (ISSUE-030). Failing the build on those would block every PR
-  # on debt unrelated to the change.
-  #
-  # Exit condition (named, not open-ended): W4a deletes the unreachable set, the gate then
-  # becomes hard, and this branch and docs/harness/gates.md section 5 (DECISIONS D-005) are
-  # removed together.
-  local out
-  out=$(npx --no-install tsc --noEmit -p tsconfig.json 2>&1)
-  local count
-  count=$(printf '%s\n' "$out" | grep -c "error TS" || true)
-  printf 'typecheck: %s TypeScript errors (advisory until W4a; see docs/harness/gates.md §5)\n' "$count"
-  if [ "$count" -gt 0 ] && [ "${HARNESS_TYPECHECK_STRICT:-0}" = "1" ]; then
-    printf '%s\n' "$out" | grep "error TS" | head -40
-    return 1
+  # Ratchet (was ADVISORY — DECISIONS D-005's exit condition is met). The dependency prune
+  # removed the hoisted transitive packages the vendored cypress tests silently resolved,
+  # which forced them out of the tsconfig; project code now compiles clean and the 9
+  # remaining errors are all vendored (R7). New errors in project code fail the PR.
+  if [ "${HARNESS_TYPECHECK_STRICT:-0}" = "1" ]; then
+    node scripts/harness/typecheck-ratchet.mjs --strict
+  else
+    node scripts/harness/typecheck-ratchet.mjs
   fi
-  return 0
 }
 
 # ---------------------------------------------------------------------------

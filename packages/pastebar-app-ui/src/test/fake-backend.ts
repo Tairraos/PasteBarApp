@@ -93,8 +93,13 @@ function defaultHandlers(): Record<string, Handler> {
 
     // --- items / clips ---------------------------------------------------------------
     get_all_items: (_args, s) => s.items,
+    // `Item` has no collectionId field (the Rust side links items to collections through a
+    // join table), and this command is currently one of the uncalled registered commands —
+    // the handler exists so a future caller fails on assertion, not on a missing handler.
     get_items_by_collection_id: (args, s) =>
-      s.items.filter(i => i.collectionId === args.collectionId),
+      s.items.filter(
+        i => (i as Item & { collectionId?: string }).collectionId === args.collectionId
+      ),
     get_items_by_tab_id: (args, s) => s.items.filter(i => i.tabId === args.tabId),
     create_new_item: (args, s) => {
       const item = { ...(args as object), id: `item-${s.items.length + 1}` } as Item
@@ -130,7 +135,7 @@ function defaultHandlers(): Record<string, Handler> {
       s.settings[args.key as string] = args.value
       return null
     },
-    cmd_setting_exists: (args, s) => args.key in s.settings,
+    cmd_setting_exists: (args, s) => String(args.key) in s.settings,
 
     // --- clipboard transport (write-only; the assertion is on `calls`) ---------------
     write_clipboard: () => 'ok',

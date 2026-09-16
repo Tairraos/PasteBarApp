@@ -441,6 +441,28 @@ commit messages written against this revision. **No action required.**
   **Still open:** the remaining 25 high/critical are build-chain tooling (`@svgr/webpack`, `glob-all`, `linkify-it`, `rimraf`, `rollup`) plus transitive `@babel/*`. They do not ship to users. `js-yaml`'s count rose from a transitive `3.14.1` under `@changesets/cli`; that is dev-only and excluded by `--omit=dev`.
   `所属阶段 | 3（门禁）→ 4 (W2, 升级)`
 
+### ISSUE-033 · Dependency declarations far larger than actual usage
+
+`ID | ISSUE-033`
+`位置 | package.json, packages/pastebar-app-ui/package.json`
+`类型 | DEBT`
+`风险等级 | P2`
+`影响范围 | Install size, supply-chain surface, and the typecheck gate's signal`
+`现象与依据 |` The two manifests declared 120 + 129 dependencies while only a minority were imported anywhere. A reachability walk from the three Vite entries plus the i18n toolchain root (312 reachable files), unioned with config-file imports and excluding tooling-consumed categories (`@types/*`, eslint/prettier plugins, build binaries), found **95 declarations with zero references** in the entire source tree. Notable examples: `zod` (declared for an IPC boundary that was never built), `framer-motion`, `recharts`, `react-virtuoso`, `cmdk`, `garbados-crypt`, `markdown-wasm`, `url-parse`, `idb-keyval`, and 15 `@radix-ui/*` packages.
+Three npm packages for Tauri plugins — `tauri-plugin-clipboard-api`, `tauri-plugin-log-api`, `tauri-plugin-positioner-api` — appeared **only in the manifests**: never imported in TypeScript, never registered in `main.rs`, absent from `tauri.conf.json`. The two GitHub-hosted ones were also the cause of the `npm ci` failure documented in DECISIONS D-007.
+Two further findings came out of the same sweep:
+
+- A **tracked** root `vite.config.mts` whose `root:` pointed at `packages/pastebar-ui`, a directory that does not exist — a leftover from before the package was renamed. The root `preview` script invoked it, so `npm run preview` could not work.
+- A stale `vite.config.mts.timestamp-*.mjs` build artifact on disk (gitignored, but present) that referenced nearly every package and produced false "in use" results until it was deleted.
+  `建议方案 |` Delete every declaration with zero references, from both manifests, verified by a full-repo mention check before removal and by build + tests + gates afterwards. Delete the dead root config and its script.
+  Package that are referenced **only by unreachable vendored code** are deliberately kept, because deleting them would only move the problem into `tsc` (the files are still on disk and still type-checked): `react-youtube`, `emery`, `@emotion/css`, `@react-aria/utils`, `@react-stately/utils`, and `@radix-ui/react-{context-menu,label,popover,select,separator}`. They are blocked on deleting the unreachable vendored files that import them, which is a decision about vendored code (GOLDEN-RULES R7), not about dependencies.
+  `行为变更 | 无`
+  `状态 | ✅ 已修复 (W2, 依赖清理)`
+  `修复说明 |` 95 declarations removed (root 120 → 67, UI 129 → 88). `npm ci` drops from ~1476 to 1161 packages — **315 fewer in `node_modules`**, which is the supply-chain surface that actually mattered. `vite build` exits 0, 42 frontend tests and 31 Rust tests pass, all 12 gates green.
+  A side effect worth recording: removing the hoisted transitive packages that had been silently satisfying the vendored `react-twitter-embed` cypress tests turned 9 implicit resolutions into `TS2307` errors. That forced the tests out of the tsconfig, which collapsed the typecheck count 312 → 20 and let DECISIONS D-005's exit condition be met (see that entry). A cleanup that looks purely subtractive ended up unblocking a gate.
+  Four real defects surfaced once the noise was gone and were fixed with it: a missing `EnterEnter` key in `ClipViewForm`'s key-press display map (a clip set to "press Enter twice" rendered an **empty badge**; the sibling `ClipEditForm` copy had the key all along), an `InputHeader` tooltip passing a non-existent `content` prop to a component that requires `text` (every such tooltip rendered an **empty bubble**), an always-nullish expression in `bbcode.tsx`, and a phantom `content` forward in `icon-tooltip`.
+  `所属阶段 | 4 (W2)`
+
 ---
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)

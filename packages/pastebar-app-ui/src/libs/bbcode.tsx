@@ -183,7 +183,7 @@ export default class BBCodeParser {
     this.codes = Object.keys(codes).map(regex => {
       const replacement = codes[regex]
       const tagNameMatch = regex.match(/\\\[(.+?)\\\]/)
-      const tagName = tagNameMatch ? tagNameMatch[1] : null ?? 'unknown'
+      const tagName = tagNameMatch ? tagNameMatch[1] : 'unknown'
 
       return {
         tag: tagName,

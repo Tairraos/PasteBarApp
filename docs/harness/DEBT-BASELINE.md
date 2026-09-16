@@ -169,10 +169,15 @@ lint findings inside dead code is wasted effort. The authoritative per-file coun
 | `components/search-modal/**`, `atoms/date-picker/**`            | 30    | dead code → deleted in W4a                       |
 | reachable project files                                         | < 10  | fixed as part of enabling the gate               |
 
-**The typecheck gate is therefore blocked on W4a (deleting the dead code), not on fixing type
-errors.** Until then `check-all.sh` runs the typecheck gate in _advisory_ mode: it reports
-but does not fail, and this document is the record of why. Enabling it as a hard gate is the
-acceptance criterion for W4a.
+**Resolved.** The gate was blocked on W4a, not on fixing type errors, and that prediction
+held — but the path to zero ran through the dependency prune as well. W4a deleted the dead
+files (408 → 307), the prune removed the hoisting that let vendored cypress tests resolve
+`@cypress/react` (307 → 312, with the tests then excludable), and excluding them collapsed
+the count to 20. Fixing those left **9 errors, all vendored** — project code compiles clean.
+
+`check-all.sh` gate 5 is now a ratchet, not advisory: a type error in project code fails the
+PR, the total may not grow, and the 9 vendored errors are frozen per-file in
+`docs/harness/typecheck-baseline.json`. See DECISIONS D-005 for the full sequence.
 
 ---
 
