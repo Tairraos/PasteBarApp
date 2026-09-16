@@ -1,0 +1,147 @@
+name: Quality Gates
+
+# Every pull request and every push to a long-lived branch must pass the harness gates.
+# Local equivalent: `bash scripts/harness/check-all.sh` (see docs/harness/gates.md).
+#
+# Design notes:
+# - ubuntu-latest runs the cheap gates; the Rust job needs macos-latest because tray and
+#   accessibility code is #[cfg(target_os = "macos")]-gated.
+# - `npm ci` is used without --ignore-scripts: the local EALLOWSCRIPTS failure documented
+#   in docs/harness/DECISIONS.md (D-007) is caused by a developer's user-level npmrc, which
+#   CI runners do not have.
+# - Blocking a PR is intentional; see docs/harness/DEBT-BASELINE.md for the exemptions that
+#   keep the gates green on pre-existing debt.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - harnessing
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Cheap, fast gates. Target: under 5 minutes.
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Static gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Gate — repository hygiene
+        run: bash scripts/harness/check-hygiene.sh
+
+      - name: Gate — static metrics (informational)
+        run: bash scripts/harness/scan.sh
+
+      - name: Gate — IPC contract drift
+        run: node scripts/harness/gen-ipc-contract.mjs --check
+
+      - name: Gate — documentation links and staleness
+        run: bash scripts/harness/docs-lint.sh
+
+      - name: Gate — ESLint
+        run: npx eslint . --ext .ts,.tsx
+
+      - name: Gate — Prettier formatting
+        run: npx prettier --check . --ignore-path .gitignore
+
+      - name: Gate — TypeScript (advisory until W4a)
+        # 408 pre-existing errors, almost all in the 191 unreachable source files
+        # (ISSUE-030). This step reports but does not block; it becomes a hard gate when
+        # wave W4a deletes the dead code. See docs/harness/DEBT-BASELINE.md §3.
+        continue-on-error: true
+        run: npx tsc --noEmit -p tsconfig.json
+
+  # ---------------------------------------------------------------------------
+  # Rust. Compiles Tauri, so it is the slow job.
+  # ---------------------------------------------------------------------------
+  rust:
+    name: Rust (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Gate — rustfmt
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Gate — clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Gate — cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  # ---------------------------------------------------------------------------
+  # Frontend tests (Phase 5). Passes trivially until the first test file lands.
+  # ---------------------------------------------------------------------------
+  tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Check whether a test suite exists yet
+        id: has_tests
+        run: |
+          if [ -n "$(git ls-files 'packages/pastebar-app-ui/src/**/*.test.*' | head -1)" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No test files yet (Phase 5 pending, ISSUE-006). Skipping."
+          fi
+
+      - name: Gate — vitest
+        if: steps.has_tests.outputs.present == 'true'
+        run: npx vitest run --reporter=dot
+
+      - name: Gate — production build
+        # The build is the only automated proof that the frontend still compiles and that
+        # the three Vite entries resolve. It is also the safety check for wave W4a
+        # (deleting unreachable code), where a dynamic import the static walker cannot see
+        # would otherwise delete live code.
+        run: cd packages/pastebar-app-ui && npx vite build

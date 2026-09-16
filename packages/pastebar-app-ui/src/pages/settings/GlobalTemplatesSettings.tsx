@@ -3,7 +3,7 @@ import { confirm } from '@tauri-apps/api/dialog'
 import { CopyComponent } from '~/libs/bbcode'
 import { settingsStoreAtom } from '~/store'
 import { useAtomValue } from 'jotai'
-import { Check, Plus, Save, Trash2, X } from 'lucide-react'
+import { Check, Plus, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import ToolTip from '~/components/atoms/tooltip'

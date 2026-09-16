@@ -7,7 +7,7 @@
     "start": "npm run dev",
     "build": "vite build",
     "build:ts": "tsc && vite build",
-    "format": "npx prettier --write . --ignore-path .gitignore ",
+    "format": "npx prettier --write . --ignore-path .prettierignore",
     "taze": "taze major -I",
     "taze:minor": "taze minor -w",
     "preview": "vite preview",

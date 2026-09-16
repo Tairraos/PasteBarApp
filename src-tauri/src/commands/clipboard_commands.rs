@@ -637,21 +637,21 @@ pub fn run_template_fill(
   // Get global templates from settings for use in the loop
   let app_settings = app_handle.state::<Mutex<HashMap<String, Setting>>>();
   let settings_map = app_settings.lock().unwrap();
-  
+
   // Get global templates from settings
   let global_templates_enabled = settings_map
     .get("globalTemplatesEnabled")
     .and_then(|s| s.value_bool)
     .unwrap_or(false);
-  
+
   let global_templates_json = settings_map
     .get("globalTemplates")
     .and_then(|s| s.value_text.as_ref())
     .cloned()
     .unwrap_or_else(|| "[]".to_string());
-  
-  let global_templates: Vec<serde_json::Value> = serde_json::from_str(&global_templates_json)
-    .unwrap_or_else(|_| Vec::new());
+
+  let global_templates: Vec<serde_json::Value> =
+    serde_json::from_str(&global_templates_json).unwrap_or_else(|_| Vec::new());
 
   for field in template_options
     .iter()
@@ -668,7 +668,10 @@ pub fn run_template_fill(
               .and_then(|n| n.as_str())
               .map(|n| n.eq_ignore_ascii_case(field_label))
               .unwrap_or(false)
-              && gt.get("isEnabled").and_then(|e| e.as_bool()).unwrap_or(false)
+              && gt
+                .get("isEnabled")
+                .and_then(|e| e.as_bool())
+                .unwrap_or(false)
           })
           .and_then(|gt| gt.get("value"))
           .and_then(|v| v.as_str())
@@ -677,7 +680,7 @@ pub fn run_template_fill(
       } else {
         field.value.clone()
       };
-      
+
       if let Some(value) = field_value {
         let regex = regex::Regex::new(&format!(
           r"(?i)\{{\{{\s*{}\s*\}}\}}",

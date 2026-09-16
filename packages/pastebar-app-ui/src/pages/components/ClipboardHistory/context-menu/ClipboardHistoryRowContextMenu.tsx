@@ -184,12 +184,11 @@ export default function ClipboardHistoryRowContextMenu({
       // Check if category has any enabled transforms
       if (category.subcategories) {
         // For categories with subcategories, check if any subcategory has enabled transforms
-        const hasEnabledSubcategories = category.subcategories.some(subcategory =>
+        return category.subcategories.some(subcategory =>
           subcategory.transforms.some(transform =>
             enabledSpecialPasteOperations.includes(transform.id)
           )
         )
-        return hasEnabledSubcategories
       } else {
         // For categories with transforms, check if any transform is enabled
         const enabledTransforms =

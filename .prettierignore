@@ -1,0 +1,32 @@
+# Prettier ignore list.
+#
+# Vendored third-party copies are never formatted: they are not ours to reformat, they
+# would produce unreviewable diffs, and at least one of them crashes the Prettier parser
+# outright (`components/libs/social-media-embed/…/EmbedStyle.tsx`).
+# See docs/harness/GOLDEN-RULES.md R7.
+
+# --- vendored ------------------------------------------------------------------------
+packages/pastebar-app-ui/src/components/libs/
+src-tauri/libs/
+
+# --- generated -----------------------------------------------------------------------
+packages/pastebar-app-ui/dist-ui/
+packages/pastebar-app-ui/tailwind-safelist.txt
+tailwind-safelist.txt
+packages/pastebar-app-ui/assets/markdown/markdown.js
+packages/pastebar-app-ui/assets/styles/
+
+# --- lockfiles (managed by npm, not by hand) -----------------------------------------
+package-lock.json
+packages/pastebar-app-ui/package-lock.json
+
+# --- build/test output ---------------------------------------------------------------
+node_modules/
+target/
+coverage/
+*.timestamp-*.mjs
+
+# --- translation resources (large generated YAML/JSON trees) -------------------------
+packages/pastebar-app-ui/src/locales/lang/
+packages/pastebar-app-ui/src/locales/date-locales/
+src-tauri/src/services/translations/translations.yaml

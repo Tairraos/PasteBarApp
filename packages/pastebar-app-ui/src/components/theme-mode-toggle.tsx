@@ -9,8 +9,6 @@ import { useTranslation } from 'react-i18next'
 
 import {
   MenubarCheckboxItem,
-  MenubarRadioGroup,
-  MenubarRadioItem,
   MenubarSub,
   MenubarSubContent,
   MenubarSubTrigger,

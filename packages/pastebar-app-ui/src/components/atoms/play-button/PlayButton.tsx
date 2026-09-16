@@ -1,7 +1,7 @@
 import { UniqueIdentifier } from '@dnd-kit/core'
 import { playerStoreAtom, SongSourceType } from '~/store'
 import { useAtomValue } from 'jotai'
-import { Check, Music, Pause, Play, Plus, Volume, Volume2, X } from 'lucide-react'
+import { Check, Music, Pause, Play, Plus, X } from 'lucide-react'
 
 const PlayButton = ({
   src,

@@ -47,7 +47,7 @@ impl Translations {
       "ru" => Some(&self.ru),
       "uk" => Some(&self.uk),
       "fr" => Some(&self.fr),
-      "tr" => Some(&self.tr), 
+      "tr" => Some(&self.tr),
       "it" => Some(&self.it),
       "esES" => Some(&self.esES),
       "zhCN" => Some(&self.zhCN),

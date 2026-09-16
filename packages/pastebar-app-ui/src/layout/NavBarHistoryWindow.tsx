@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { appWindow, WebviewWindow } from '@tauri-apps/api/window'
 import {
-  clipboardHistoryStoreAtom,
   collectionsStoreAtom,
   isAppLocked,
   playerStoreAtom,

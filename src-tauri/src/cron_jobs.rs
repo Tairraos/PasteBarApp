@@ -38,17 +38,17 @@ fn run_history_cleanup_job() {
       .get("isKeepPinnedOnClearEnabled")
       .and_then(|s| s.value_bool)
       .unwrap_or(false);
-    
+
     let keep_starred = locked_settings
       .get("isKeepStarredOnClearEnabled")
       .and_then(|s| s.value_bool)
       .unwrap_or(false);
 
     let deleted_count = history_commands::clear_clipboard_history_older_than(
-      duration_type, 
+      duration_type,
       duration.to_string(),
       Some(keep_pinned),
-      Some(keep_starred)
+      Some(keep_starred),
     );
 
     debug_output(|| {

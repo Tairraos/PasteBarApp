@@ -11,7 +11,7 @@ import {
 import { ToasterToast, useToast } from '~/components/ui/use-toast'
 
 export function Toaster() {
-  const { toasts, dismiss } = useToast()
+  const { toasts } = useToast()
   const [toast, setToast] = useState<ToasterToast | null>(null)
 
   useEffect(() => {

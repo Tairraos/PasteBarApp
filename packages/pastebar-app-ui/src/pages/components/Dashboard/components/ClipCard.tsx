@@ -33,7 +33,6 @@ import { cva } from 'class-variance-authority'
 import { useAtomValue } from 'jotai'
 import linkifyIt from 'linkify-it'
 import {
-  BookOpenText,
   Check,
   Clipboard,
   ClipboardPaste,

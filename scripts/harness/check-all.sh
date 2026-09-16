@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# PasteBar harness gate runner — the single local entry point that mirrors CI.
+#
+# Usage:
+#   bash scripts/harness/check-all.sh            # run every gate
+#   bash scripts/harness/check-all.sh --fast     # skip the slow Rust gates (cargo fmt/clippy)
+#   bash scripts/harness/check-all.sh --list     # show gate names only
+#
+# Exit code is 0 only when every gate passes. Each gate prints:
+#   [PASS] name   (or [FAIL] / [SKIP]) plus the elapsed seconds.
+#
+# Portability: macOS stock bash 3.2 (no mapfile/associative arrays).
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT"
+
+FAST=0
+LIST_ONLY=0
+for arg in "$@"; do
+  case "$arg" in
+    --fast) FAST=1 ;;
+    --list) LIST_ONLY=1 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    *) echo "unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+
+# npm on this machine picks up a global ~/.npmrc that breaks the nested install of the
+# two GitHub dependencies; --userconfig /dev/null neutralises it. CI is unaffected.
+NPM_CI_ARGS="--no-audit --no-fund --ignore-scripts --userconfig /dev/null"
+
+FAILED=""
+PASSED=0
+SKIPPED=0
+FAILED_NAMES=""
+
+run_gate() { # run_gate <name> <command...>
+  local name="$1"; shift
+  if [ "$LIST_ONLY" -eq 1 ]; then echo "$name"; return 0; fi
+  printf '\n=== %s ===\n' "$name"
+  local start end
+  start=$(date +%s)
+  if "$@"; then
+    end=$(date +%s)
+    printf '[PASS] %s (%ss)\n' "$name" "$((end - start))"
+    PASSED=$((PASSED + 1))
+  else
+    end=$(date +%s)
+    printf '[FAIL] %s (%ss)\n' "$name" "$((end - start))"
+    FAILED="yes"
+    FAILED_NAMES="$FAILED_NAMES $name"
+  fi
+}
+
+skip_gate() { # skip_gate <name> <reason>
+  if [ "$LIST_ONLY" -eq 1 ]; then echo "$1"; return 0; fi
+  printf '[SKIP] %s — %s\n' "$1" "$2"
+  SKIPPED=$((SKIPPED + 1))
+}
+
+need_tool() { command -v "$1" >/dev/null 2>&1; }
+
+# ---------------------------------------------------------------------------
+# Gate 1 — repository hygiene (no tracked secrets or build artifacts)
+# ---------------------------------------------------------------------------
+gate_hygiene() {
+  bash scripts/harness/check-hygiene.sh
+}
+
+# ---------------------------------------------------------------------------
+# Gate 2 — static metrics (informational, but must run without error)
+# ---------------------------------------------------------------------------
+gate_scan() {
+  bash scripts/harness/scan.sh > /dev/null
+}
+
+# ---------------------------------------------------------------------------
+# Gate 3 — IPC drift
+# ---------------------------------------------------------------------------
+gate_ipc() {
+  if ! need_tool node; then return 1; fi
+  node scripts/harness/gen-ipc-contract.mjs --check
+}
+
+# ---------------------------------------------------------------------------
+# Gate 4 — docs link/staleness lint
+# ---------------------------------------------------------------------------
+gate_docs() {
+  bash scripts/harness/docs-lint.sh
+}
+
+# ---------------------------------------------------------------------------
+# Gate 5 — TypeScript type check
+# ---------------------------------------------------------------------------
+gate_typecheck() {
+  if [ ! -d node_modules/typescript ]; then
+    echo "typescript not installed; run: npm ci $NPM_CI_ARGS" >&2
+    return 1
+  fi
+  # ADVISORY until wave W4a. `tsc --noEmit` reports 408 pre-existing errors, ~301 of them
+  # in vendored react-twitter-embed tests and almost all of the remainder inside the 191
+  # unreachable source files (ISSUE-030). Failing the build on those would block every PR
+  # on debt unrelated to the change.
+  #
+  # Exit condition (named, not open-ended): W4a deletes the unreachable set, the gate then
+  # becomes hard, and this branch and docs/harness/gates.md section 5 (DECISIONS D-005) are
+  # removed together.
+  local out
+  out=$(npx --no-install tsc --noEmit -p tsconfig.json 2>&1)
+  local count
+  count=$(printf '%s\n' "$out" | grep -c "error TS" || true)
+  printf 'typecheck: %s TypeScript errors (advisory until W4a; see docs/harness/gates.md §5)\n' "$count"
+  if [ "$count" -gt 0 ] && [ "${HARNESS_TYPECHECK_STRICT:-0}" = "1" ]; then
+    printf '%s\n' "$out" | grep "error TS" | head -40
+    return 1
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Gate 6 — ESLint, enforced through the per-file ratchet baseline
+# ---------------------------------------------------------------------------
+gate_lint() {
+  if [ ! -d node_modules/eslint ]; then
+    echo "eslint not installed; run: npm ci $NPM_CI_ARGS" >&2
+    return 1
+  fi
+  mkdir -p node_modules/.cache
+  # Fails on regressions against docs/harness/eslint-baseline.json rather than on every
+  # pre-existing error, so the gate is enforceable today and tightens as the debt is paid.
+  node scripts/harness/lint-ratchet.mjs
+}
+
+# ---------------------------------------------------------------------------
+# Gate 7 — formatting
+# ---------------------------------------------------------------------------
+gate_format() {
+  local rc=0
+  # .prettierignore (not .gitignore) is the formatting scope: it excludes vendored
+  # code, lockfiles and generated assets that Prettier must not touch.
+  npx --no-install prettier --check . --ignore-path .prettierignore || rc=1
+  if [ "$FAST" -eq 0 ] && need_tool cargo; then
+    (cd src-tauri && cargo fmt --check) || rc=1
+  fi
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
+# Gate 8 — Rust clippy
+# ---------------------------------------------------------------------------
+gate_clippy() {
+  (cd src-tauri && cargo clippy --all-targets -- -D warnings)
+}
+
+# ---------------------------------------------------------------------------
+# Gate 9 — tests
+# ---------------------------------------------------------------------------
+gate_test_js() {
+  if [ ! -d node_modules/vitest ] && [ ! -d packages/pastebar-app-ui/node_modules/vitest ]; then
+    echo "vitest not installed (Phase 5); skipping"
+    return 0
+  fi
+  npx --no-install vitest run --reporter=dot
+}
+
+gate_test_rust() {
+  (cd src-tauri && cargo test)
+}
+
+# ---------------------------------------------------------------------------
+# Driver
+# ---------------------------------------------------------------------------
+run_gate "hygiene"        gate_hygiene
+run_gate "scan"           gate_scan
+run_gate "ipc-drift"      gate_ipc
+run_gate "docs-lint"      gate_docs
+run_gate "typecheck"      gate_typecheck
+run_gate "lint"           gate_lint
+run_gate "format"         gate_format
+if [ "$FAST" -eq 1 ]; then
+  skip_gate "clippy" "--fast"
+  skip_gate "test-rust" "--fast"
+else
+  run_gate "clippy"       gate_clippy
+  run_gate "test-rust"    gate_test_rust
+fi
+run_gate "test-js"        gate_test_js
+
+if [ "$LIST_ONLY" -eq 1 ]; then exit 0; fi
+
+printf '\n========================================\n'
+if [ -n "$FAILED" ]; then
+  printf 'FAILED:%s\n' "$FAILED_NAMES"
+  printf '%s passed, %s skipped\n' "$PASSED" "$SKIPPED"
+  exit 1
+fi
+printf 'ALL GATES PASSED (%s passed, %s skipped)\n' "$PASSED" "$SKIPPED"

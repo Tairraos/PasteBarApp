@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import react from "@vitejs/plugin-react";
-import { defineConfig, PluginOption } from 'vite'
+import { pathToFileURL } from 'url'
+import react from '@vitejs/plugin-react'
 import * as dotenv from 'dotenv'
+import { defineConfig, PluginOption } from 'vite'
 import dynamicImport from 'vite-plugin-dynamic-import'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
-import { pathToFileURL } from 'url';
 
 import i18nextLoader from './src/lib/i18n-vite-loaded/loader'
 
@@ -19,17 +19,16 @@ const ReactCompilerConfig = {
 let pastebarAppPackage
 const pastebarUIVersion = require('./package.json').version
 
-
 async function loadPasteBarAppPackage() {
   try {
-    const pastebarAppPath = process.env.PASTEBAR_APP_PATH || path.resolve(__dirname, '../..');
-    const packageJsonPath = path.join(pastebarAppPath, 'package.json');
-    const packageJsonUrl = pathToFileURL(packageJsonPath).href;
+    const pastebarAppPath =
+      process.env.PASTEBAR_APP_PATH || path.resolve(__dirname, '../..')
+    const packageJsonPath = path.join(pastebarAppPath, 'package.json')
+    const packageJsonUrl = pathToFileURL(packageJsonPath).href
 
     pastebarAppPackage = await import(packageJsonUrl, {
-      with: { type: 'json' }
-    });
-
+      with: { type: 'json' },
+    })
   } catch (e) {
     console.log('Please make sure main PasteBarApp repo exist')
     console.error('\nError reading package.json:', e)
@@ -47,7 +46,7 @@ export default async () => {
 
   return defineConfig({
     clearScreen: false,
-      server: {
+    server: {
       port: 4422,
       open: false,
       strictPort: true,
@@ -96,8 +95,8 @@ export default async () => {
       react({
         babel: {
           plugins: [
-            "module:@preact/signals-react-transform",
-            ["babel-plugin-react-compiler", ReactCompilerConfig],
+            'module:@preact/signals-react-transform',
+            ['babel-plugin-react-compiler', ReactCompilerConfig],
           ],
         },
       }) as PluginOption,
@@ -124,10 +123,10 @@ export default async () => {
             fs.writeFileSync(versionFile, version)
             const stylesSrc = path.join(__dirname, 'assets/styles')
             const stylesDest = path.join(__dirname, 'dist-ui/assets/styles')
-            fs.cpSync(stylesSrc, stylesDest, {recursive: true});
+            fs.cpSync(stylesSrc, stylesDest, { recursive: true })
             const wasmSrc = path.join(__dirname, 'assets/markdown')
             const wasmDest = path.join(__dirname, 'dist-ui/assets/markdown')
-            fs.cpSync(wasmSrc, wasmDest, {recursive: true});
+            fs.cpSync(wasmSrc, wasmDest, { recursive: true })
           })
         },
       },

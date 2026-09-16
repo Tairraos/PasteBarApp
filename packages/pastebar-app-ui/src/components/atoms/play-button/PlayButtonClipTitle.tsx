@@ -1,7 +1,7 @@
 import { UniqueIdentifier } from '@dnd-kit/core'
 import { playerStoreAtom } from '~/store'
 import { useAtomValue } from 'jotai'
-import { Check, Pause, Play, Plus, Volume, Volume2, X } from 'lucide-react'
+import { Check, Pause, Play, Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { ButtonGhost } from '~/components/ui'

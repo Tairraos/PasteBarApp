@@ -65,10 +65,7 @@ export function calculateDynamicOverscan(scrollVelocity: number): number {
   const velocityFactor = Math.min(Math.abs(scrollVelocity) / VELOCITY_THRESHOLD, 1)
 
   // Calculate overscan with exponential growth for high velocities
-  const dynamicOverscan =
-    BASE_OVERSCAN + Math.floor(velocityFactor * (MAX_OVERSCAN - BASE_OVERSCAN))
-
-  return dynamicOverscan
+  return BASE_OVERSCAN + Math.floor(velocityFactor * (MAX_OVERSCAN - BASE_OVERSCAN))
 }
 
 /**

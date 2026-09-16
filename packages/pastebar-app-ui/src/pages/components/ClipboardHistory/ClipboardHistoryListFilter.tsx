@@ -59,8 +59,7 @@ export const ClipboardHistoryListFilter = ({
 
   async function fetchSourceApps() {
     try {
-      const sourceApps = (await invoke('get_history_items_source_apps')) as string[]
-      return sourceApps
+      return (await invoke('get_history_items_source_apps')) as string[]
     } catch (error) {
       console.error('Error fetching source apps:', error)
       return []

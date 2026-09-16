@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { UniqueIdentifier } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useSignals } from '@preact/signals-react/runtime'

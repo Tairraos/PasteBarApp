@@ -159,7 +159,7 @@ i18n.on('languageChanged', async function (lng) {
 })
 
 export const timeAgoInstance = () => {
-  let lang =
+  const lang =
     langCodeMapping[i18n.language === 'en' ? 'en' : i18n.language] ||
     (i18n.language === 'en' ? 'en' : i18n.language)
 

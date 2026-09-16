@@ -91,7 +91,7 @@ export const DEFAULT_SPECIAL_PASTE_OPERATIONS = [
   'urlEncode',
   'urlDecode',
   'htmlEncode',
-  'htmlDecode',  
+  'htmlDecode',
   // Text Tools
   'reverseText',
   'addCurrentDateTime',

@@ -8,7 +8,7 @@ import { compareIdArrays } from '~/lib/utils'
 import { CreateDashboardItemType, CreateMenuItem } from '~/types/menu'
 
 import { ACTION_TYPE_COMFIRMATION_MODAL, APP_TOURS } from './constants'
-import { Song, SongSourceType } from './playerStore'
+import { SongSourceType } from './playerStore'
 
 type ValueOf<T> = T[keyof T]
 export type ActionType = ValueOf<typeof ACTION_TYPE_COMFIRMATION_MODAL>

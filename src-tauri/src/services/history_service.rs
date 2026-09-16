@@ -711,20 +711,21 @@ pub fn delete_clipboard_history_older_than(
       .filter(updated_at.lt(threshold_timestamp))
       .select(history_id)
       .into_boxed();
-    
+
     if keep_pinned {
       query = query.filter(is_pinned.ne(true).or(is_pinned.is_null()));
     }
-    
+
     if keep_starred {
       query = query.filter(is_favorite.ne(true).or(is_favorite.is_null()));
     }
-    
+
     query.load::<String>(connection)?
   };
 
   let deleted_count = if !ids_to_delete.is_empty() {
-    diesel::delete(clipboard_history.filter(history_id.eq_any(&ids_to_delete))).execute(connection)?
+    diesel::delete(clipboard_history.filter(history_id.eq_any(&ids_to_delete)))
+      .execute(connection)?
   } else {
     0
   };
@@ -792,20 +793,21 @@ pub fn delete_recent_clipboard_history(
       .filter(updated_at.gt(delete_threshold))
       .select(history_id)
       .into_boxed();
-    
+
     if keep_pinned {
       query = query.filter(is_pinned.ne(true).or(is_pinned.is_null()));
     }
-    
+
     if keep_starred {
       query = query.filter(is_favorite.ne(true).or(is_favorite.is_null()));
     }
-    
+
     query.load::<String>(connection)?
   };
 
   let deleted_count = if !ids_to_delete_recent.is_empty() {
-    diesel::delete(clipboard_history.filter(history_id.eq_any(&ids_to_delete_recent))).execute(connection)?
+    diesel::delete(clipboard_history.filter(history_id.eq_any(&ids_to_delete_recent)))
+      .execute(connection)?
   } else {
     0
   };
@@ -834,11 +836,11 @@ pub fn delete_all_clipboard_histories(keep_pinned: bool, keep_starred: bool) -> 
     // Selective deletion - preserve pinned and/or starred items
     // First, get all items that will be deleted
     let mut items_query = clipboard_history.into_boxed();
-    
+
     if keep_pinned {
       items_query = items_query.filter(is_pinned.ne(true).or(is_pinned.is_null()));
     }
-    
+
     if keep_starred {
       items_query = items_query.filter(is_favorite.ne(true).or(is_favorite.is_null()));
     }

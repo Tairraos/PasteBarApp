@@ -116,7 +116,7 @@ export const useSpecialCopyPasteHistoryItem = ({
   ): Promise<void> => {
     try {
       delaySeconds = delaySeconds ?? copyPasteDelay
-      
+
       if (!value || !historyId) {
         console.warn('No value or historyId to paste')
         return
@@ -135,7 +135,7 @@ export const useSpecialCopyPasteHistoryItem = ({
 
       // Execute paste with transformed text (only if transformation succeeded)
       await executePasteAction(transformedText, 0)
-      
+
       // Clear the signal after a short delay
       setTimeout(() => {
         requestAnimationFrame(() => {
