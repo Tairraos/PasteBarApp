@@ -115,6 +115,16 @@ const BACKUP_KEPT_TABLES: &[&str] = &[
 /// it describes.
 const BACKUP_FILTERED_TABLES: &[&str] = &["clipboard_history"];
 
+/// Tables whose rows are filtered by a custom predicate rather than wholesale.
+///
+/// `link_metadata` joins to EITHER a history row OR an item row (`history_id` and `item_id`
+/// are each nullable and unique), so it belongs to both halves of the backup. Keeping the
+/// table whole would carry metadata for history rows this backup deliberately excludes —
+/// rows nothing references, which is exactly what excluding the history was meant to avoid.
+/// Dropping it whole would lose the metadata for saved clips and for starred/pinned
+/// entries. So it is filtered row by row, following whichever parent survives.
+const BACKUP_CONDITIONAL_TABLES: &[&str] = &["link_metadata"];
+
 /// Produce a consistent, filtered copy of the database as bytes.
 ///
 /// Uses `VACUUM INTO`, which is the only way to get a consistent snapshot of a live SQLite
@@ -185,6 +195,20 @@ fn filter_backup_snapshot(snapshot: &mut SqliteConnection) -> Result<(), String>
       .map_err(|e| format!("Failed to filter {} from snapshot: {}", table, e))?;
   }
 
+  // Run AFTER the history delete above so the predicate can simply check whether the parent
+  // row still exists, rather than re-deriving which rows were removed.
+  for table in BACKUP_CONDITIONAL_TABLES {
+    let sql = format!(
+      "DELETE FROM {table} WHERE \
+         (history_id IS NOT NULL AND history_id NOT IN (SELECT history_id FROM clipboard_history)) \
+         OR (item_id IS NOT NULL AND item_id NOT IN (SELECT item_id FROM items))",
+      table = table
+    );
+    diesel::sql_query(sql)
+      .execute(snapshot)
+      .map_err(|e| format!("Failed to filter {} from snapshot: {}", table, e))?;
+  }
+
   // Reclaim what those deletes freed. Best-effort: a failure costs archive size, not
   // correctness, and must not fail the backup.
   if let Err(e) = diesel::sql_query("VACUUM").execute(snapshot) {
@@ -204,12 +228,15 @@ fn filter_backup_snapshot(snapshot: &mut SqliteConnection) -> Result<(), String>
   for table in &tables {
     if !BACKUP_KEPT_TABLES.contains(&table.as_str())
       && !BACKUP_FILTERED_TABLES.contains(&table.as_str())
+      && !BACKUP_CONDITIONAL_TABLES.contains(&table.as_str())
       && table != "maintenance_log"
     {
       return Err(format!(
-        "Table '{}' is in neither the backup keep-list nor its filter-list. \
-         Add it to BACKUP_KEPT_TABLES or BACKUP_FILTERED_TABLES deliberately — \
-         a new table must not be archived (or dropped) by accident.",
+        "Table '{}' is in none of the backup's three table lists. Add it to \
+         BACKUP_KEPT_TABLES (archived whole), BACKUP_FILTERED_TABLES (emptied) or \
+         BACKUP_CONDITIONAL_TABLES (filtered row by row) deliberately — a new table must \
+         not be archived by default (leaking its contents into every backup) or dropped by \
+         default (losing user data on restore).",
         table
       ));
     }
@@ -562,24 +589,11 @@ mod backup_filter_tests {
   /// hand-built schema lets a test use a table the real schema does not have yet (the
   /// "unknown table" case below), which is the whole point of that guard rail.
   fn snapshot_connection() -> SqliteConnection {
+    use diesel_migrations::MigrationHarness;
     let mut conn = SqliteConnection::establish(":memory:").expect("in-memory SQLite opens");
     conn
-      .batch_execute(
-        "CREATE TABLE clipboard_history (
-         history_id TEXT PRIMARY KEY,
-         is_pinned BOOLEAN,
-         is_favorite BOOLEAN,
-         value TEXT
-       );
-       CREATE TABLE items (item_id TEXT PRIMARY KEY, name TEXT);
-       CREATE TABLE settings (key TEXT PRIMARY KEY);
-       CREATE TABLE collections (collection_id TEXT PRIMARY KEY);
-       CREATE TABLE tabs (tab_id TEXT PRIMARY KEY);
-       CREATE TABLE collection_clips (id TEXT PRIMARY KEY);
-       CREATE TABLE collection_menu (id TEXT PRIMARY KEY);
-       CREATE TABLE maintenance_log (task TEXT PRIMARY KEY);",
-      )
-      .expect("schema should be creatable");
+      .run_pending_migrations(crate::db::MIGRATIONS)
+      .expect("migrations must apply to an empty database");
     conn
   }
 
@@ -596,12 +610,52 @@ mod backup_filter_tests {
       .n
   }
 
+  /// Insert a history row using only the columns that actually exist.
+  ///
+  /// `created_at`/`updated_at`/`created_date`/`updated_date` are NOT NULL in the real schema,
+  /// so they must be supplied — the hand-written fixture never had to, which is part of why
+  /// it drifted from reality.
   fn insert_history(conn: &mut SqliteConnection, id: &str, pinned: bool, favorite: bool) {
     conn
       .batch_execute(&format!(
-        "INSERT INTO clipboard_history (history_id, is_pinned, is_favorite, value) \
-       VALUES ('{}', {}, {}, 'v')",
-        id, pinned as i32, favorite as i32
+        "INSERT INTO clipboard_history \
+         (history_id, is_pinned, is_favorite, value, created_at, updated_at, created_date, updated_date) \
+       VALUES ('{id}', {pinned}, {favorite}, 'v', 0, 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00')",
+        id = id,
+        pinned = pinned as i32,
+        favorite = favorite as i32
+      ))
+      .expect("insert should work");
+  }
+
+  fn insert_item(conn: &mut SqliteConnection, id: &str) {
+    conn
+      .batch_execute(&format!(
+        "INSERT INTO items (item_id, name, created_at, updated_at, created_date, updated_date) \
+       VALUES ('{id}', 'clip', 0, 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00')",
+        id = id
+      ))
+      .expect("insert should work");
+  }
+
+  /// Link metadata pointing at a history row, an item row, or both.
+  fn insert_link_metadata(
+    conn: &mut SqliteConnection,
+    id: &str,
+    history_id: Option<&str>,
+    item_id: Option<&str>,
+  ) {
+    let render = |v: Option<&str>| match v {
+      Some(v) => format!("'{}'", v),
+      None => "NULL".to_string(),
+    };
+    conn
+      .batch_execute(&format!(
+        "INSERT INTO link_metadata (metadata_id, history_id, item_id, link_url) \
+       VALUES ('{id}', {h}, {i}, 'https://example.com')",
+        id = id,
+        h = render(history_id),
+        i = render(item_id)
       ))
       .expect("insert should work");
   }
@@ -644,8 +698,9 @@ mod backup_filter_tests {
     let mut conn = snapshot_connection();
     conn
       .batch_execute(
-        "INSERT INTO clipboard_history (history_id, is_pinned, is_favorite, value) \
-       VALUES ('nulls', NULL, NULL, 'v')",
+        "INSERT INTO clipboard_history \
+           (history_id, is_pinned, is_favorite, value, created_at, updated_at, created_date, updated_date) \
+         VALUES ('nulls', NULL, NULL, 'v', 0, 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00')",
       )
       .expect("insert should work");
 
@@ -659,26 +714,88 @@ mod backup_filter_tests {
   }
 
   #[test]
-  fn saved_content_tables_survive() {
+  fn link_metadata_follows_whichever_parent_survives() {
+    // `link_metadata` joins to a history row OR an item row, so it belongs to both halves of
+    // the backup. This is the case that shipped broken: the table exists in the real schema
+    // but not in the hand-written test fixture, so the guard rejected every real backup while
+    // the tests stayed green. Keeping only history-linked metadata would archive rows nothing
+    // references; dropping the table whole would lose metadata for saved clips.
     let mut conn = snapshot_connection();
-    conn
-      .batch_execute(
-        "INSERT INTO items VALUES ('i1', 'a clip');
-       INSERT INTO settings VALUES ('k');
-       INSERT INTO collections VALUES ('c1');
-       INSERT INTO tabs VALUES ('t1');
-       INSERT INTO collection_clips VALUES ('cc1');
-       INSERT INTO collection_menu VALUES ('cm1');",
-      )
-      .expect("inserts should work");
+
+    insert_history(&mut conn, "hist-plain", false, false);
+    insert_history(&mut conn, "hist-kept", true, false);
+    insert_item(&mut conn, "item-1");
+
+    insert_link_metadata(&mut conn, "m-history-deleted", Some("hist-plain"), None);
+    insert_link_metadata(&mut conn, "m-history-kept", Some("hist-kept"), None);
+    insert_link_metadata(&mut conn, "m-item", None, Some("item-1"));
 
     filter_backup_snapshot(&mut conn).expect("filter should succeed");
 
-    for table in BACKUP_KEPT_TABLES {
+    let remaining: Vec<String> = {
+      #[derive(diesel::QueryableByName)]
+      struct R {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        metadata_id: String,
+      }
+      diesel::sql_query("SELECT metadata_id FROM link_metadata ORDER BY metadata_id")
+        .load::<R>(&mut conn)
+        .expect("query should work")
+        .into_iter()
+        .map(|r| r.metadata_id)
+        .collect()
+    };
+
+    assert_eq!(
+      remaining,
+      vec!["m-history-kept".to_string(), "m-item".to_string()],
+      "metadata must follow its parent: dropped with the history row it describes, kept for \
+       starred history and for saved clips"
+    );
+  }
+
+  #[test]
+  fn every_real_table_is_classified() {
+    // The guard, exercised against the MIGRATED schema rather than a fixture. If a migration
+    // adds a table and nobody classifies it, this fails here — in a unit test — instead of
+    // when a user clicks Backup and gets an error naming their own database.
+    let mut conn = snapshot_connection();
+    filter_backup_snapshot(&mut conn)
+      .expect("every table in the migrated schema must be classified for backup");
+  }
+
+  #[test]
+  fn saved_content_tables_survive() {
+    let mut conn = snapshot_connection();
+    // Columns named explicitly. The real schema has 61 columns on `items` alone, so a
+    // positional INSERT — which the hand-written fixture allowed — cannot work here.
+    conn
+      .batch_execute(
+        "INSERT INTO items (item_id, name, created_at, updated_at, created_date, updated_date) \
+           VALUES ('i1', 'a clip', 0, 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
+         INSERT INTO settings (name, value_text) VALUES ('k', 'v');
+         INSERT INTO collections (collection_id, title, created_at, updated_at, created_date, updated_date) \
+           VALUES ('c1', 'c', 0, 0, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
+         INSERT INTO tabs (tab_id, collection_id, tab_name) \
+           VALUES ('t1', 'c1', 't');",
+      )
+      .expect("inserts should work");
+
+    // Snapshot the counts BEFORE filtering. The migrations seed default data (`items` starts
+    // with 27 rows), so an absolute expected count would encode the seed contents and break
+    // whenever a seed migration is added. What matters is that filtering removes nothing.
+    let before: Vec<(String, i64)> = BACKUP_KEPT_TABLES
+      .iter()
+      .map(|t| (t.to_string(), count(&mut conn, t)))
+      .collect();
+
+    filter_backup_snapshot(&mut conn).expect("filter should succeed");
+
+    for (table, expected) in before {
       assert_eq!(
-        count(&mut conn, table),
-        1,
-        "{} holds user content and must be archived",
+        count(&mut conn, &table),
+        expected,
+        "{} holds user content and must survive filtering intact",
         table
       );
     }

@@ -588,8 +588,16 @@ no such user config and are unaffected. Documented in `AGENTS.md`.
 Additionally, `create_backup` could not tell the user _why_ it failed before archiving.
 `建议方案 |` Export a filtered snapshot via `VACUUM INTO` instead of copying the file: it rebuilds into a fresh file (no torn write) and compacts (no free pages). Empty the history out of the copy while keeping pinned/starred rows — a mark is a deliberate act of saving, not history. Run `VACUUM` before archiving and refuse to continue on failure, surfacing `VACUUM_FAILED:` so the frontend can offer a forced retry. Add a guard that fails the backup when a table appears in neither the keep-list nor the filter-list, so a future migration cannot silently archive (leak) or drop (lose on restore) a new table. Fix the reported path.
 `行为变更 | BUG（允许）：备份不再包含剪贴板历史与 `clipboard-images`；恢复会清空当前历史（全量覆盖）；备份失败时不再产生归档文件。 |
-`状态 | ✅ 已修复 |
+`状态 | ✅ 已修复（含一次回归修复，见下） |
 `所属阶段 | 6 (follow-up)`
+
+**回归修复（同一次修复内发现）。** 第一版实现漏掉了 `link_metadata`，导致**任何真实备份都会失败**，并弹出一个以用户自己的数据库表名报错的对话框。`link_metadata` 通过 `history_id` **或** `item_id` 关联，同时属于备份保留与排除的两半：既不能整表保留（会带上已排除历史的元数据，等于排了个寂寞），也不能整表丢弃（会丢掉已保存片段的元数据）。
+
+真正的缺陷不在漏了一张表，而在**测试方式**。fixture 用手写 schema，只声明了代码里提到的那几张表，于是"未分类的表"守卫在测试里永远不触发，而它在真实数据库上每次备份都触发。测试只能确认作者已经相信的事。现在 fixture 改为运行**真实迁移**（`crate::db::MIGRATIONS`），两者不可能再不一致——迁移新增表的那一刻，测试就会看到它。
+
+改动：新增 `BACKUP_CONDITIONAL_TABLES`（按父行存活逐行过滤），并加两个测试——`link_metadata_follows_whichever_parent_survives`（元数据随父行存亡）与 `every_real_table_is_classified`（对迁移后的 schema 跑守卫）。后者已验证"破坏即失败"：移除 `link_metadata` 分类后测试立即报出表名。
+
+守卫的错误文案也一并修正：原先只提两个清单，现在提三个，否则照着提示改的人会改错地方。
 
 ---
 
