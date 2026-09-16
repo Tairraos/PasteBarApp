@@ -20,6 +20,13 @@ packages/pastebar-app-ui/assets/styles/
 package-lock.json
 packages/pastebar-app-ui/package-lock.json
 
+# --- editor state (gitignored, so it must be ignored here too) -----------------------
+# `.gitignore` excludes `.vscode/*` except `extensions.json`, but Prettier reads its own
+# ignore file and walked straight into a developer's machine-generated settings.json. That
+# file is not in the repository, yet it failed the format gate locally — a check that can
+# be broken by something you did not write and cannot review is worse than no check.
+.vscode/
+
 # --- build/test output ---------------------------------------------------------------
 node_modules/
 target/
