@@ -53,3 +53,6 @@ tailwind-safelist.txt
 
 # Translation audit output (written into the CWD by scripts/translation-audit.ts).
 translation-audit-report.txt
+
+# Vitest / coverage output
+coverage/

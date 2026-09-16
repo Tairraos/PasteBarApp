@@ -163,12 +163,12 @@ gate_clippy() {
 # Gate 9 — tests
 # ---------------------------------------------------------------------------
 gate_test_js() {
-  if [ ! -d node_modules/vitest ] && [ ! -d packages/pastebar-app-ui/node_modules/vitest ]; then
-    echo "vitest not installed (Phase 5); skipping"
-    return 0
-  fi
-  npx --no-install vitest run --reporter=dot
+  # Runs vitest and enforces the coverage ratchet in docs/harness/coverage-baseline.json.
+  # A missing vitest install is a hard failure rather than a skip: the gate silently
+  # passing on an uninstalled tool is how a "green" build ends up testing nothing.
+  bash scripts/harness/run-tests.sh --coverage
 }
+
 
 gate_test_rust() {
   (cd src-tauri && cargo test)

@@ -41,15 +41,20 @@ Full report: [`scan-baseline.txt`](scan-baseline.txt). The metrics that must not
 
 ---
 
-## 2. ESLint baseline — 66 files with 123 errors
+## 2. ESLint baseline — 55 files with 94 errors
 
 `sonarjs/cognitive-complexity` is set to **40** (was 200). Installing ESLint for the first
 time surfaced 123 errors. Phase 3 removed the 16 mechanically-safe dead imports; the rest are
 enumerated below and **must not grow**.
 
-**Totals:** 78 `no-unused-vars` · 29 `cognitive-complexity` · 9 `no-collapsible-if` ·
+**Totals:** 49 `no-unused-vars` · 29 `cognitive-complexity` · 9 `no-collapsible-if` ·
 3 `no-all-duplicated-branches` · 1 each of `no-use-before-define`, `import/no-unresolved`,
-`sonarjs/no-identical-conditions`, `sonarjs/no-redundant-jump`.
+`sonarjs/no-identical-conditions`, `sonarjs/no-redundant-jump`. Warnings: 22 `no-explicit-any`.
+
+**The baseline moved from 123 to 94 errors** after wave W4a deleted the 186 unreachable
+files, which removed 29 lint errors along with them — a good illustration of why fixing
+lint findings inside dead code is wasted effort. The authoritative per-file counts live in
+`eslint-baseline.json`; the table below is the Phase 3 snapshot kept for the record.
 
 | File                                                                                                             | Errors | Rules                                                                                       | Removal target         |
 | ---------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- | ---------------------- |

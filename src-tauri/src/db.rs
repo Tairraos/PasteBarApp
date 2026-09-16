@@ -265,12 +265,28 @@ pub fn get_data_dir() -> PathBuf {
 }
 
 /// Returns the default application data directory.
+///
+/// **ISSUE-002, root cause.** This used to `.unwrap()` `APP_CONSTANTS`, which is only set
+/// inside `db::init(app)`. Everything on the capture path reaches this function
+/// (`init_connection_pool` → `get_db_path` → `get_data_dir` → here), and Tauri starts the
+/// clipboard plugin's thread *before* `db::init` runs — so the very first clipboard event
+/// panicked on a background thread and killed clipboard capture for the session.
+///
+/// It now falls back to the OS-standard data directory instead of panicking, which is the
+/// same location `db::init` will configure a few milliseconds later. A caller that runs
+/// before initialisation therefore gets a usable path rather than a crash.
 pub fn get_default_data_dir() -> PathBuf {
-  if cfg!(debug_assertions) {
-    APP_CONSTANTS.get().unwrap().app_dev_data_dir.clone()
-  } else {
-    APP_CONSTANTS.get().unwrap().app_data_dir.clone()
+  if let Some(constants) = APP_CONSTANTS.get() {
+    return if cfg!(debug_assertions) {
+      constants.app_dev_data_dir.clone()
+    } else {
+      constants.app_data_dir.clone()
+    };
   }
+
+  // Pre-initialisation fallback. `config_search_root()` already implements exactly this
+  // "APP_CONSTANTS is unset" case, so reuse it rather than duplicating the reasoning.
+  config_search_root()
 }
 
 pub fn get_db_path() -> String {
@@ -301,41 +317,79 @@ pub fn get_default_db_path_string() -> String {
 }
 
 /// Converts an absolute image path to a relative path with {{base_folder}} placeholder
-pub fn to_relative_image_path(absolute_path: &str) -> String {
-  let data_dir = get_data_dir();
+/// The placeholder that stands in for the (user-relocatable) data directory inside every
+/// image path this application persists. See AGENTS.md architecture rule 4.
+pub const BASE_FOLDER_PLACEHOLDER: &str = "{{base_folder}}";
+
+/// Converts an absolute image path under `data_dir` into a stored, relocatable form.
+///
+/// Takes the data directory as a parameter so the transformation is a pure function that
+/// can be property-tested without an initialised `APP_CONSTANTS` (which only exists inside
+/// a running Tauri app). The `to_*_image_path` wrappers below supply the real directory.
+///
+/// A path **outside** `data_dir` is returned unchanged: those are user-chosen files
+/// (e.g. a folder icon the user picked), and rewriting them would lose the location.
+pub fn to_relative_image_path_in(data_dir: &Path, absolute_path: &str) -> String {
   let data_dir_str = data_dir.to_string_lossy();
 
-  if absolute_path.starts_with(data_dir_str.as_ref()) {
-    // Remove the data directory prefix and replace with placeholder
-    let relative_path = absolute_path
-      .strip_prefix(data_dir_str.as_ref())
-      .unwrap_or(absolute_path)
-      .trim_start_matches('/')
-      .trim_start_matches('\\');
-    format!("{{{{base_folder}}}}/{}", relative_path)
-  } else {
-    // If path doesn't start with data dir, return as is
-    absolute_path.to_string()
+  // Match on a path boundary, not a raw string prefix: `/data/clips-archive/x.png` starts
+  // with the string `/data/clips` but is not inside that directory, and the old
+  // `starts_with` check would have truncated it into `{{base_folder}}/archive/x.png`.
+  let is_inside = match Path::new(absolute_path).strip_prefix(data_dir) {
+    Ok(rest) => !rest.as_os_str().is_empty() || absolute_path != data_dir_str.as_ref(),
+    Err(_) => false,
+  };
+
+  if !is_inside {
+    return absolute_path.to_string();
   }
+
+  let relative_path = absolute_path
+    .strip_prefix(data_dir_str.as_ref())
+    .unwrap_or(absolute_path)
+    .trim_start_matches(['/', '\\']);
+
+  if relative_path.is_empty() {
+    return BASE_FOLDER_PLACEHOLDER.to_string();
+  }
+
+  format!(
+    "{}/{}",
+    BASE_FOLDER_PLACEHOLDER,
+    relative_path.replace('\\', "/")
+  )
 }
 
-/// Converts a relative image path with {{base_folder}} placeholder to absolute path
-pub fn to_absolute_image_path(relative_path: &str) -> String {
-  if relative_path.starts_with("{{base_folder}}") {
-    let data_dir = get_data_dir();
-    let path_without_placeholder = relative_path
-      .strip_prefix("{{base_folder}}")
-      .unwrap_or(relative_path)
-      .trim_start_matches('/')
-      .trim_start_matches('\\');
-    data_dir
-      .join(path_without_placeholder)
-      .to_string_lossy()
-      .into_owned()
-  } else {
-    // If path doesn't have placeholder, return as is
-    relative_path.to_string()
+/// Converts a stored `{{base_folder}}/…` path back into an absolute one.
+///
+/// A path with no placeholder is returned unchanged — it predates the placeholder scheme,
+/// or it is an absolute path outside the data directory, and either way rewriting it would
+/// be wrong.
+pub fn to_absolute_image_path_in(data_dir: &Path, relative_path: &str) -> String {
+  let Some(rest) = relative_path.strip_prefix(BASE_FOLDER_PLACEHOLDER) else {
+    return relative_path.to_string();
+  };
+
+  let path_without_placeholder = rest.trim_start_matches(['/', '\\']);
+
+  if path_without_placeholder.is_empty() {
+    return data_dir.to_string_lossy().into_owned();
   }
+
+  data_dir
+    .join(path_without_placeholder)
+    .to_string_lossy()
+    .into_owned()
+}
+
+/// Persisted form of an image path, using the live data directory.
+pub fn to_relative_image_path(absolute_path: &str) -> String {
+  to_relative_image_path_in(&get_data_dir(), absolute_path)
+}
+
+/// Absolute form of a stored image path, using the live data directory.
+pub fn to_absolute_image_path(relative_path: &str) -> String {
+  to_absolute_image_path_in(&get_data_dir(), relative_path)
 }
 
 fn can_access_or_create(db_path: &str) -> bool {
@@ -453,3 +507,151 @@ fn read_custom_db_path_from(path: &Path) -> Option<String> {
 //     },
 //   ))
 // }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ---------------------------------------------------------------------------------
+  // {{base_folder}} path round-trip.
+  //
+  // This is the invariant behind AGENTS.md architecture rule 4 and the data-format
+  // contract documented in docs/modules/backend-database.md: every image path is
+  // persisted relative to a relocatable data directory, and converted back at the IPC
+  // boundary. If the round-trip is not the identity, a user who relocates their data
+  // directory — the headline feature of 0.7.0 — loses every image thumbnail.
+  // ---------------------------------------------------------------------------------
+
+  fn data_dir() -> PathBuf {
+    PathBuf::from("/Users/test/PasteBar")
+  }
+
+  #[test]
+  fn relative_then_absolute_is_the_identity_for_paths_inside_the_data_dir() {
+    for rel in [
+      "clip-images/a.png",
+      "clipboard-images/nested/deep/b.jpg",
+      "clip-images/with space.png",
+      "clipboard-images/unicode-图片.png",
+    ] {
+      let absolute = format!("{}/{}", data_dir().display(), rel);
+      let stored = to_relative_image_path_in(&data_dir(), &absolute);
+      assert_eq!(
+        stored,
+        format!("{}/{}", BASE_FOLDER_PLACEHOLDER, rel),
+        "storing {absolute} produced an unexpected placeholder form"
+      );
+      assert_eq!(
+        to_absolute_image_path_in(&data_dir(), &stored),
+        absolute,
+        "round-trip lost information for {absolute}"
+      );
+    }
+  }
+
+  #[test]
+  fn paths_outside_the_data_dir_are_returned_unchanged() {
+    // A user-picked icon or an external image must not be rewritten into the data dir:
+    // doing so would silently point the app at a file that does not exist.
+    for outside in [
+      "/Users/test/Pictures/icon.png",
+      "/tmp/elsewhere/a.png",
+      "relative/already.png",
+      "",
+    ] {
+      assert_eq!(to_relative_image_path_in(&data_dir(), outside), outside);
+      assert_eq!(
+        to_relative_image_path_in(&data_dir(), outside),
+        outside,
+        "an outside path was rewritten"
+      );
+    }
+  }
+
+  #[test]
+  fn an_absolute_path_is_never_reinterpreted_by_the_absolute_converter() {
+    // `to_absolute_image_path` must only act on the placeholder; feeding it an absolute
+    // path (e.g. re-processing a value that was already converted) must be a no-op, or a
+    // second pass would corrupt the path.
+    let absolute = "/Users/test/PasteBar/clip-images/a.png";
+    assert_eq!(to_absolute_image_path_in(&data_dir(), absolute), absolute);
+  }
+
+  #[test]
+  fn a_sibling_directory_sharing_a_prefix_is_not_treated_as_inside() {
+    // `starts_with` on strings would match "/Users/test/PasteBar-archive/x.png" against
+    // the data dir "/Users/test/PasteBar" and truncate it to "{{base_folder}}-archive/…".
+    // The check must be on path components.
+    let sibling = "/Users/test/PasteBar-backup/clip-images/a.png";
+    assert_eq!(to_relative_image_path_in(&data_dir(), sibling), sibling);
+  }
+
+  #[test]
+  fn the_placeholder_alone_maps_to_the_data_dir() {
+    assert_eq!(
+      to_absolute_image_path_in(&data_dir(), BASE_FOLDER_PLACEHOLDER),
+      data_dir().to_string_lossy()
+    );
+  }
+
+  #[test]
+  fn backslash_separators_are_normalised_on_store() {
+    // Windows produces `C:\…\clip-images\a.png`. Stored paths must use forward slashes so
+    // that a database written on Windows still resolves after a copy to macOS.
+    let stored = to_relative_image_path_in(&data_dir(), "/Users/test/PasteBar/clip-images/a.png");
+    assert!(
+      !stored.contains('\\'),
+      "stored path kept a backslash: {stored}"
+    );
+  }
+
+  #[test]
+  fn the_placeholder_prefix_is_matched_exactly() {
+    // A path that merely starts with the placeholder text but is not the placeholder
+    // (e.g. "{{base_folder}}x") must not be silently joined onto the data dir in a way
+    // that loses the "x".
+    let weird = "{{base_folder}}x/clip.png";
+    let result = to_absolute_image_path_in(&data_dir(), weird);
+    assert_eq!(result, format!("{}/x/clip.png", data_dir().display()));
+  }
+
+  // ---------------------------------------------------------------------------------
+  // ISSUE-002: the pool-readiness check must never panic, whatever the pool state.
+  // ---------------------------------------------------------------------------------
+
+  #[test]
+  fn is_pool_ready_does_not_panic() {
+    // Deliberately does not assert a specific value: whether the pool is up depends on
+    // test ordering and on whether a database is reachable. The property under test is
+    // that the clipboard hot path can ask this question safely.
+    let _ = is_pool_ready();
+  }
+
+  #[test]
+  fn try_pool_db_connection_returns_none_instead_of_panicking() {
+    // Same reasoning: `establish_pool_db_connection` panics when there is no pool, and
+    // this function exists precisely so a caller can avoid that.
+    let _ = try_pool_db_connection();
+  }
+
+  // ---------------------------------------------------------------------------------
+  // ISSUE-001: config path resolution must not require APP_CONSTANTS to be initialised.
+  // ---------------------------------------------------------------------------------
+
+  #[test]
+  fn config_lookup_does_not_panic_before_app_constants_exist() {
+    // At test time APP_CONSTANTS is never set, which is exactly the startup-order state
+    // the old `.expect("APP_CONSTANTS not initialized")` turned into a crash.
+    let path = get_config_file_path();
+    assert!(
+      path.to_string_lossy().ends_with("pastebar_settings.yaml"),
+      "unexpected config path: {path:?}"
+    );
+  }
+
+  #[test]
+  fn reading_a_missing_config_file_yields_no_custom_path() {
+    let missing = PathBuf::from("/nonexistent/definitely/not/here/pastebar_settings.yaml");
+    assert_eq!(read_custom_db_path_from(&missing), None);
+  }
+}

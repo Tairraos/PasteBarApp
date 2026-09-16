@@ -153,11 +153,18 @@ Both gates are skipped under `--fast` because a cold Tauri build is minutes, not
 
 ---
 
-## Gate 10 — tests (Phase 5)
+## Gates 9–10 — tests
 
-The runner is wired but no tests exist yet (`rust.test_markers = 0`, ISSUE-006). The gate
-reports success when `vitest` is absent, so that Phase 3's gate set is green while Phase 5 is
-pending; it becomes a real requirement the moment the first test file lands.
+`cargo test` (11 tests) and `bash scripts/harness/run-tests.sh --coverage` (24 tests).
+
+Both are **hard gates**. A missing `vitest` install is a failure rather than a skip: a gate
+that silently passes when its tool is absent is how a "green" build ends up testing nothing
+— the exact failure mode this overhaul exists to remove.
+
+The frontend gate additionally enforces the coverage ratchet in
+`docs/harness/coverage-baseline.json`. Coverage is currently low and that is expected — the
+ratchet's job at this stage is that it can no longer _fall_, not that it is high. See
+docs/testing.md §8 for what is still outstanding.
 
 ---
 

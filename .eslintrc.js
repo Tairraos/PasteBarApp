@@ -110,5 +110,16 @@ module.exports = {
       files: ['**/*.d.ts'],
       rules: { 'no-use-before-define': 'off' },
     },
+    {
+      // Test files must name IPC commands exactly as the Rust side registers them, and
+      // those names are snake_case (`get_clipboard_histories`). Forcing camelCase here
+      // would either break the tests or require a rename map that hides typos — which is
+      // precisely what the fake backend's "unknown command throws" rule exists to catch.
+      files: ['**/*.test.ts', '**/*.test.tsx', '**/src/test/**/*.ts'],
+      rules: {
+        camelcase: 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
   ],
 }

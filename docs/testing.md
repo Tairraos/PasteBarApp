@@ -1,19 +1,28 @@
 # Testing
 
-> Last verified: 2026-09-16 · Branch `harnessing` · **Status: Phase 5 pending.**
+> Last verified: 2026-09-16 · Branch `harnessing` · **Status: Phase 5 in progress.**
 
-**There are currently no automated tests in this repository.** `bash scripts/harness/scan.sh`
-reports `rust.test_markers = 0`, and the five files that match test vocabulary are vendored
-copies under `components/libs/react-twitter-embed/tests/cypress/` (ISSUE-006).
+**The test infrastructure now exists and the gate is enforced.** Before Phase 5 this
+repository had zero tests: `scan.sh` reported `rust.test_markers = 0`, and the only files
+matching test vocabulary were vendored Cypress copies (ISSUE-006).
 
-Until Phase 5 lands, verification relies on:
+Current state:
 
-1. `bash scripts/harness/check-all.sh` — the static gates (lint, types, format, IPC drift, docs).
-2. [`smoke-checklist.md`](harness/smoke-checklist.md) — the manual flows, which a green gate run does
-   **not** replace.
+|                  | Backend (`cargo test`) | Frontend (`vitest`)                   |
+| ---------------- | ---------------------- | ------------------------------------- |
+| Tests            | 11                     | 24                                    |
+| Coverage ratchet | n/a                    | 5.02% lines (baseline, may only rise) |
+| Gate             | `check-all.sh` gate 9  | `check-all.sh` gate 10                |
 
-This document specifies what will exist, so that Phase 5 builds it against a fixed target
-rather than inventing structure as it goes.
+Run them with `bash scripts/harness/check-all.sh`, or individually:
+`bash scripts/harness/run-tests.sh` and `npm run test:rust`.
+
+Coverage starts low because the ratchet is deliberately a _floor_, not a target: the point
+at Phase 5 is that coverage can no longer fall. Sections 2–4 below describe the target
+shape; the concrete Phase 5 obligations still outstanding are listed in §8.
+
+Manual verification is still required for anything the suite does not cover — a green gate
+run does **not** replace [`smoke-checklist.md`](harness/smoke-checklist.md).
 
 ---
 
@@ -201,3 +210,48 @@ A suite that never fails is worthless. Before Phase 5 is declared done, revert t
 three separate `BUG` issues (ISSUE-002 and ISSUE-014 are good candidates — startup ordering
 and a scheduler that never ticks) and confirm the corresponding test **fails**. A test that
 stays green when its subject is broken is deleted, not kept.
+
+---
+
+## 8. Phase 5 — outstanding obligations
+
+Done:
+
+- [x] vitest + `@testing-library/react` + jsdom installed and configured
+      (`packages/pastebar-app-ui/vitest.config.mts`).
+- [x] In-memory fake Tauri backend (`src/test/fake-backend.ts`), with the rule that an
+      unhandled command **throws** rather than resolving `undefined`.
+- [x] Test setup shim for the jsdom gaps (`src/test/setup.ts`).
+- [x] `cargo test` wired into the gate suite; `{{base_folder}}` path round-trip property
+      tests plus regression tests for ISSUE-001/002 in `src-tauri/src/db.rs`.
+- [x] Coverage ratchet (`docs/harness/coverage-baseline.json`), enforced by
+      `run-tests.sh --coverage` locally and in CI.
+- [x] Both suites run in `.github/workflows/quality.yml`.
+
+Still to do — recorded here so the boundary between "harness exists" and "harness is
+complete" stays visible:
+
+- [ ] Backend: `services/utils.rs` (`mask_value`, `apply_global_templates`),
+      `history_service::process_history_item`, format converters, language detection.
+- [ ] Backend: a test that builds a SQLite schema from the real `migrations/` directory, so
+      a migration that would fail in production fails in CI. Requires exposing `MIGRATIONS`.
+- [ ] Frontend: `settingsStore` update + `settings-store-sync` broadcast, and store
+      rehydration.
+- [ ] Component render tests for the components split out of the large files in W4.
+- [ ] Raise the coverage floor toward the §4 targets (50% for `lib`/`store`/`hooks`,
+      60% for backend `services/`) and update the baseline in a dedicated commit.
+- [ ] **Break-it check:** revert the fix for ISSUE-002 and ISSUE-014 and confirm the
+      corresponding test fails. A test that stays green when its subject is broken is
+      deleted, not kept.
+
+### Known limitations, stated honestly
+
+- **`cargo test` cannot use the global pool.** `DB_POOL_CONNECTION` is a process-global
+  `lazy_static`, so tests that touch it interfere with each other. The current backend tests
+  are pure functions and side-step this; service tests will need either a connection
+  parameter or `#[serial]`.
+- **The frontend suite does not render real window lifecycle.** Tray behaviour, hotkeys and
+  multi-window focus remain manual (see the smoke checklist).
+- **Coverage scope excludes components** (`src/lib`, `src/store`, `src/hooks` only). That is
+  a deliberate Phase 5 choice: component tests are more expensive per unit of confidence
+  than logic tests, and the logic layers are where the defects in ISSUES.md actually live.

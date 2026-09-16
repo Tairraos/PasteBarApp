@@ -114,7 +114,7 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
   # ---------------------------------------------------------------------------
-  # Frontend tests (Phase 5). Passes trivially until the first test file lands.
+  # Frontend tests and the coverage ratchet.
   # ---------------------------------------------------------------------------
   tests:
     name: Frontend tests
@@ -131,19 +131,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Check whether a test suite exists yet
-        id: has_tests
-        run: |
-          if [ -n "$(git ls-files 'packages/pastebar-app-ui/src/**/*.test.*' | head -1)" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "No test files yet (Phase 5 pending, ISSUE-006). Skipping."
-          fi
-
-      - name: Gate — vitest
-        if: steps.has_tests.outputs.present == 'true'
-        run: npx vitest run --reporter=dot
+      - name: Gate — vitest + coverage ratchet
+        # Coverage may only go up against docs/harness/coverage-baseline.json.
+        run: bash scripts/harness/run-tests.sh --coverage
 
       - name: Gate — production build
         # The build is the only automated proof that the frontend still compiles and that

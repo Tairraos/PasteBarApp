@@ -399,6 +399,18 @@ commit messages written against this revision. **No action required.**
 `行为变更 | 无`
 `所属阶段 | 4 (W5)`
 
+### ISSUE-031 · Root and workspace packages declared different React majors
+
+`ID | ISSUE-031`
+`位置 | package.json:120,126 (react/react-dom ^19.0.0) vs packages/pastebar-app-ui/package.json (react/react-dom ^18.3.1)`
+`类型 | BUG`
+`风险等级 | P1`
+`影响范围 | Dependency resolution; build reproducibility; every frontend test`
+`现象与依据 |` Root `package.json` declared `react@^19.0.0` and `react-dom@^19.0.0` while the only package that actually renders React (`packages/pastebar-app-ui`) declared `^18.3.1`, and `@types/react` was `^18.2.39` at the root. npm therefore installed **two React copies**: 19.0.0 at the root and 18.3.1 nested in the UI package. Nothing failed at build time because Vite resolved `react` from the UI package for application code — but any dependency hoisted to the root that imports React itself (`@tanstack/react-query`, `@testing-library/react`) received React 19. The symptom appeared only once tests existed: rendering a component produced "A React Element from an older version of React was rendered", because the provider tree and the component tree came from different copies. The 408 pre-existing type errors were also being checked against React 18 types while the root shipped 19.
+`建议方案 |` Align the root declarations to `^18.3.1`, matching `@types/react@18` and the UI package. Done in Phase 5 setup — it is behaviour-preserving for the shipped bundle (which already resolved React 18 from the UI package) and removes the dual install. `react-compiler-runtime@19.0.0-beta` is a standalone runtime shim pulled in by the React Compiler babel transform and is unaffected.
+`行为变更 | 无（打包产物解析的 React 版本不变，仅去除重复安装）`
+`所属阶段 | 5`
+
 ---
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)
