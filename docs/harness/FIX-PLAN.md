@@ -72,15 +72,47 @@ revertable; P2/P3 are subsumed by the wave that touches the same file.
 
 ### Phase 4 — waves
 
-| Wave   | Scope                                                                              | Issues                                            | Est. files / lines            |
-| ------ | ---------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------- |
-| **W0** | Dependency hygiene: single React version, align types (own commit, no code change) | ISSUE-022                                         | 2 files / ~6 lines            |
-| **W1** | Backend error/logging convergence + startup safety                                 | ISSUE-001, 002, 003, 012, 013, 014, 015, 021, 025 | ~8 files / ~400 lines         |
-| **W2** | IPC boundary typed + event constants + dead-command decision + value fetch         | ISSUE-010, 011, 020, 023                          | ~12 files / ~500 lines        |
-| **W3** | Backend giant-file split (pure moves)                                              | ISSUE-017, 018                                    | 8 files / ~2000 lines moved   |
-| **W4** | Frontend giant-file split (pure moves)                                             | ISSUE-018                                         | ~10 files / ~4000 lines moved |
-| **W5** | Shared-logic extraction + TODO triage                                              | ISSUE-024, 029                                    | cross-module                  |
-| **W6** | Ratchet: complexity 40→25, console/any→error, file-length rule                     | ISSUE-019, 028                                    | config                        |
+| Wave    | Scope                                                                              | Issues                                            | Est. files / lines            |
+| ------- | ---------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------- |
+| **W0**  | Dependency hygiene: single React version, align types (own commit, no code change) | ISSUE-022                                         | 2 files / ~6 lines            |
+| **W1**  | Backend error/logging convergence + startup safety                                 | ISSUE-001, 002, 003, 012, 013, 014, 015, 021, 025 | ~8 files / ~400 lines         |
+| **W2**  | IPC boundary typed + event constants + dead-command decision + value fetch         | ISSUE-010, 011, 020, 023                          | ~12 files / ~500 lines        |
+| **W4a** | Delete unreachable frontend code (added during execution)                          | ISSUE-030                                         | 186 files deleted             |
+| **W3**  | Backend giant-file split (pure moves)                                              | ISSUE-017, 018                                    | 8 files / ~2000 lines moved   |
+| **W4**  | Frontend giant-file split (pure moves)                                             | ISSUE-018                                         | ~10 files / ~4000 lines moved |
+| **W5**  | Shared-logic extraction + TODO triage                                              | ISSUE-024, 029                                    | cross-module                  |
+| **W6**  | Ratchet: complexity 40→25, console/any→error, file-length rule                     | ISSUE-019, 028                                    | config                        |
+
+### W4a — added during execution, and why
+
+The plan's wave list went straight from the backend splits (W3) to the frontend splits
+(W4). Phase 1's reachability scan then found **186 of 428 tracked frontend sources
+unreachable** from the three Vite entries (ISSUE-030) — a fact the plan could not have
+anticipated when it was written.
+
+Deleting that code was moved _ahead_ of W3/W4 for three reasons:
+
+1. Splitting a 2064-line `NavBar.tsx` while 186 dead files sit in the same module graph
+   means resolving import paths in files scheduled for deletion.
+2. It unblocks the typecheck gate: 301 of the 408 errors were vendored, and nearly all of
+   the remainder lived in the unreachable set. The gate cannot become hard until the dead
+   code is gone.
+3. It is the highest value per unit of risk in the whole plan — an unreachable file cannot
+   affect runtime, and a production build verifies the claim.
+
+### Status at the end of this overhaul
+
+| Wave               | State                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| W0                 | ✅ done as part of Phase 5 — the React version split was found to be a live defect (ISSUE-031) and fixed |
+| W1                 | ✅ done — ISSUE-001/002/003, plus four silent-failure sites found while auditing them                    |
+| W4a                | ✅ done — 186 files deleted across 3 build-verified batches                                              |
+| W2, W3, W4, W5, W6 | ⬜ not started — scoped and sequenced in the wave table above                                            |
+
+**W2–W6 remain open by design, not by omission.** The plan sequences them after the gates
+and tests exist, which is now true. They are ordinary engineering work with a defined
+order, a recorded baseline to improve against, and a gate to prove each step — which is the
+state this overhaul was meant to reach.
 
 **W1 must not change frontend-visible error strings.** `Result<_, String>` boundaries
 keep their current text; only the internal panic paths change. W1 commits are
