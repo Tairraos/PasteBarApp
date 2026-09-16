@@ -9,7 +9,7 @@ copies under `components/libs/react-twitter-embed/tests/cypress/` (ISSUE-006).
 Until Phase 5 lands, verification relies on:
 
 1. `bash scripts/harness/check-all.sh` — the static gates (lint, types, format, IPC drift, docs).
-2. [`smoke-checklist.md`](smoke-checklist.md) — the manual flows, which a green gate run does
+2. [`smoke-checklist.md`](harness/smoke-checklist.md) — the manual flows, which a green gate run does
    **not** replace.
 
 This document specifies what will exist, so that Phase 5 builds it against a fixed target
@@ -19,12 +19,12 @@ rather than inventing structure as it goes.
 
 ## 1. The pyramid
 
-| Level          | Tool                                          | Scope                                                              | Runs in              |
-| -------------- | --------------------------------------------- | ------------------------------------------------------------------ | -------------------- |
-| Rust unit      | `cargo test`                                  | pure logic in `services/`, Diesel queries against SQLite in-memory | CI (`macos-latest`)  |
-| Frontend unit  | `vitest` + `@testing-library/react` + `jsdom` | stores, hooks, pure helpers                                        | CI (`ubuntu-latest`) |
-| Contract       | vitest against the fake backend               | every documented IPC command/event                                 | CI                   |
-| Smoke (manual) | [`smoke-checklist.md`](smoke-checklist.md)    | window lifecycle, tray, OS clipboard                               | human, per wave      |
+| Level          | Tool                                               | Scope                                                              | Runs in              |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------------------ | -------------------- |
+| Rust unit      | `cargo test`                                       | pure logic in `services/`, Diesel queries against SQLite in-memory | CI (`macos-latest`)  |
+| Frontend unit  | `vitest` + `@testing-library/react` + `jsdom`      | stores, hooks, pure helpers                                        | CI (`ubuntu-latest`) |
+| Contract       | vitest against the fake backend                    | every documented IPC command/event                                 | CI                   |
+| Smoke (manual) | [`smoke-checklist.md`](harness/smoke-checklist.md) | window lifecycle, tray, OS clipboard                               | human, per wave      |
 
 No heavy e2e: automating Tauri windows is expensive and brittle relative to what it catches
 here (HARNESS_PLAN §10.4). The fake backend plus the contract tests cover the seam that e2e
@@ -111,7 +111,7 @@ baseline.
 ### The fake backend (Phase 5.2)
 
 Every frontend test that touches IPC runs against an in-memory implementation driven by
-[`contracts/tauri-ipc.md`](../contracts/tauri-ipc.md):
+[`contracts/tauri-ipc.md`](contracts/tauri-ipc.md):
 
 ```ts
 // src/test/fake-backend.ts (shape, not final)

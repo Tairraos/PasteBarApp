@@ -1,5 +1,4 @@
 use crate::clipboard::LanguageDetectOptions;
-use diesel::dsl::select;
 
 use lazy_static::lazy_static;
 
@@ -32,7 +31,7 @@ use std::path::{Path, PathBuf};
 
 use std::io::Cursor;
 
-use crate::db::{self, APP_CONSTANTS};
+use crate::db::{self};
 use crate::schema::clipboard_history;
 use crate::schema::clipboard_history::dsl::*;
 use crate::schema::link_metadata;
@@ -44,11 +43,6 @@ use crate::services::utils::{
   debug_output, delete_file_and_maybe_parent, has_emoji, has_valid_tld, is_base64_image,
   is_image_url, is_youtube_url, mask_value, remove_dir_if_exists,
 };
-
-use super::utils::is_valid_json;
-
-use diesel::debug_query;
-use diesel::sqlite::Sqlite;
 
 type ImageHashSize = [u8; 8];
 
@@ -291,7 +285,7 @@ pub fn add_clipboard_history_from_image(
     // Convert absolute path to relative path before storing
     let relative_image_path = image_file_name
       .to_str()
-      .map(|path| db::to_relative_image_path(path))
+      .map(db::to_relative_image_path)
       .unwrap_or_default();
 
     let new_history = create_new_history(
@@ -485,7 +479,7 @@ pub fn add_clipboard_history_from_text(
     let mut _has_emoji = false;
     let mut found_links_json = String::new();
 
-    let _is_code = !detected_language_str.is_none();
+    let _is_code = detected_language_str.is_some();
 
     if !_is_code {
       let mut links_finder = LinkFinder::new();
@@ -675,7 +669,7 @@ pub fn delete_clipboard_history_older_than(
 
   for item in image_items_to_delete.iter() {
     if let Some(ref path) = item.image_path_full_res {
-      if let Err(e) = delete_file_and_maybe_parent(&Path::new(path)) {
+      if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
         eprintln!("Error deleting image file {}: {}", path, e);
       }
     }
@@ -770,7 +764,7 @@ pub fn delete_recent_clipboard_history(
 
   for item in image_items {
     if let Some(ref path) = item.image_path_full_res {
-      if let Err(e) = delete_file_and_maybe_parent(&Path::new(path)) {
+      if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
         eprintln!("Error deleting image file {}: {}", path, e);
       }
     }
@@ -854,7 +848,7 @@ pub fn delete_all_clipboard_histories(keep_pinned: bool, keep_starred: bool) -> 
     for item in items_to_delete.iter() {
       if item.is_image == Some(true) {
         if let Some(ref path) = item.image_path_full_res {
-          if let Err(e) = delete_file_and_maybe_parent(&Path::new(path)) {
+          if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
             eprintln!("Error deleting image file {}: {}", path, e);
           }
         }
@@ -897,14 +891,14 @@ pub fn delete_clipboard_history_by_ids(history_ids_value: &[String]) -> String {
 
   for item in image_items_to_delete.iter() {
     if let Some(ref path) = item.image_path_full_res {
-      match delete_file_and_maybe_parent(&Path::new(path)) {
+      match delete_file_and_maybe_parent(Path::new(path)) {
         Ok(_) => println!("Successfully deleted image file: {}", path),
         Err(e) => eprintln!("Error deleting image file {}: {}", path, e),
       }
     }
   }
 
-  delete_link_metadata_by_history_ids(&history_ids_value);
+  delete_link_metadata_by_history_ids(history_ids_value);
 
   let _ = diesel::delete(clipboard_history.filter(history_id.eq_any(history_ids_value)))
     .execute(connection);
@@ -1303,7 +1297,7 @@ fn process_history_item(
 
     for (word, pattern) in auto_mask_words_list.iter().zip(&regex_patterns) {
       if _value_lower.contains(&word.to_lowercase()) {
-        let masked_word = mask_value(&mut word.clone());
+        let masked_word = mask_value(&word.clone());
         _value = pattern.replace_all(&_value, &masked_word).to_string();
         _is_masked = true;
       }

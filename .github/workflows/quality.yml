@@ -57,11 +57,11 @@ jobs:
       - name: Gate — documentation links and staleness
         run: bash scripts/harness/docs-lint.sh
 
-      - name: Gate — ESLint
-        run: npx eslint . --ext .ts,.tsx
+      - name: Gate — ESLint (ratchet)
+        run: node scripts/harness/lint-ratchet.mjs
 
       - name: Gate — Prettier formatting
-        run: npx prettier --check . --ignore-path .gitignore
+        run: npx prettier --check . --ignore-path .prettierignore
 
       - name: Gate — TypeScript (advisory until W4a)
         # 408 pre-existing errors, almost all in the 191 unreachable source files
@@ -99,10 +99,16 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Gate — rustfmt
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+        # Checks each file individually rather than `cargo fmt --check`, so the generated
+        # src/schema.rs (4-space indent, from `diesel print-schema`) can be skipped on
+        # stable rustfmt and src-tauri/libs/** stays out of scope. See gates.md.
+        run: bash scripts/harness/check-rustfmt.sh
 
-      - name: Gate — clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Gate — clippy (ratchet)
+        # Counts only clippy::* lints in this crate and fails on an increase over
+        # docs/harness/clippy-baseline.json, rather than on the ~650 warnings the crate
+        # emits overall (mostly rustc lints and dependency noise).
+        run: node scripts/harness/clippy-ratchet.mjs
 
       - name: Gate — cargo test
         run: cargo test --manifest-path src-tauri/Cargo.toml

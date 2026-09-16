@@ -65,11 +65,11 @@ pub fn init(app: &mut tauri::App) {
 `APP_CONSTANTS` is a `OnceCell` holding `app_data_dir`, `app_dev_data_dir` and the supported
 language list. Everything that resolves a path depends on it being set:
 
-| Consumer                 | Line             | Failure mode if unset                                      |
-| ------------------------ | ---------------- | ---------------------------------------------------------- |
-| `get_default_data_dir()` | `db.rs:241-247`  | `.unwrap()` on the `OnceCell`                              |
-| `get_config_file_path()` | `db.rs:346, 375` | `.expect("APP_CONSTANTS not initialized")` / `.unwrap()`   |
-| `main.rs:267, 299`       | —                | returns a friendly `"APP_CONSTANTS not initialized"` error |
+| Consumer                         | Line             | Failure mode if unset                                      |
+| -------------------------------- | ---------------- | ---------------------------------------------------------- |
+| `get_default_data_dir()`         | `db.rs:241-247`  | `.unwrap()` on the `OnceCell`                              |
+| `get_config_file_path()`         | `db.rs:346, 375` | `.expect("APP_CONSTANTS not initialized")` / `.unwrap()`   |
+| `src-tauri/src/main.rs:267, 299` | —                | returns a friendly `"APP_CONSTANTS not initialized"` error |
 
 `get_data_dir()` (`db.rs:231-238`) is the single indirection point:
 

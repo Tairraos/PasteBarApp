@@ -56,7 +56,7 @@ where
     clipboard_manager: Arc<Mutex<ClipboardManager>>,
   ) -> Self {
     Self {
-      app_handle: app_handle,
+      app_handle,
       running,
       clipboard_manager,
     }
@@ -285,7 +285,7 @@ where
       if refresh_value == "ok" {
         let _ = self.app_handle.emit_all(
           "clipboard://clipboard-monitor/update",
-          format!("clipboard update"),
+          "clipboard update".to_string(),
         );
       }
     }
@@ -329,9 +329,7 @@ impl ClipboardManager {
     let img = image::load_from_memory(&decoded).map_err(|err| err.to_string())?;
     let pixels = img
       .pixels()
-      .into_iter()
-      .map(|(_, _, pixel)| pixel.0)
-      .flatten()
+      .flat_map(|(_, _, pixel)| pixel.0)
       .collect::<Vec<_>>();
     let img_data = ImageData {
       height: img.height() as usize,

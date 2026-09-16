@@ -183,9 +183,7 @@ pub fn write_image_to_clipboard(base64_image: String) -> Result<(), String> {
   let img = image::load_from_memory(&decoded).map_err(|err| err.to_string())?;
   let pixels = img
     .pixels()
-    .into_iter()
-    .map(|(_, _, pixel)| pixel.0)
-    .flatten()
+    .flat_map(|(_, _, pixel)| pixel.0)
     .collect::<Vec<_>>();
   let img_data = ImageData {
     height: img.height() as usize,
@@ -218,22 +216,22 @@ pub async fn copy_clip_item(
   if let (Some(true), true) = (item.is_link, copy_from_menu) {
     match &item.value {
       Some(link) => match opener::open(ensure_url_or_email_prefix(link)) {
-        Ok(_) => return "link_or_app".to_string(),
-        Err(e) => return format!("Failed to open url: {}", e),
+        Ok(_) => "link_or_app".to_string(),
+        Err(e) => format!("Failed to open url: {}", e),
       },
-      None => return "Url path is not valid".to_string(),
+      None => "Url path is not valid".to_string(),
     }
   } else if let (Some(true), true) = (item.is_path, copy_from_menu) {
     match &item.value {
       Some(app_path) => match opener::open(app_path) {
-        Ok(_) => return "link_or_app".to_string(),
-        Err(e) => return format!("Failed to open app path: {}", e),
+        Ok(_) => "link_or_app".to_string(),
+        Err(e) => format!("Failed to open app path: {}", e),
       },
-      None => return "App path is not valid".to_string(),
+      None => "App path is not valid".to_string(),
     }
   } else if let Some(true) = item.is_template {
     if let Some(template_options) = &item.form_template_options {
-      let all_options: Result<FormTemplateOptions, _> = serde_json::from_str(&template_options);
+      let all_options: Result<FormTemplateOptions, _> = serde_json::from_str(template_options);
 
       match all_options {
         Ok(options) => {
@@ -257,22 +255,22 @@ pub async fn copy_clip_item(
             }
             Err(e) => {
               eprintln!("Failed to fill template: {}", e);
-              return "Failed to fill template".to_string();
+              "Failed to fill template".to_string()
             }
           }
         }
         Err(e) => {
           eprintln!("Failed to deserialize template options: {}", e);
-          return "Template options are not valid".to_string();
+          "Template options are not valid".to_string()
         }
       }
     } else {
-      return "Template options are not provided".to_string();
+      "Template options are not provided".to_string()
     }
   } else if let Some(true) = item.is_form {
     if let Some(form_options) = &item.form_template_options {
       let all_options: FormTemplateOptions =
-        serde_json::from_str(&form_options).unwrap_or_else(|_| FormTemplateOptions {
+        serde_json::from_str(form_options).unwrap_or_else(|_| FormTemplateOptions {
           form_options: FormOptions {
             fields: Vec::new(),
             open_url: None,
@@ -285,7 +283,7 @@ pub async fn copy_clip_item(
         .await
         .unwrap_or_else(|e| e)
     } else {
-      return "Form options are not valid".to_string();
+      "Form options are not valid".to_string()
     }
   } else if let Some(true) = item.is_command {
     if let Some(command) = &item.value {
@@ -324,11 +322,7 @@ pub async fn copy_clip_item(
           "ok".to_string()
         }
         Err(e) => {
-          handle_response(
-            &app_handle,
-            item_id.clone(),
-            format!("[Err]{}", e.to_string()),
-          );
+          handle_response(&app_handle, item_id.clone(), format!("[Err]{}", e));
           "Command execution failed".to_string()
         }
       }
@@ -345,7 +339,7 @@ pub async fn copy_clip_item(
 
       let options_json = serde_json::to_string(&options).unwrap();
 
-      thread::sleep(Duration::from_secs(1 as u64));
+      thread::sleep(Duration::from_secs(1_u64));
 
       let request = match serde_json::from_str::<HttpScraping>(&options_json) {
         Ok(req) => req,
@@ -365,11 +359,7 @@ pub async fn copy_clip_item(
         }
         Err(e) => {
           eprintln!("Web scraping failed: {}", e);
-          handle_response(
-            &app_handle,
-            item_id.clone(),
-            format!("[Err]{}", e.to_string()),
-          );
+          handle_response(&app_handle, item_id.clone(), format!("[Err]{}", e));
           "Web scraping failed".to_string()
         }
       }
@@ -387,7 +377,7 @@ pub async fn copy_clip_item(
 
       let options_json = serde_json::to_string(&options).unwrap();
 
-      thread::sleep(Duration::from_secs(1 as u64));
+      thread::sleep(Duration::from_secs(1_u64));
       let request = match serde_json::from_str::<HttpRequest>(&options_json) {
         Ok(req) => req,
         Err(_) => {
@@ -412,11 +402,7 @@ pub async fn copy_clip_item(
         }
         Err(e) => {
           eprintln!("Web request failed: {}", e);
-          handle_response(
-            &app_handle,
-            item_id.clone(),
-            format!("[Err]{}", e.to_string()),
-          );
+          handle_response(&app_handle, item_id.clone(), format!("[Err]{}", e));
           "Web request failed".to_string()
         }
       }
@@ -478,11 +464,11 @@ pub async fn copy_paste_clip_item_from_menu(
 ) -> String {
   let is_link_or_app = copy_clip_item(app_handle, item_id.clone(), true).await;
 
-  if is_link_or_app == "link_or_app".to_string() {
+  if is_link_or_app == "link_or_app" {
     return "ok".to_string();
   }
 
-  if is_link_or_app == "ok".to_string() {
+  if is_link_or_app == "ok" {
     let item = match get_item_by_id(item_id.clone()) {
       Ok(i) => i,
       Err(e) => {

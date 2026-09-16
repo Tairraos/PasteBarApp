@@ -290,7 +290,7 @@ pub async fn run_web_scraping(request: HttpScraping) -> Result<ContentScraping, 
   let status = response.status().as_u16();
   let body = response.text().await.map_err(|e| e.to_string())?;
   let mut results: Vec<String> = Vec::new();
-  let mut results_count = 0 as i32;
+  let mut results_count = 0_i32;
   let mut has_rules_error = false;
 
   if let Some(rules) = request.scraping_rules {
@@ -374,7 +374,7 @@ pub async fn run_web_scraping(request: HttpScraping) -> Result<ContentScraping, 
     let default_results_count = request
       .scraping_options
       .return_count
-      .unwrap_or_else(|| results.len() as i32);
+      .unwrap_or(results.len() as i32);
 
     let get_results_based_on_position =
       |results: &Vec<String>, position: &Option<RuleReturnPositionType>| match position {
@@ -410,7 +410,7 @@ pub async fn run_web_scraping(request: HttpScraping) -> Result<ContentScraping, 
               .take(results_count as usize)
               .cloned()
               .collect::<Vec<_>>()
-              .join(&separator)
+              .join(separator)
               .trim()
               .to_string()
           }
@@ -434,7 +434,7 @@ pub async fn run_web_scraping(request: HttpScraping) -> Result<ContentScraping, 
 
   Ok(ContentScraping {
     body: body.clone(),
-    found_count: Some(results_count as i32),
+    found_count: Some(results_count),
     scrapped_body: Some(scrapped_body),
     status,
     has_rules_error: if has_rules_error { Some(true) } else { None },
@@ -483,7 +483,7 @@ fn apply_jsonpath_filter(input: &str, expression: &str) -> Result<String, String
 }
 
 fn apply_regex_filter(input: &str, expression: &str) -> Result<String, String> {
-  let re = Regex::new(&expression).map_err(|e| format!("Failed to apply Regex filter: {}", e))?;
+  let re = Regex::new(expression).map_err(|e| format!("Failed to apply Regex filter: {}", e))?;
 
   let matches: Vec<String> = re
     .find_iter(input)
@@ -523,7 +523,7 @@ fn apply_regex_filter_find(input: &str, expression: &str) -> Result<Vec<String>,
     return Ok(vec![input.to_string()]);
   }
 
-  let re = Regex::new(&expression).map_err(|e| format!("Failed to apply Regex filter: {}", e))?;
+  let re = Regex::new(expression).map_err(|e| format!("Failed to apply Regex filter: {}", e))?;
 
   if re.is_match(input) {
     Ok(vec![input.to_string()])
@@ -556,7 +556,7 @@ fn apply_regex_replace_filter(
   expression: &str,
 ) -> Result<String, String> {
   let re =
-    Regex::new(&expression).map_err(|e| format!("Failed to apply Regex replace filter: {}", e))?;
+    Regex::new(expression).map_err(|e| format!("Failed to apply Regex replace filter: {}", e))?;
   let replace_value = replace.unwrap_or("");
 
   let filtered_result = re.replace_all(input, replace_value).to_string();
@@ -620,9 +620,10 @@ fn apply_css_selector(
           let has_text_value_lower = has_text_value.to_lowercase();
 
           if text_lower.contains(&has_text_value_lower) {
-            if let Some(_) = return_attribute
+            if return_attribute
               .as_ref()
               .filter(|attr| !attr.trim().is_empty())
+              .is_some()
             {
               return_attribute_value_or_text(
                 &element,

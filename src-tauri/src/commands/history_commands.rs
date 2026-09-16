@@ -1,7 +1,7 @@
 use crate::models::models::UpdatedHistoryData;
 use crate::models::{ClipboardHistory, Setting};
 use crate::services::history_service::{self, ClipboardHistoryWithMetaData};
-use crate::services::utils::{ensure_url_prefix, is_base64_image, pretty_print_struct};
+use crate::services::utils::{ensure_url_prefix, is_base64_image};
 use chrono::{Duration, Local};
 use url::Url;
 
@@ -280,7 +280,7 @@ pub async fn save_to_file_history_item(
 
       let file_name = parsed_url
         .path_segments()
-        .and_then(|segments| segments.last())
+        .and_then(|mut segments| segments.next_back())
         .and_then(|name| {
           if name.is_empty() {
             None
@@ -300,12 +300,12 @@ pub async fn save_to_file_history_item(
 
         // Save the MP3 file
         std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
-        return Ok("saved".to_string());
+        Ok("saved".to_string())
       } else {
-        return Ok("cancel".to_string());
+        Ok("cancel".to_string())
       }
     } else {
-      return Err("No URL found for MP3 download".to_string());
+      Err("No URL found for MP3 download".to_string())
     }
   } else if let Some(true) = as_image {
     let mut img_data: Option<Vec<u8>> = None;
@@ -313,8 +313,8 @@ pub async fn save_to_file_history_item(
 
     if let Some(true) = history_item.is_image_data {
       if let Some(_base64_string) = &history_item.value {
-        if is_base64_image(&_base64_string) {
-          let base64_data = _base64_string.split(',').nth(1).unwrap_or(&_base64_string);
+        if is_base64_image(_base64_string) {
+          let base64_data = _base64_string.split(',').nth(1).unwrap_or(_base64_string);
           img_data = Some(base64::decode(base64_data).map_err(|e| e.to_string())?);
         } else {
           return Err("Provided string is not a valid base64 image data".to_string());
@@ -331,7 +331,7 @@ pub async fn save_to_file_history_item(
         let parsed_url = Url::parse(&ensure_url_prefix(image_url)).map_err(|e| e.to_string())?;
         file_name = parsed_url
           .path_segments()
-          .and_then(|segments| segments.last())
+          .and_then(|mut segments| segments.next_back())
           .unwrap_or(&file_name)
           .to_string();
 
@@ -347,12 +347,12 @@ pub async fn save_to_file_history_item(
 
       if let Some(path) = destination_path {
         std::fs::write(&path, data).map_err(|e| e.to_string())?;
-        return Ok("saved".to_string());
+        Ok("saved".to_string())
       } else {
-        return Ok("cancel".to_string());
+        Ok("cancel".to_string())
       }
     } else {
-      return Err("Failed to obtain image data".to_string());
+      Err("Failed to obtain image data".to_string())
     }
   } else {
     let value = match &history_item.value {
@@ -370,9 +370,9 @@ pub async fn save_to_file_history_item(
       file
         .write_all(value.as_bytes())
         .map_err(|e| e.to_string())?;
-      return Ok("saved".to_string());
+      Ok("saved".to_string())
     } else {
-      return Ok("cancel".to_string());
+      Ok("cancel".to_string())
     }
   }
 }

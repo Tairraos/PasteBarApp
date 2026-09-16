@@ -257,7 +257,7 @@ pub fn delete_all_link_metadata_with_history_ids() -> String {
 
 fn is_valid_audio_file(url: &reqwest::Url) -> bool {
   let path = Path::new(url.path());
-  let extension_valid = path.extension().map_or(false, |ext| ext == "mp3");
+  let extension_valid = path.extension().is_some_and(|ext| ext == "mp3");
   let mime = from_path(path).first_or_octet_stream();
   extension_valid && mime.type_() == mime::AUDIO
 }

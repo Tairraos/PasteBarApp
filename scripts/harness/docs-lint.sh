@@ -57,10 +57,15 @@ for f in $DOC_FILES; do
 done
 
 # --- 3. code reference validity ---------------------------------------------
-# Matches `path/to/file.ext:123` inside backticks. A bare basename (e.g. `main.rs:1061`)
-# is accepted when exactly one tracked file has that basename; an ambiguous one is
-# reported so the reference can be qualified. Only docs/ is checked: the root
-# README/CHANGELOG reference release assets rather than source files.
+# Matches `path/to/file.ext:123` inside backticks. Resolution order:
+#   1. the literal path, relative to the repository root;
+#   2. the path as a suffix of a tracked path (so `services/utils.rs` resolves to
+#      `src-tauri/src/services/utils.rs`, which is how these docs are written — the
+#      fully-qualified path is noise when the doc is discussing one subtree);
+#   3. a bare basename, when exactly one tracked file has it.
+# A suffix or basename matching more than one tracked file is reported, because that is a
+# genuinely ambiguous reference the reader cannot resolve either.
+# Only docs/ is checked: the root README/CHANGELOG reference release assets, not sources.
 for f in $DOC_FILES; do
   case "$f" in docs/*) ;; *) continue ;; esac
   refs=$(grep -oE '`[A-Za-z0-9_./-]+\.(rs|ts|tsx|js|mjs|json|toml|yml|yaml|sh|html|mts):[0-9]+' "$f" 2>/dev/null | tr -d '`' || true)
@@ -68,25 +73,24 @@ for f in $DOC_FILES; do
   for ref in $refs; do
     p="${ref%%:*}"
     line="${ref##*:}"
-    case "$p" in
-      */*) resolved="$p" ;;
-      *)   esc=$(printf '%s' "$p" | sed 's/[.[*^$\\]/\\&/g')
-           hits=$(git ls-files | grep -E "(^|/)${esc}$" || true)
-           n=$(printf '%s\n' "$hits" | grep -c . || true)
-           if [ "$n" -eq 0 ]; then
-             fail "$f references '$p' which matches no tracked file"
-             continue
-           fi
-           if [ "$n" -gt 1 ]; then
-             fail "$f references ambiguous bare filename '$p' ($n matches) — qualify it with a path"
-             continue
-           fi
-           resolved="$hits" ;;
-    esac
-    if [ ! -f "$resolved" ]; then
-      fail "$f references '$p' which does not exist"
-      continue
+
+    if [ -f "$p" ]; then
+      resolved="$p"
+    else
+      esc=$(printf '%s' "$p" | sed 's/[.[*^$\\]/\\&/g')
+      hits=$(git ls-files | grep -E "(^|/)${esc}$" || true)
+      n=$(printf '%s\n' "$hits" | grep -c . || true)
+      if [ "$n" -eq 0 ]; then
+        fail "$f references '$p' which matches no tracked file"
+        continue
+      fi
+      if [ "$n" -gt 1 ]; then
+        fail "$f references ambiguous path '$p' ($n matches) — qualify it with more of the path"
+        continue
+      fi
+      resolved="$hits"
     fi
+
     total=$(wc -l < "$resolved")
     if [ "$line" -gt "$total" ]; then
       fail "$f references $p:$line but the file has only $total lines"

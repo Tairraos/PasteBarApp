@@ -278,10 +278,10 @@ pub fn to_relative_image_path(absolute_path: &str) -> String {
   let data_dir = get_data_dir();
   let data_dir_str = data_dir.to_string_lossy();
 
-  if absolute_path.starts_with(&data_dir_str.as_ref()) {
+  if absolute_path.starts_with(data_dir_str.as_ref()) {
     // Remove the data directory prefix and replace with placeholder
     let relative_path = absolute_path
-      .strip_prefix(&data_dir_str.as_ref())
+      .strip_prefix(data_dir_str.as_ref())
       .unwrap_or(absolute_path)
       .trim_start_matches('/')
       .trim_start_matches('\\');
@@ -329,7 +329,7 @@ fn can_access_or_create(db_path: &str) -> bool {
     .read(true)
     .write(true)
     .create(true)
-    .open(&path)
+    .open(path)
   {
     Ok(_file) => true,
     Err(e) => {

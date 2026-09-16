@@ -10,7 +10,6 @@ extern crate objc;
 use auto_launch::AutoLaunchBuilder;
 use dotenv::dotenv;
 use menu::DbRecentHistoryItems;
-use opener;
 // use schema::clipboard_history::history_id;
 use services::settings_service::insert_or_update_setting_by_name;
 use services::utils;
@@ -18,7 +17,6 @@ use services::utils::debug_output;
 use tokio::time::sleep;
 // use simple_cache::SimpleCache;
 use std::env::current_exe;
-use std::fs;
 use std::thread;
 use tauri::Menu;
 use tauri::MenuItem;
@@ -80,13 +78,8 @@ use tauri::SystemTrayEvent;
 
 use fns::debounce;
 use inputbot::KeybdKey::*;
-use once_cell::sync::Lazy;
-use std::ptr;
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration as StdDuration;
-use std::time::Instant;
-use tokio::sync::Mutex as TokioMutex;
 use window_state::AppHandleExt;
 use window_state::StateFlags;
 
@@ -191,7 +184,7 @@ fn update_left_click_tray_env(is_toggle_enabled: bool, is_disabled: bool) -> Res
 
 #[cfg(target_os = "macos")]
 #[tauri::command]
-fn update_left_click_tray_env(is_toggle_enabled: bool, is_disabled: bool) -> Result<(), String> {
+fn update_left_click_tray_env(_is_toggle_enabled: bool, _is_disabled: bool) -> Result<(), String> {
   Ok(())
 }
 
@@ -201,7 +194,7 @@ fn is_autostart_enabled() -> Result<bool, bool> {
 
   let auto_start = AutoLaunchBuilder::new()
     .set_app_name("PasteBar")
-    .set_app_path(&current_exe.to_str().unwrap())
+    .set_app_path(current_exe.to_str().unwrap())
     .set_use_launch_agent(true)
     .build()
     .unwrap();
@@ -215,7 +208,7 @@ fn autostart(enabled: bool) -> Result<bool, bool> {
 
   let auto_start = AutoLaunchBuilder::new()
     .set_app_name("PasteBar")
-    .set_app_path(&current_exe.to_str().unwrap())
+    .set_app_path(current_exe.to_str().unwrap())
     .set_use_launch_agent(true)
     .build()
     .unwrap();
@@ -281,7 +274,7 @@ fn app_ready(app_handle: tauri::AppHandle) -> Result<String, String> {
   }
 
   let response = AppReadyResponse {
-    constants: constants,
+    constants,
     permissionstrusted: is_permissions_trusted,
     settings: &app_settings,
   };
@@ -301,7 +294,7 @@ fn get_app_settings(app_handle: tauri::AppHandle) -> Result<String, String> {
     .ok_or("APP_CONSTANTS not initialized")?;
 
   let response = AppReadyResponse {
-    constants: constants,
+    constants,
     permissionstrusted: true,
     settings: &app_settings,
   };
@@ -704,7 +697,7 @@ async fn main() {
           let w = app.get_window("main").unwrap();
           w.show().unwrap();
           w.set_focus().unwrap();
-          w.emit("menu:add_first_menu_item", {}).unwrap();
+          w.emit("menu:add_first_menu_item", ()).unwrap();
         }
         "disable_history_capture" => {
           let w = app.get_window("main").unwrap();
@@ -771,11 +764,11 @@ async fn main() {
               if let (Some(true), Some(false)) = (item.is_image, item.is_link) {
                 let image_path = match &item.image_path_full_res {
                   Some(path) => path,
-                  None => return (),
+                  None => return,
                 };
 
                 // Convert relative path to absolute path
-                let absolute_path = db::to_absolute_image_path(&image_path);
+                let absolute_path = db::to_absolute_image_path(image_path);
                 let img_data =
                   std::fs::read(&absolute_path).expect("Failed to read image from path");
                 let base64_image = base64::encode(&img_data);
@@ -917,7 +910,7 @@ async fn main() {
               ) {
                 let image_path = match detailed_history_item.image_path_full_res {
                   Some(path) => path,
-                  None => return (),
+                  None => return,
                 };
 
                 // Convert relative path to absolute path
@@ -930,7 +923,7 @@ async fn main() {
               } else {
                 let value = match detailed_history_item.value {
                   Some(val) => val,
-                  None => return (),
+                  None => return,
                 };
                 // Apply global templates
                 let final_text = apply_global_templates(&value, &settings_map);
@@ -1155,7 +1148,7 @@ async fn main() {
           let settings_map = app_settings_local.lock().unwrap();
           if let Some(setting) = settings_map.get("userSelectedLanguage") {
             if let Some(value_text) = &setting.value_text {
-              Translations::set_user_language(&value_text);
+              Translations::set_user_language(value_text);
             }
           }
         }
@@ -1246,7 +1239,7 @@ async fn main() {
       let handle = app.handle().clone();
       let w = app.get_window("main").unwrap();
 
-      let _ = tauri_plugin_deep_link::register("pastebar", move |request| {
+      tauri_plugin_deep_link::register("pastebar", move |request| {
         debug_output(|| {
           println!("scheme request received: {:?}", &request);
         });

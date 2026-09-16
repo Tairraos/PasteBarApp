@@ -21,7 +21,6 @@ use std::net::ToSocketAddrs;
 use url::Url;
 
 use chrono::Local;
-use reqwest;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 
 #[tauri::command(async)]
@@ -44,7 +43,7 @@ pub async fn download_audio(url_or_path: String) -> Result<String, String> {
     let parsed_url = Url::parse(&url_or_path).map_err(|e| e.to_string())?;
     file_name = parsed_url
       .path_segments()
-      .and_then(|segments| segments.last())
+      .and_then(|mut segments| segments.next_back())
       .and_then(|name| {
         if name.is_empty() {
           None
@@ -208,11 +207,10 @@ pub async fn fetch_link_track_metadata(
     let path = parsed_url.path();
     let title_from_path = path
       .split('/')
-      .last()
+      .next_back()
       .unwrap_or("")
       .replace(".mp3", "")
-      .replace('_', " ")
-      .replace('-', " ")
+      .replace(['_', '-'], " ")
       .split_whitespace()
       .map(|s| {
         let mut c = s.chars();
@@ -353,7 +351,7 @@ pub async fn fetch_link_metadata(
     e.to_string()
   })?;
 
-  let mut metadata = extract_metadata(&response_text, &domain)?;
+  let mut metadata = extract_metadata(&response_text, domain)?;
 
   // Check if we need to make a second request to the root URL
   if metadata.title.is_none() || metadata.title.as_deref().unwrap_or("").is_empty() {
@@ -363,7 +361,7 @@ pub async fn fetch_link_metadata(
       Ok(root_response) => {
         if root_response.status().is_success() {
           if let Ok(root_text) = root_response.text().await {
-            if let Ok(root_metadata) = extract_metadata(&root_text, &domain) {
+            if let Ok(root_metadata) = extract_metadata(&root_text, domain) {
               metadata = root_metadata;
             }
           }
@@ -530,7 +528,7 @@ fn fix_image_url(image_url: &str, domain: &str) -> String {
   }
 
   let domain_url = ensure_url_prefix(domain);
-  if let Ok(parsed_url) = Url::parse(&image_url) {
+  if let Ok(parsed_url) = Url::parse(image_url) {
     if parsed_url.has_host() {
       return image_url.to_string();
     }
@@ -553,7 +551,7 @@ fn is_valid_image_url(url: &str) -> bool {
   if let Ok(parsed_url) = Url::parse(url) {
     if let Some(path) = parsed_url
       .path_segments()
-      .and_then(|segments| segments.last())
+      .and_then(|mut segments| segments.next_back())
     {
       let lower_path = path.to_lowercase();
       return valid_extensions

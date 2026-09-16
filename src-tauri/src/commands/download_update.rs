@@ -1,4 +1,3 @@
-use opener;
 use std::{
   env,
   fs::File,

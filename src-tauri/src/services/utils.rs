@@ -182,7 +182,7 @@ pub fn mask_value(value: &str) -> String {
 
         format!("{}{}{}", first_char, masked_middle, last_char)
       } else {
-        let masked_middle: String = mask_char.to_string().repeat(1);
+        let masked_middle: String = mask_char.to_string().clone();
 
         format!("{}{}", first_char, masked_middle)
       }

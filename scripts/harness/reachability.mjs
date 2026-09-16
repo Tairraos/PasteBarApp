@@ -26,6 +26,21 @@ const ENTRIES = ['src/main.tsx', 'src/history-main.tsx', 'src/quickpaste-main.ts
 const VENDOR = 'components/libs/'
 const RESOLVE_EXT = ['', '.ts', '.tsx', '/index.ts', '/index.tsx', '.js', '.json', '.css']
 
+/**
+ * Files that are live without being imported by an application entry, because a *tool*
+ * consumes them:
+ *
+ *   - `src/lib/i18n-vite-loaded/**` is imported by `packages/pastebar-app-ui/vite.config.mts`
+ *     as a build-time plugin (vite.config.mts:10); no application module imports it.
+ *   - Ambient declaration files (`.d.ts`) are pulled into the TypeScript program by
+ *     `tsconfig.json`'s `include` (tsconfig.json:24), never by an `import` statement.
+ *
+ * Without this, the scan reports them as dead and a delete wave would remove live build
+ * tooling. Both were verified by reading the referencing config before being listed here.
+ */
+const TOOLCHAIN_ROOTS = ['src/lib/i18n-vite-loaded/loader.ts']
+const AMBIENT_RE = /(^|\/)vite-env\.d\.ts$|\.d\.ts$/
+
 function resolveSpecifier(fromRel, spec) {
   let base
   if (spec.startsWith('~/')) base = path.join(UI, 'src', spec.slice(2))
@@ -53,7 +68,8 @@ function universe() {
 
 export function reachability() {
   const seen = new Set()
-  const queue = [...ENTRIES]
+  // Seed with the toolchain roots so a build-time-consumed module is not reported as dead.
+  const queue = [...ENTRIES, ...TOOLCHAIN_ROOTS]
   while (queue.length) {
     const rel = queue.pop()
     if (seen.has(rel)) continue
@@ -70,7 +86,9 @@ export function reachability() {
     }
   }
   const all = universe()
-  const unreachable = [...all].filter(f => !seen.has(f)).sort()
+  // Ambient .d.ts files are part of the TypeScript program via tsconfig `include`, not via
+  // an import, so they can never appear in `seen`.
+  const unreachable = [...all].filter(f => !seen.has(f) && !AMBIENT_RE.test(f)).sort()
   return {
     reachable: [...seen].filter(f => all.has(f)).length,
     total: all.size,

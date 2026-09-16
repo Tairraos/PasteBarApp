@@ -245,9 +245,9 @@ Other helpers in the file (not detailed): `pretty_print_json` (:30), `pretty_pri
 `Regex::new(&format!(r"(?i){}", regex::escape(word))).unwrap()` for every entry of
 `auto_mask_words_list`, and the whole value is cloned and lowercased per item
 (`:1298-1300`). **Verified**: `utils.rs` already provides a compile-once cache —
-`REGEX_CACHE` is declared at `utils.rs:25` and the _only_ consumer is
-`apply_global_templates` at `utils.rs:271`. The auto-mask path never touches it, so the same
-patterns are rebuilt for every row of every history page. `menu.rs:344` compiles the same
+`REGEX_CACHE` is declared at `services/utils.rs:25` and the _only_ consumer is
+`apply_global_templates` at `services/utils.rs:271`. The auto-mask path never touches it, so the same
+patterns are rebuilt for every row of every history page. `src-tauri/src/menu.rs:344` compiles the same
 patterns again for the tray. Details at ISSUES.md:322-332.
 
 **ISSUE-025 — `value_more_preview_lines` can underflow.** `history_service.rs:1317-1321`:
@@ -266,9 +266,9 @@ to the trimming above it turns this into a debug panic / release wrap-around. Fi
 **ISSUE-013 — `println!` instead of `debug_output`.** Services hold 35 raw
 `println!`/`eprintln!` sites (excluding `libs/`): `items_service.rs` 15,
 `history_service.rs` 13, `collections_service.rs` 3, `user_settings_service.rs` 2,
-`link_metadata_service.rs` 1. `utils.rs:76` (`print_db_items`) is itself a raw `println!`
+`link_metadata_service.rs` 1. `services/utils.rs:76` (`print_db_items`) is itself a raw `println!`
 rather than a `debug_output` wrapper. Because release Windows builds have no console
-(`main.rs:1-4`), these are invisible in production — including the error paths that are the
+(`src-tauri/src/main.rs:1-4`), these are invisible in production — including the error paths that are the
 _only_ record of a swallowed failure (e.g. `history_service.rs:900`, `collections_service.rs:492`).
 Details at ISSUES.md:186-196.
 

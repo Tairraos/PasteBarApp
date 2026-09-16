@@ -1,7 +1,6 @@
 use std::thread;
 
 use bcrypt::{hash, verify, DEFAULT_COST};
-use image::Delay;
 use keyring::Entry;
 
 #[tauri::command]

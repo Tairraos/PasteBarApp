@@ -1,5 +1,4 @@
 use csv::{Reader, Writer};
-use html2text;
 use pulldown_cmark::{html, Options, Parser};
 use quick_xml::de::from_str as xml_from_str;
 use quick_xml::se::to_string as xml_to_string;

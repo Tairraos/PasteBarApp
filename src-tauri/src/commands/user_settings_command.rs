@@ -4,13 +4,10 @@ use std::fs;
 use std::path::Path;
 use tauri::command;
 
-use crate::db::{
-  get_clip_images_dir, get_clipboard_images_dir, get_data_dir, get_db_path, get_default_data_dir,
-  get_default_db_path_string,
-};
+use crate::db::get_data_dir;
 use crate::services::user_settings_service::{
   self as user_settings_service, get_all_settings, get_custom_db_path, get_setting,
-  remove_custom_db_path, remove_setting, set_custom_db_path, set_setting,
+  remove_custom_db_path, remove_setting, set_setting,
 };
 use fs_extra::dir::{copy, CopyOptions};
 use std::path::PathBuf;
@@ -48,10 +45,10 @@ pub fn cmd_check_custom_data_path(path_str: String) -> Result<PathStatus, String
   }
 
   // Check if the selected path itself is named "pastebar-data"
-  if path.file_name().and_then(|n| n.to_str()) == Some("pastebar-data") {
-    if path.read_dir().map_err(|e| e.to_string())?.next().is_some() {
-      return Ok(PathStatus::IsPastebarDataAndNotEmpty);
-    }
+  if path.file_name().and_then(|n| n.to_str()) == Some("pastebar-data")
+    && path.read_dir().map_err(|e| e.to_string())?.next().is_some()
+  {
+    return Ok(PathStatus::IsPastebarDataAndNotEmpty);
   }
 
   // Check if directory contains PasteBar database files directly
@@ -98,7 +95,7 @@ pub fn cmd_get_custom_db_path() -> Option<String> {
 #[command]
 pub fn cmd_create_directory(path_str: String) -> Result<(), String> {
   let path = Path::new(&path_str);
-  fs::create_dir_all(&path)
+  fs::create_dir_all(path)
     .map_err(|e| format!("Failed to create directory {}: {}", path.display(), e))?;
   Ok(())
 }

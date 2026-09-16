@@ -69,20 +69,20 @@ declares the modules `pub(crate)`. Three attribute forms are in use:
 - `#[tauri::command(async)]` — runs the body off the main thread; used where the handler does
   blocking I/O or awaits: `request_commands.rs:5,10`, `history_commands.rs:264`.
 - A bare `async fn` under plain `#[tauri::command]` — `history_commands.rs:73`
-  (`get_history_items_source_apps`), `main.rs:123` (`quickpaste_hide_paste_close`).
+  (`get_history_items_source_apps`), `src-tauri/src/main.rs:123` (`quickpaste_hide_paste_close`).
 
 ### 3.2 Return-type shapes
 
 Four shapes coexist. The choice is not systematic — it is per-file history.
 
-| Shape               | Meaning                                                            | Examples                                                                                                             |
-| ------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `Result<T, String>` | Canonical shape. Error string reaches the frontend rejection path. | `history_commands.rs:73`, `shell_commands.rs:4-11`, `security_commands.rs:9`                                         |
-| `T` (plain)         | No failure channel; success and failure are both returned as data. | `history_commands.rs:15-19` → `Vec<ClipboardHistoryWithMetaData>`; `history_commands.rs:49` → `String`               |
-| `Option<T>`         | "Not found" is modelled as `null`, not as an error.                | `history_commands.rs:44` (`get_clipboard_history_by_id`), `collections_commands.rs` `get_collection`                 |
-| `()` / `bool`       | Fire-and-forget or a pure predicate.                               | `main.rs:315` (`open_osx_accessibility_preferences`), `main.rs:326` (`check_osx_accessibility_preferences` → `bool`) |
+| Shape               | Meaning                                                            | Examples                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Result<T, String>` | Canonical shape. Error string reaches the frontend rejection path. | `history_commands.rs:73`, `shell_commands.rs:4-11`, `security_commands.rs:9`                                                                     |
+| `T` (plain)         | No failure channel; success and failure are both returned as data. | `history_commands.rs:15-19` → `Vec<ClipboardHistoryWithMetaData>`; `history_commands.rs:49` → `String`                                           |
+| `Option<T>`         | "Not found" is modelled as `null`, not as an error.                | `history_commands.rs:44` (`get_clipboard_history_by_id`), `collections_commands.rs` `get_collection`                                             |
+| `()` / `bool`       | Fire-and-forget or a pure predicate.                               | `src-tauri/src/main.rs:315` (`open_osx_accessibility_preferences`), `src-tauri/src/main.rs:326` (`check_osx_accessibility_preferences` → `bool`) |
 
-A non-canonical variant worth noting: `main.rs:199` and `main.rs:213` return
+A non-canonical variant worth noting: `src-tauri/src/main.rs:199` and `src-tauri/src/main.rs:213` return
 `Result<bool, bool>` — the error channel is a bool, so `autostart` / `is_autostart_enabled`
 give the frontend no message at all.
 
@@ -169,7 +169,7 @@ is a bare path: `main.rs`-local functions by name (`app_ready`, `update_setting`
 (`items_commands::create_item`, `user_settings_command::cmd_get_setting`).
 
 Two commented-out entries show retired commands that were never removed from the source:
-`main.rs:1373-1374` disable `cmd_set_custom_db_path` and `cmd_remove_custom_db_path`
+`src-tauri/src/main.rs:1373-1374` disable `cmd_set_custom_db_path` and `cmd_remove_custom_db_path`
 ("Replaced by …").
 
 ### Commands defined directly in `main.rs`
@@ -194,7 +194,7 @@ layering violation. They are:
 | `open_history_window`                 | 375 / 455 | Two `#[cfg]`-gated definitions of the same name.                   |
 | `open_quickpaste_window`              | 530       | async.                                                             |
 
-Note also `menu::build_system_menu` (`main.rs:1334`), which is registered from the `menu`
+Note also `menu::build_system_menu` (`src-tauri/src/main.rs:1334`), which is registered from the `menu`
 module rather than `commands/`.
 
 ---
@@ -205,7 +205,7 @@ These are the fresh, verified facts from [`harness/ISSUES.md`](../harness/ISSUES
 issue numbers are stable and must be cited in any fix commit.
 
 **ISSUE-010 — 57 registered commands have no frontend caller.** Cross-referencing the
-generated handler list (`main.rs:1282-1390`, 115 registered names) against every `invoke('…')`
+generated handler list (`src-tauri/src/main.rs:1282-1390`, 115 registered names) against every `invoke('…')`
 literal in `packages/pastebar-app-ui/src` yields 115 − 58 = **57 commands never invoked by the
 UI** — for example `insert_clipboard_history`, `update_clipboard_history_by_ids`,
 `delete_link_metadata`, `cmd_create_directory`, `set_icon`. `node
@@ -216,17 +216,17 @@ ISSUES.md:150-160.
 **ISSUE-012 — 96 `unwrap()`/`expect()` calls in `main.rs`.** Of 199 in the Rust tree
 (verified: `grep -rn 'unwrap()\|expect(' src-tauri/src --include=*.rs` excluding `libs/`), 96
 are in `main.rs` — the startup path, tray callbacks and window event handlers, where a panic
-aborts the process and the user sees the app vanish. Examples: `main.rs:696-699`
+aborts the process and the user sees the app vanish. Examples: `src-tauri/src/main.rs:696-699`
 (`app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`),
-`main.rs:1048`, and `main.rs:1256` (`emit_all("scheme-request-received", …).unwrap()`).
+`src-tauri/src/main.rs:1048`, and `src-tauri/src/main.rs:1256` (`emit_all("scheme-request-received", …).unwrap()`).
 `commands/**` itself holds only 24 of them. Details at ISSUES.md:174-184.
 
 **ISSUE-013 — `println!` in release builds.** The project convention is
 `debug_output(|| println!(…))` (`services/utils.rs:287-291`), which compiles out under
 `cfg!(debug_assertions)`. 152 `println!`/`eprintln!` call sites ignore it, 35 of them in
-`main.rs` — including `main.rs:264` (`"app_ready on client"`) and `main.rs:296`
+`main.rs` — including `src-tauri/src/main.rs:264` (`"app_ready on client"`) and `src-tauri/src/main.rs:296`
 (`"app_settings on client"`), both on the startup path. On Windows release builds
-`windows_subsystem = "windows"` (`main.rs:1-4`) discards stdout, so this output goes nowhere.
+`windows_subsystem = "windows"` (`src-tauri/src/main.rs:1-4`) discards stdout, so this output goes nowhere.
 `commands/collections_commands.rs:54` and `:64` are the same defect inside this layer.
 Details at ISSUES.md:186-196.
 

@@ -30,7 +30,7 @@ elapsed time, followed by a summary naming what failed.
 | 5   | **typecheck** | `npx tsc --noEmit -p tsconfig.json`                 | TypeScript errors. **Advisory until W4a** — see below                                                                                                                                                | W4a onward              |
 | 6   | **lint**      | `npx eslint . --ext .ts,.tsx`                       | any error above the per-file baseline in `DEBT-BASELINE.md`                                                                                                                                          | PR                      |
 | 7   | **format**    | `prettier --check` + `cargo fmt --check`            | any file is not Prettier/rustfmt-clean                                                                                                                                                               | PR                      |
-| 8   | **clippy**    | `cargo clippy --all-targets -- -D warnings`         | any clippy warning                                                                                                                                                                                   | PR (macOS runner only)  |
+| 8   | **clippy**    | `node scripts/harness/clippy-ratchet.mjs`           | the count of `clippy::*` lints in this crate grows past the baseline                                                                                                                                 | PR (macOS runner only)  |
 | 9   | **test-rust** | `cargo test`                                        | any test fails                                                                                                                                                                                       | PR                      |
 | 10  | **test-js**   | `vitest run`                                        | any test fails, or coverage drops below the ratchet                                                                                                                                                  | PR                      |
 
@@ -129,12 +129,27 @@ plus `cargo fmt`. `cargo fmt --check` is skipped under `--fast`.
 
 ## Gates 8–9 — Rust
 
-`cargo clippy --all-targets -- -D warnings` and `cargo test`, both run from `src-tauri/`.
-Clippy was **not** gated before Phase 3, and no `#[allow]` list has been added yet — the
-first CI run populates the baseline (`DEBT-BASELINE.md` §4). Granting amnesty before knowing
-the count would defeat the ratchet.
+`cargo test` runs from `src-tauri/`. It currently reports **0 tests** (ISSUE-006); Phase 5
+populates it.
 
-Both are skipped under `--fast` because a cold Tauri build is minutes, not seconds.
+Clippy runs through a **ratchet**, not `-- -D warnings`. Measured at Phase 3 with
+`cargo clippy --all-targets`: **647 warnings**, of which 364 are rustc's `unexpected_cfgs`
+and 124 `deprecated` — dominated by dependency and toolchain noise rather than by this
+crate's code. Gating on all of them would require either a blanket `#[allow]` or a
+whole-backend refactor in one wave, and the plan forbids the latter.
+
+`clippy-ratchet.mjs` therefore counts only `clippy::*` lints in this crate's own targets,
+with vendored paths excluded: **62**. That is the baseline in `clippy-baseline.json`, and it
+may only shrink (GOLDEN-RULES R9).
+
+`cargo clippy --fix --allow-dirty --all-targets` applied 236 mechanical fixes in this wave
+(298 → 62 clippy lints; mostly `needless_return` ×60 and `needless_borrow` ×48). The
+remainder is itemised by rule and by file in `DEBT-BASELINE.md` §4.
+
+**No `#[allow]` attribute was added anywhere.** The baseline file is the only exemption
+mechanism, which is what keeps the list visible and shrinking.
+
+Both gates are skipped under `--fast` because a cold Tauri build is minutes, not seconds.
 
 ---
 

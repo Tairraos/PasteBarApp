@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu};
 
 use crate::models::{ClipboardHistory, Setting};
-use crate::services::utils::{debug_output, mask_value};
+use crate::services::utils::mask_value;
 use crate::services::{collections_service, history_service};
 
 use crate::services::translations::translations::Translations;
@@ -77,7 +77,7 @@ fn build_tree(
     .filter(|&item| item.parent_id == *parent_id && !item.is_deleted && item.is_active)
     .collect(); // Collect the filtered items into a vector
 
-  filtered_and_sorted.sort_by(|a, b| a.order_number.cmp(&b.order_number)); // Sorting the vector based on order_number
+  filtered_and_sorted.sort_by_key(|a| a.order_number); // Sorting the vector based on order_number
 
   filtered_and_sorted
     .iter()
@@ -131,10 +131,8 @@ pub fn build_tray_menu(
   app_settings: State<Mutex<HashMap<String, Setting>>>,
 ) -> Result<SystemTrayMenu, String> {
   let db_items_result = get_active_collection_with_menu_items();
-  let db_recent_history_items_result = match history_service::get_recent_clipboard_histories(10) {
-    Ok(items) => items,
-    Err(_) => Vec::new(),
-  };
+  let db_recent_history_items_result =
+    history_service::get_recent_clipboard_histories(10).unwrap_or_default();
 
   let settings_map = app_settings.lock().unwrap();
 
@@ -352,7 +350,6 @@ fn create_recent_history_items(
         .value
         .as_ref()
         .unwrap_or(&"".to_string())
-        .trim()
         .split_whitespace()
         .collect::<Vec<&str>>()
         .join(" ");
@@ -371,13 +368,13 @@ fn create_recent_history_items(
       };
 
       let final_title = if item.is_masked == Some(true) {
-        let mut masked_title = title.clone();
-        mask_value(&mut masked_title)
+        let masked_title = title.clone();
+        mask_value(&masked_title)
       } else if !auto_mask_words_list.is_empty() && item.has_masked_words == Some(true) {
         let mut title_value = title.clone();
 
         for (word, pattern) in auto_mask_words_list.iter().zip(&regex_patterns) {
-          let masked_word = mask_value(&mut word.clone());
+          let masked_word = mask_value(&word.clone());
           title_value = pattern.replace_all(&title_value, &masked_word).to_string();
         }
 

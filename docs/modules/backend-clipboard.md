@@ -47,7 +47,7 @@ Each step is a settings lookup; the first match short-circuits.
 
 | #   | Gate                   | Setting                                                             | Behaviour when it excludes                                      |
 | --- | ---------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 1   | History enabled        | `isHistoryEnabled`                                                  | `mod.rs:64-71` — returns early, nothing emitted                 |
+| 1   | History enabled        | `isHistoryEnabled`                                                  | `clipboard/mod.rs:64-71` — returns early, nothing emitted       |
 | 2   | Text present           | —                                                                   | falls through to the image branch                               |
 | 3   | Text trim              | `isHistoryAutoTrimOnCaputureEnabled` (default `true`)               | trims before measuring                                          |
 | 4   | Length window          | `clipTextMinLength` (default 0), `clipTextMaxLength` (default 5000) | excluded when shorter than min or longer than max (and max > 0) |
@@ -55,7 +55,7 @@ Each step is a settings lookup; the first match short-circuits.
 | 6   | App exclusion list     | `isExclusionAppListEnabled` + `historyExclusionAppList`             | case-insensitive exact match on the active window's app name    |
 | 7   | Image capture disabled | `isImageCaptureDisabled`                                            | image branch returns early _before_ touching the clipboard      |
 
-Language detection options assembled at `mod.rs:176-214`:
+Language detection options assembled at `clipboard/mod.rs:176-214`:
 `should_detect_language` (`isHistoryDetectLanguageEnabled`, default true),
 `min_lines_required` (`historyDetectLanguageMinLines`, default 3),
 `enabled_languages` / `prioritized_languages` (comma-separated lists), and
@@ -81,10 +81,10 @@ swallowed signals.
 
 ## 5. Events emitted
 
-| Event                                        | Line             | Payload              | Listener                                 |
-| -------------------------------------------- | ---------------- | -------------------- | ---------------------------------------- |
-| `clipboard://clipboard-monitor/update`       | `mod.rs:285-290` | `"clipboard update"` | main, history, quickpaste, template view |
-| `clipboard://clipboard-monitor/update/error` | `mod.rs:296-301` | `error.to_string()`  | **none** — see ISSUE-011                 |
+| Event                                        | Line                       | Payload              | Listener                                 |
+| -------------------------------------------- | -------------------------- | -------------------- | ---------------------------------------- |
+| `clipboard://clipboard-monitor/update`       | `clipboard/mod.rs:285-290` | `"clipboard update"` | main, history, quickpaste, template view |
+| `clipboard://clipboard-monitor/update/error` | `clipboard/mod.rs:296-301` | `error.to_string()`  | **none** — see ISSUE-011                 |
 
 A second, differently-named event `clips://clips-monitor/update` is emitted from
 `commands/clipboard_commands.rs:761`. Both names are hand-written string literals with no
@@ -92,15 +92,15 @@ shared constant, which is exactly the drift ISSUE-011 records.
 
 ## 6. `ClipboardManager`
 
-Thin wrapper over `arboard` (`mod.rs:312-410`):
+Thin wrapper over `arboard` (`clipboard/mod.rs:312-410`):
 
-| Method                | Line         | Behaviour                                                       |
-| --------------------- | ------------ | --------------------------------------------------------------- |
-| `read_text()`         | `mod.rs:313` | `Clipboard::new().unwrap()` — **panics** if no clipboard handle |
-| `write_text(text)`    | `mod.rs:318` | same unwrap-then-map_err shape                                  |
-| `write_image(base64)` | `mod.rs:323` | unwraps the handle, then writes image data                      |
-| `get_image_binary()`  | `mod.rs:397` | delegates to `get_image_safe()`                                 |
-| `read_image_binary()` | `mod.rs:401` | `Clipboard::new().unwrap()` then PNG bytes                      |
+| Method                | Line                   | Behaviour                                                       |
+| --------------------- | ---------------------- | --------------------------------------------------------------- |
+| `read_text()`         | `clipboard/mod.rs:313` | `Clipboard::new().unwrap()` — **panics** if no clipboard handle |
+| `write_text(text)`    | `clipboard/mod.rs:318` | same unwrap-then-map_err shape                                  |
+| `write_image(base64)` | `clipboard/mod.rs:323` | unwraps the handle, then writes image data                      |
+| `get_image_binary()`  | `clipboard/mod.rs:397` | delegates to `get_image_safe()`                                 |
+| `read_image_binary()` | `clipboard/mod.rs:401` | `Clipboard::new().unwrap()` then PNG bytes                      |
 
 The `Clipboard::new().unwrap()` calls are on the hot path (every clipboard change) and are
 part of ISSUE-012's W1 scope.
@@ -110,9 +110,9 @@ part of ISSUE-012's W1 scope.
 | Limitation                                                             | Issue          | Detail                                                              |
 | ---------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------- |
 | Monitor starts before the DB is ready                                  | ISSUE-002 (P0) | plugin setup runs before app setup; panics on a startup-window copy |
-| `read_text`/`write_text`/`write_image` unwrap the clipboard handle     | ISSUE-012      | `mod.rs:314,319,324,402`                                            |
+| `read_text`/`write_text`/`write_image` unwrap the clipboard handle     | ISSUE-012      | `clipboard/mod.rs:314,319,324,402`                                  |
 | Capture is not truncated, only gated by `clipTextMaxLength`            | ISSUE-023      | a `0` max-length setting stores arbitrary text verbatim             |
 | The 200-insert counter is the only thing that ever ticks the scheduler | ISSUE-014      | `run_pending_jobs()` is called nowhere else                         |
-| Exclusion-list logic duplicated between text and image branches        | W5             | `mod.rs:141-171` vs `mod.rs:238-259`                                |
+| Exclusion-list logic duplicated between text and image branches        | W5             | `clipboard/mod.rs:141-171` vs `clipboard/mod.rs:238-259`            |
 | Error event has no listener                                            | ISSUE-011      | clipboard I/O failures are invisible to users                       |
-| `println!` used directly                                               | ISSUE-013      | e.g. `mod.rs:65`, `mod.rs:252`                                      |
+| `println!` used directly                                               | ISSUE-013      | e.g. `clipboard/mod.rs:65`, `clipboard/mod.rs:252`                  |

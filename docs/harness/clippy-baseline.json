@@ -1,0 +1,34 @@
+{
+  "$comment": "Clippy ratchet baseline — clippy::* lints only, this crate, vendored paths excluded. May only go DOWN (docs/harness/GOLDEN-RULES.md R9). Regenerate: node scripts/harness/clippy-ratchet.mjs --update",
+  "total": 62,
+  "byRule": {
+    "clippy::empty_line_after_outer_attr": 14,
+    "clippy::upper_case_acronyms": 10,
+    "clippy::just_underscores_and_digits": 8,
+    "clippy::manual_strip": 6,
+    "clippy::ptr_arg": 6,
+    "clippy::too_many_arguments": 4,
+    "clippy::module_inception": 4,
+    "clippy::manual_flatten": 2,
+    "clippy::unnecessary_unwrap": 2,
+    "clippy::redundant_locals": 2,
+    "clippy::suspicious_open_options": 2,
+    "clippy::if_same_then_else": 2
+  },
+  "byFile": {
+    "src/models/models.rs": 10,
+    "src/services/history_service.rs": 10,
+    "src/services/request_service.rs": 10,
+    "src/services/items_service.rs": 4,
+    "src/services/shell_service.rs": 4,
+    "src/commands/items_commands.rs": 4,
+    "src/commands/link_metadata_commands.rs": 4,
+    "src/db.rs": 4,
+    "src/commands/backup_restore_commands.rs": 2,
+    "src/commands/translations_commands.rs": 2,
+    "src/menu.rs": 2,
+    "src/models/mod.rs": 2,
+    "src/services/translations/mod.rs": 2,
+    "src/main.rs": 2
+  }
+}

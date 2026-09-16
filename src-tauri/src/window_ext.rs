@@ -77,7 +77,7 @@ impl<R: Runtime> WindowToolBar for Window<R> {
 
       let window_buttons = vec![close, miniaturize, zoom];
       let space_between =
-        NSView::frame(miniaturize).origin.x - NSView::frame(close).origin.x + 20 as f64;
+        NSView::frame(miniaturize).origin.x - NSView::frame(close).origin.x + 20_f64;
 
       for (i, button) in window_buttons.into_iter().enumerate() {
         let mut rect: NSRect = NSView::frame(button);

@@ -262,7 +262,7 @@ pub async fn restore_backup(
   if !backup_file.exists() {
     return Err("Backup file does not exist".to_string());
   }
-  if !backup_file.extension().map_or(false, |ext| ext == "zip") {
+  if !backup_file.extension().is_some_and(|ext| ext == "zip") {
     return Err("Backup file must be a zip file".to_string());
   }
 

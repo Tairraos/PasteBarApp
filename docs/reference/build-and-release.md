@@ -38,7 +38,7 @@ npm run build     # vite build → dist-ui/
 npm run build:ts  # tsc && vite build
 ```
 
-Port `4422` is pinned with `strictPort: true` (`vite.config.mts:51-53`), so a second dev
+Port `4422` is pinned with `strictPort: true` (`packages/pastebar-app-ui/vite.config.mts:51-53`), so a second dev
 server fails fast rather than silently moving ports.
 
 | Script                      | Location                                  | Effective command   |
@@ -96,7 +96,7 @@ Tauri webview window:
 | `history-index.html`    | `history`        | clipboard-history window |
 | `quickpaste-index.html` | `quickpaste`     | QuickPaste popup         |
 
-Output goes to `packages/pastebar-app-ui/dist-ui/` (`vite.config.mts:71`), exactly the
+Output goes to `packages/pastebar-app-ui/dist-ui/` (`packages/pastebar-app-ui/vite.config.mts:71`), exactly the
 `distDir` Tauri bundles. Tauri triggers the build through `beforeBuildCommand` in **both**
 configs (`tauri.conf.json:3`, `tauri.release.conf.json:3`), so `tauri build` always rebuilds
 the UI first.
@@ -105,9 +105,9 @@ The build runs as `npm run build` → plain `vite build`, **not** `build:ts`. Ty
 therefore not part of a production bundle; run `npm run build:ts` (or `tsc --noEmit`)
 separately.
 
-A `closeBundle` hook (`vite.config.mts:117-133`) then writes `dist-ui/ui.version.<version>`,
+A `closeBundle` hook (`packages/pastebar-app-ui/vite.config.mts:117-133`) then writes `dist-ui/ui.version.<version>`,
 copies `assets/styles` → `dist-ui/assets/styles`, and copies `assets/markdown` →
-`dist-ui/assets/markdown` (the markdown wasm). `viteStaticCopy` (`vite.config.mts:109-116`)
+`dist-ui/assets/markdown` (the markdown wasm). `viteStaticCopy` (`packages/pastebar-app-ui/vite.config.mts:109-116`)
 additionally copies `drop-*` into the output root.
 
 Verified output of `npm run build` in the UI package:
@@ -124,9 +124,9 @@ dist-ui/
 ```
 
 The build also defines `BUILD_DATE`, `APP_VERSION` (root `package.json`) and
-`APP_UI_VERSION` (UI `package.json`) as compile-time constants (`vite.config.mts:55-59`),
+`APP_UI_VERSION` (UI `package.json`) as compile-time constants (`packages/pastebar-app-ui/vite.config.mts:55-59`),
 reading the root manifest via `PASTEBAR_APP_PATH` and **exiting non-zero** if it cannot be
-found (`vite.config.mts:23-38`).
+found (`packages/pastebar-app-ui/vite.config.mts:23-38`).
 
 ## 5. Version management
 

@@ -248,7 +248,7 @@ pub fn delete_image_by_item_by_id(item_id: String) -> String {
   };
 
   if let Some(ref path) = item_with_images_to_delete.image_path_full_res {
-    match delete_file_and_maybe_parent(&Path::new(path)) {
+    match delete_file_and_maybe_parent(Path::new(path)) {
       Ok(_) => {
         debug_output(|| {
           println!("Successfully deleted image file: {}", path);
@@ -297,7 +297,7 @@ pub fn delete_item_by_id(item_id: String, collection_id: String) -> String {
   };
 
   if let Some(ref path) = item_with_images_to_delete.image_path_full_res {
-    match delete_file_and_maybe_parent(&Path::new(path)) {
+    match delete_file_and_maybe_parent(Path::new(path)) {
       Ok(_) => {
         debug_output(|| {
           println!("Successfully deleted image file: {}", path);
@@ -684,9 +684,7 @@ pub fn add_image_to_item(item_id: &str, image_full_path: &str) -> Result<String,
   let connection = &mut establish_pool_db_connection();
 
   // Convert absolute path to relative path before storing
-  let relative_image_path = new_image_path
-    .to_str()
-    .map(|path| db::to_relative_image_path(path));
+  let relative_image_path = new_image_path.to_str().map(db::to_relative_image_path);
 
   diesel::update(items.find(item_id))
     .set((
@@ -805,7 +803,7 @@ pub fn save_item_image_from_history_item(
   // Return relative path instead of absolute path
   let relative_path = clip_image_file_name
     .to_str()
-    .map(|path| db::to_relative_image_path(path))
+    .map(db::to_relative_image_path)
     .unwrap_or_default();
   Ok(relative_path)
 }
@@ -861,9 +859,7 @@ pub fn upload_image_file_to_item_id(
   let connection = &mut establish_pool_db_connection();
 
   // Convert absolute path to relative path before storing
-  let relative_image_path = image_path
-    .to_str()
-    .map(|path| db::to_relative_image_path(path));
+  let relative_image_path = image_path.to_str().map(db::to_relative_image_path);
 
   let _ = diesel::update(items.find(item_id))
     .set((

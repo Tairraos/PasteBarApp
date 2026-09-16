@@ -25,7 +25,7 @@ pub struct MetaScraper<'a> {
 }
 
 impl MetaScraper<'_> {
-  pub fn parse(input: &str) -> Result<MetaScraper, ParseError> {
+  pub fn parse(input: &str) -> Result<MetaScraper<'_>, ParseError> {
     match tl::parse(input, ParserOptions::default()) {
       Ok(dom) => Ok(MetaScraper { dom }),
       Err(err) => Err(err),

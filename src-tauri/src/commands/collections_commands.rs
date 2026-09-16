@@ -161,30 +161,30 @@ pub fn create_collection(
                 let _ = collections_service::select_collection_by_id(
                   new_collection.collection_id.clone(),
                 );
-                return Ok("ok".to_string());
+                Ok("ok".to_string())
               }
               Err(e) => {
                 let _ =
                   collections_service::delete_collection_by_id(&new_collection.collection_id, true);
-                return Err(format!(
+                Err(format!(
                   "Failed to create default board item for collection: {}",
                   e
-                ));
+                ))
               }
             }
           }
           Err(e) => {
             let _ =
               collections_service::delete_collection_by_id(&new_collection.collection_id, true);
-            return Err(format!(
+            Err(format!(
               "Failed to create default tab for collection: {}",
               e
-            ));
+            ))
           }
         },
         Err(e) => {
           let _ = collections_service::delete_collection_by_id(&new_collection.collection_id, true);
-          return Err(format!("Failed to create menu item for collection: {}", e));
+          Err(format!("Failed to create menu item for collection: {}", e))
         }
       }
     }

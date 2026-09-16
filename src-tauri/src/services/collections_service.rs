@@ -21,7 +21,6 @@ use diesel::associations::HasTable;
 use diesel::prelude::*;
 
 use super::items_service;
-use super::items_service::CreateItem;
 
 #[derive(Queryable, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -279,15 +278,14 @@ pub fn select_collection_by_id(collection_id_value: String) -> String {
   let connection = &mut establish_pool_db_connection();
 
   // Raw SQL query to update is_selected for the target collection and others
-  let query = format!(
-    r#"
+  let query = r#"
   UPDATE 'collections'
   SET is_selected = CASE
       WHEN collection_id = $1 THEN true
       ELSE false
   END
   "#
-  );
+  .to_string();
 
   let _ = diesel::sql_query(query)
     .bind::<Text, _>(collection_id_value)

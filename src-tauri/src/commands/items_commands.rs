@@ -9,9 +9,7 @@ use crate::models::{Item, Setting};
 use crate::services::collections_service::{add_item_to_collection, add_menu_to_collection};
 use crate::services::history_service;
 use crate::services::items_service::{self, CreateItem};
-use crate::services::utils::{
-  ensure_url_prefix, is_base64_image, pretty_print_json, pretty_print_struct,
-};
+use crate::services::utils::{ensure_url_prefix, is_base64_image};
 use base64::{engine::general_purpose, Engine as _};
 use chrono::Local;
 use nanoid::nanoid;
@@ -43,7 +41,7 @@ pub fn update_items_by_ids(
 ) -> String {
   let update_results = items_service::update_items_by_ids(&item_ids, updated_data);
 
-  if update_results == "ok".to_string() {
+  if update_results == "ok" {
     let _ = update_system_menu(
       &app_handle,
       db_items_state,
@@ -71,7 +69,7 @@ pub fn update_menu_item_by_id(
 
   let update_result = items_service::update_item_by_id(_item_id_value, updated_item);
 
-  if update_result == "ok".to_string() {
+  if update_result == "ok" {
     let _ = update_system_menu(
       &app_handle,
       db_items_state,
@@ -94,7 +92,7 @@ pub fn update_menu_items_by_ids(
 ) -> String {
   let update_results = items_service::update_items_by_ids(&item_ids, updated_data);
 
-  if update_results == "ok".to_string() {
+  if update_results == "ok" {
     let _ = update_system_menu(
       &app_handle,
       db_items_state,
@@ -327,7 +325,7 @@ pub fn create_item(item: CreateItem) -> String {
   let value = match &item.history_id {
     Some(history_id) => {
       if let Some(h_item) = history_service::get_clipboard_history_by_id(history_id) {
-        let masked_value = if *(&item.is_masked) == Some(true) && h_item.value.is_some() {
+        let masked_value = if item.is_masked == Some(true) && h_item.value.is_some() {
           format!("[mask]{}[/mask]", h_item.value.unwrap())
         } else {
           h_item.value.unwrap_or_else(|| "".to_string())
@@ -338,7 +336,7 @@ pub fn create_item(item: CreateItem) -> String {
         "".to_string()
       }
     }
-    None => item.value.unwrap_or_else(|| "".to_string()),
+    None => item.value.unwrap_or_default(),
   };
 
   let new_item_id = nanoid!().to_string();
@@ -496,7 +494,7 @@ pub async fn save_to_file_clip_item(
         let parsed_url = Url::parse(value).map_err(|e| e.to_string())?;
         file_name = parsed_url
           .path_segments()
-          .and_then(|segments| segments.last())
+          .and_then(|mut segments| segments.next_back())
           .and_then(|name| {
             if name.is_empty() {
               None
@@ -517,12 +515,12 @@ pub async fn save_to_file_clip_item(
       if let Some(path) = destination_path {
         // Save the MP3 file
         std::fs::write(&path, mp3_data).map_err(|e| e.to_string())?;
-        return Ok("saved".to_string());
+        Ok("saved".to_string())
       } else {
-        return Ok("cancel".to_string());
+        Ok("cancel".to_string())
       }
     } else {
-      return Err("No URL found for MP3 download".to_string());
+      Err("No URL found for MP3 download".to_string())
     }
   } else if let Some(true) = as_image {
     let mut img_data: Option<Vec<u8>> = None;
@@ -530,8 +528,8 @@ pub async fn save_to_file_clip_item(
 
     if let Some(true) = item.is_image_data {
       if let Some(_base64_string) = &item.value {
-        if is_base64_image(&_base64_string) {
-          let base64_data = _base64_string.split(',').nth(1).unwrap_or(&_base64_string);
+        if is_base64_image(_base64_string) {
+          let base64_data = _base64_string.split(',').nth(1).unwrap_or(_base64_string);
           img_data = Some(base64::decode(base64_data).map_err(|e| e.to_string())?);
         } else {
           return Err("Provided string is not a valid base64 image data".to_string());
@@ -546,7 +544,7 @@ pub async fn save_to_file_clip_item(
         let parsed_url = Url::parse(&ensure_url_prefix(image_url)).map_err(|e| e.to_string())?;
         file_name = parsed_url
           .path_segments()
-          .and_then(|segments| segments.last())
+          .and_then(|mut segments| segments.next_back())
           .unwrap_or(&file_name)
           .to_string();
 
@@ -562,12 +560,12 @@ pub async fn save_to_file_clip_item(
 
       if let Some(path) = destination_path {
         std::fs::write(&path, data).map_err(|e| e.to_string())?;
-        return Ok("saved".to_string());
+        Ok("saved".to_string())
       } else {
-        return Ok("cancel".to_string());
+        Ok("cancel".to_string())
       }
     } else {
-      return Err("Failed to obtain image data".to_string());
+      Err("Failed to obtain image data".to_string())
     }
   } else {
     let value = match &item.value {
@@ -585,9 +583,9 @@ pub async fn save_to_file_clip_item(
       file
         .write_all(value.as_bytes())
         .map_err(|e| e.to_string())?;
-      return Ok("saved".to_string());
+      Ok("saved".to_string())
     } else {
-      return Ok("cancel".to_string());
+      Ok("cancel".to_string())
     }
   }
 }

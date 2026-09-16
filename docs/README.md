@@ -63,7 +63,7 @@ fails the build if a doc becomes unreachable or a link dangles.
 ## Conventions
 
 1. **One document per concern.** If a document needs a table of contents, split it.
-2. **Reference code, don't copy it.** Link `file.rs:123` instead of pasting a snippet that
+2. **Reference code, don't copy it.** Link the source with a `file:line` reference instead of pasting a snippet that
    will silently rot. `scripts/harness/docs-lint.sh` checks that referenced paths exist.
 3. **Say what is not known.** A `Known limitations` section is worth more than a confident
    paragraph that is wrong.

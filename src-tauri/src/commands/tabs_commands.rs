@@ -48,7 +48,7 @@ pub fn update_tabs(updated_tabs: Vec<UpdatedTabData>) -> String {
       tab_is_hidden: updated_tab.tab_is_hidden,
       tab_color: updated_tab.tab_color.clone(),
       tab_layout: updated_tab.tab_layout.clone(),
-      tab_layout_split: updated_tab.tab_layout_split.clone(),
+      tab_layout_split: updated_tab.tab_layout_split,
       tab_is_protected: updated_tab.tab_is_protected,
     };
 

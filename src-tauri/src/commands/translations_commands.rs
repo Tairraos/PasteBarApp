@@ -2,16 +2,11 @@ use crate::services::translations::translations::Translations;
 use crate::services::utils::debug_output;
 use serde::{Deserialize, Serialize};
 use serde_yaml::{self, Mapping};
-use tauri::AppHandle;
-use tauri::Manager;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
-use std::sync::Mutex;
-
-use crate::models::Setting;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Translation {

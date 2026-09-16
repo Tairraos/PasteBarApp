@@ -137,11 +137,13 @@ gate_lint() {
 # ---------------------------------------------------------------------------
 gate_format() {
   local rc=0
-  # .prettierignore (not .gitignore) is the formatting scope: it excludes vendored
-  # code, lockfiles and generated assets that Prettier must not touch.
+  # .prettierignore (not .gitignore) is the formatting scope: it excludes vendored code,
+  # lockfiles and generated assets that Prettier must not touch.
   npx --no-install prettier --check . --ignore-path .prettierignore || rc=1
   if [ "$FAST" -eq 0 ] && need_tool cargo; then
-    (cd src-tauri && cargo fmt --check) || rc=1
+    # Delegated to its own script so CI runs the identical command. See that file for why
+    # `cargo fmt --check` cannot be used directly (vendored libs + generated schema.rs).
+    bash scripts/harness/check-rustfmt.sh || rc=1
   fi
   return $rc
 }
@@ -150,7 +152,11 @@ gate_format() {
 # Gate 8 — Rust clippy
 # ---------------------------------------------------------------------------
 gate_clippy() {
-  (cd src-tauri && cargo clippy --all-targets -- -D warnings)
+  # `cargo clippy -- -D warnings` is not enforceable yet: this crate emits ~650 warnings,
+  # most of them rustc lints or dependency noise. The ratchet counts only `clippy::*`
+  # lints in our own targets and fails when that count grows past
+  # docs/harness/clippy-baseline.json. See docs/harness/gates.md section 8.
+  node scripts/harness/clippy-ratchet.mjs
 }
 
 # ---------------------------------------------------------------------------
