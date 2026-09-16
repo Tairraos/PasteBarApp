@@ -142,11 +142,51 @@ pub fn cmd_set_and_relocate_data(
   new_parent_dir_path: String,
   operation: String,
 ) -> Result<String, String> {
+  // ISSUE-003: validate the destination BEFORE any file is touched.
+  //
+  // `cmd_validate_custom_db_path` already implements exactly the checks this command
+  // needs — path-traversal rejection, "must be a directory", and a writability probe —
+  // but this command never called it. It created the directory and started moving
+  // clipboard images and the SQLite database, then failed at the end if the path was
+  // unusable, leaving the user's data split across two locations.
+  //
+  // Rejecting up front means a bad destination costs nothing. The check runs before
+  // `create_dir_all` so that a rejected path is not created as a side effect either.
+  cmd_validate_custom_db_path(new_parent_dir_path.clone())?;
+
   let current_data_dir = get_data_dir();
   let new_data_dir = PathBuf::from(&new_parent_dir_path);
 
+  // Relocating onto itself would delete the data it is copying: the "move" branch copies
+  // to the destination and then removes the source, which are the same directory here.
+  if let (Ok(a), Ok(b)) = (current_data_dir.canonicalize(), new_data_dir.canonicalize()) {
+    if a == b {
+      return Err(
+        "The new location is the same as the current data location; nothing to move.".to_string(),
+      );
+    }
+  }
+
+  // A destination nested inside the source is also destructive for "move": removing the
+  // source directory afterwards would take the newly copied data with it.
+  if let (Ok(src), Ok(dst)) = (current_data_dir.canonicalize(), new_data_dir.canonicalize()) {
+    if dst.starts_with(&src) {
+      return Err(format!(
+        "The new location ({}) is inside the current data directory ({}). Choose a location outside it.",
+        dst.display(),
+        src.display()
+      ));
+    }
+  }
+
   fs::create_dir_all(&new_data_dir)
     .map_err(|e| format!("Failed to create new data directory: {}", e))?;
+
+  // Validate the operation up front. Previously an invalid operation string was only
+  // discovered inside the loop, i.e. after zero or more items had already been moved.
+  if !matches!(operation.as_str(), "move" | "copy" | "none") {
+    return Err("Invalid operation specified. Use 'move', 'copy', or 'none'.".to_string());
+  }
 
   let items_to_relocate = vec!["pastebar-db.data", "clip-images", "clipboard-images"];
 

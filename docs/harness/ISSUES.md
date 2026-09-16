@@ -46,6 +46,9 @@
 `行为变更 | BUG（允许）`
 `所属阶段 | 1 记录 → 4 (W1) → 5.4`
 
+`状态 | ✅ 已修复 (W1) — 实现方式与原建议不同，见下`
+`修复说明 |` 原建议是"把配置放到固定的 OS 标准位置（或加 env / --data-dir 覆盖）"。实际采用了更小、更贴合现有架构的改动：`get_config_file_path()` 改为**先看默认目录的配置；若其中 `custom_db_path` 指向的目录里也存在一份配置，则优先使用后者**。于是配置跟随数据目录一起走，函数保持"只依赖 `APP_CONSTANTS` + 文件系统"的纯函数性质，不再反向调用 `get_data_dir()`，环被打破。新增私有 `read_custom_db_path_from()` 直接解析 YAML 以避免递归，并在 `APP_CONSTANTS` 尚未初始化时返回空路径而非 panic。**未采用** env / `--data-dir` 覆盖：那会新增一条未经测试的配置来源并扩大改动面；若将来需要，`config_search_root()` 已是唯一接入点。**行为变更：允许（BUG）。**
+
 ### ISSUE-002 · Clipboard monitor can run before `db::init`, panicking on first copy
 
 `ID | ISSUE-002`
@@ -58,6 +61,9 @@
 `行为变更 | BUG（允许）`
 `所属阶段 | 1 → 4 (W1) → 5.4`
 
+`状态 | ✅ 已修复 (W1)`
+`修复说明 |` 在 `on_clipboard_change` 开头加入 `db::is_pool_ready()` 守卫：池未就绪时写调试日志并返回 `CallbackResult::Next`，不再走到 `establish_pool_db_connection()` 的 `panic!`。**未采用**原建议中"把监控线程推迟到 app `.setup` 之后启动"的方案：那会让插件失去自包含性，并把正确性建立在 Tauri 插件 / setup 的执行顺序这一框架细节上——而该细节正是本 bug 的成因，依赖它更脆弱。同时新增两个非 panic 入口 `is_pool_ready()` 与 `try_pool_db_connection()`，供后续需要优雅降级的路径复用。代价是启动窗口内（毫秒级）的**那一次**复制被丢弃：剪贴板内容仍在，用户可再复制一次；换来的是监控线程不会静默死亡、整段会话不再失去剪贴板捕获。**行为变更：允许（BUG）。**
+
 ### ISSUE-003 · Custom data path is never validated before relocation
 
 `ID | ISSUE-003`
@@ -69,6 +75,9 @@
 `建议方案 |` Call the existing validator first and fail fast; verify free space before a `move`/`copy`; make the relocation transactional (stage into a temp dir, then swap) or at minimum report exactly which items failed. Phase 4 W1.
 `行为变更 | BUG（允许）`
 `所属阶段 | 1 → 4 (W1) → 5.4`
+
+`状态 | ✅ 已修复 (W1)`
+`修复说明 |` `cmd_set_and_relocate_data` 现在**最先**调用已有的 `cmd_validate_custom_db_path`，在任何文件被触碰之前完成路径穿越检查、目录性检查与可写性探测；校验刻意放在 `create_dir_all` 之前，因此被拒绝的路径不会因副作用而被创建。另补了两个原建议未列出、但同属"数据丢失"类的守卫：(1) 目标与当前数据目录相同——`move` 分支会"复制到目标再删除源"，二者相同时等于自我删除；(2) 目标位于当前数据目录**内部**——移动后删除源目录会把刚复制过去的数据一并删掉。`operation` 的合法性判断也提前到循环之前（原先非法值只在循环内被发现，此时可能已有若干项被移动）。**未实现**原建议中"先复制到临时目录再整体交换"的事务化方案：它需要跨设备剩余空间探测与更复杂的回滚语义，超出"先验证、失败不落地"这一目标，已记为 W5 候选。**行为变更：允许（BUG）。**
 
 ### ISSUE-004 · `.env` is git-tracked
 

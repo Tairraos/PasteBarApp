@@ -20,7 +20,10 @@ pub fn get_clipboard_history(
   let mut auto_mask_words_list = Vec::new();
 
   {
-    let settings_map = app_settings.lock().unwrap();
+    // `lock().unwrap()` panics the IPC thread if another thread panicked while holding the
+    // settings lock. Recovering the guard instead keeps the command answering, which
+    // matters because these are the commands the UI polls on a timer.
+    let settings_map = app_settings.lock().unwrap_or_else(|e| e.into_inner());
 
     if let Some(setting) = settings_map.get("isAutoMaskWordsListEnabled") {
       if let Some(value_bool) = setting.value_bool {
@@ -97,9 +100,16 @@ pub fn search_clipboard_histories_by_value_or_filters(
   .unwrap_or_else(|_| Vec::new())
 }
 
+/// Returns the most recent history rows.
+///
+/// Returns `Result` rather than silently emptying the list on error. The previous
+/// `unwrap_or_else(|_| Vec::new())` made a database failure indistinguishable from "the
+/// user has no history": the frontend rendered an empty list, and the error was dropped on
+/// the floor. A caller can still choose to treat an error as an empty list, but that is now
+/// an explicit decision at the call site instead of a silent default.
 #[tauri::command]
-pub fn get_recent_clipboard_histories(limit: i64) -> Vec<ClipboardHistory> {
-  history_service::get_recent_clipboard_histories(limit).unwrap_or_else(|_| Vec::new())
+pub fn get_recent_clipboard_histories(limit: i64) -> Result<Vec<ClipboardHistory>, String> {
+  history_service::get_recent_clipboard_histories(limit).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -109,7 +119,10 @@ pub fn get_clipboard_history_pinned(
   let mut auto_mask_words_list = Vec::new();
 
   {
-    let settings_map = app_settings.lock().unwrap();
+    // `lock().unwrap()` panics the IPC thread if another thread panicked while holding the
+    // settings lock. Recovering the guard instead keeps the command answering, which
+    // matters because these are the commands the UI polls on a timer.
+    let settings_map = app_settings.lock().unwrap_or_else(|e| e.into_inner());
 
     if let Some(setting) = settings_map.get("isAutoMaskWordsListEnabled") {
       if let Some(value_bool) = setting.value_bool {

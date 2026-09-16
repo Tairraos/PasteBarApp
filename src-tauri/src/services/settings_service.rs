@@ -10,13 +10,21 @@ use crate::models::Setting;
 
 use crate::schema::settings::dsl::*;
 
+/// Loads every setting row and, when an app handle is given, refreshes the shared cache.
+///
+/// The signature has always returned `Result`, but the body used `.expect()` on the query
+/// and on the settings mutex, so neither failure could ever reach the caller: a database
+/// error aborted the process instead of returning `Err`. `main.rs:173` maps that `Err`,
+/// which meant the error path there was dead code.
+///
+/// This now returns the error, which is what the signature promises. `.expect()` on the
+/// mutex is likewise replaced by poison recovery, so one panicking thread no longer takes
+/// down every later settings read.
 pub fn get_all_settings(
   app_handle: Option<tauri::AppHandle>,
 ) -> Result<Mutex<HashMap<String, Setting>>, Error> {
   let connection = &mut establish_pool_db_connection();
-  let settings_options: Vec<Setting> = settings
-    .load::<Setting>(connection)
-    .expect("Error loading settings options");
+  let settings_options: Vec<Setting> = settings.load::<Setting>(connection)?;
 
   let new_settings: HashMap<String, Setting> = settings_options
     .into_iter()
@@ -25,9 +33,7 @@ pub fn get_all_settings(
 
   if let Some(handle) = app_handle {
     let app_settings_mutex = handle.state::<Mutex<HashMap<String, Setting>>>();
-    let mut app_settings = app_settings_mutex
-      .lock()
-      .expect("Failed to lock app_settings");
+    let mut app_settings = app_settings_mutex.lock().unwrap_or_else(|e| e.into_inner());
 
     *app_settings = new_settings.clone();
   }

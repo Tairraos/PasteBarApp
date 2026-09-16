@@ -43,8 +43,11 @@ pub fn update_moved_menu_items_in_collection(
       "ok".to_string()
     }
     Err(e) => {
+      // Keep the string return type (the frontend compares against "ok" and shows the
+      // returned text in a toast on mismatch), but do not swallow the cause: the old
+      // message discarded `e` entirely, so the log said only that *something* failed.
       eprintln!("Failed to update moved menu items: {}", e);
-      "Failed to update moved menu items".to_string()
+      format!("Failed to update moved menu items: {}", e)
     }
   }
 }

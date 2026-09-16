@@ -195,6 +195,33 @@ pub fn establish_pool_db_connection(
     .unwrap_or_else(|_| panic!("Error connecting to db pool"))
 }
 
+/// Whether the connection pool has been initialised yet.
+///
+/// **ISSUE-002.** Tauri runs plugin `.setup` callbacks *before* the application's own
+/// `.setup`, and the clipboard plugin (`clipboard::init()`, registered at
+/// `main.rs:1394`) starts its monitor thread from its `.setup` — while `db::init(app)`
+/// only runs later, at `main.rs:1054`. `establish_pool_db_connection()` therefore panics
+/// if a clipboard event arrives during that window, and the panic happens on a spawned
+/// thread with no user-visible error: the monitor simply dies and clipboard capture stops
+/// for the rest of the session.
+///
+/// Callers on the capture path use this to skip work instead of unwrapping a pool that is
+/// not there yet. The clipboard event itself is not lost — the monitor keeps running and
+/// picks up subsequent copies.
+pub fn is_pool_ready() -> bool {
+  DB_POOL_CONNECTION
+    .read()
+    .map(|pool| pool.get().is_ok())
+    .unwrap_or(false)
+}
+
+/// A non-panicking connection attempt, for paths that must degrade gracefully rather than
+/// take the process down. Returns `None` if the lock is poisoned or the pool is exhausted.
+pub fn try_pool_db_connection(
+) -> Option<diesel_r2d2::PooledConnection<diesel_r2d2::ConnectionManager<SqliteConnection>>> {
+  DB_POOL_CONNECTION.read().ok()?.get().ok()
+}
+
 pub fn _establish_direct_db_connection() -> SqliteConnection {
   let db_path = get_db_path().clone();
   println!("Connecting to database at: {}", db_path);
@@ -339,51 +366,77 @@ fn can_access_or_create(db_path: &str) -> bool {
   }
 }
 
-pub fn get_config_file_path() -> PathBuf {
-  if cfg!(debug_assertions) {
-    let app_dir = APP_CONSTANTS
-      .get()
-      .expect("APP_CONSTANTS not initialized")
-      .app_dev_data_dir
-      .clone();
-    if cfg!(target_os = "macos") {
-      PathBuf::from(format!(
-        "{}/pastebar_settings.yaml",
-        adjust_canonicalization(app_dir)
-      ))
-    } else if cfg!(target_os = "windows") {
-      PathBuf::from(format!(
-        "{}\\pastebar_settings.yaml",
-        adjust_canonicalization(app_dir)
-      ))
-    } else {
-      PathBuf::from(format!(
-        "{}/pastebar_settings.yaml",
-        adjust_canonicalization(app_dir)
-      ))
-    }
-  } else {
-    // Release mode
-    let app_data_dir = APP_CONSTANTS.get().unwrap().app_data_dir.clone();
-    let data_dir = app_data_dir.as_path();
+/// Path to `pastebar_settings.yaml` — the file that records `custom_db_path`.
+///
+/// **ISSUE-001.** This function must never read the user config, because the user config is
+/// what it is used to load: `get_data_dir()` → `load_user_config()` → here. It resolves the
+/// location from `APP_CONSTANTS` alone, which is exactly what breaks data relocation.
+///
+/// In the old code the path was always the *default* directory, so:
+///
+///   1. `cmd_set_and_relocate_data` wrote `custom_db_path` into the default directory and
+///      told the user to restart;
+///   2. on restart `get_config_file_path()` looked in the default directory — which is
+///      where the file now is, so the setting *was* found and the pool *was* pointed at
+///      the new location;
+///   3. but every item the app created afterwards (`get_data_dir()` is also used for clip
+///      images, backups and the DB itself) resolved through the same file, and the file
+///      itself lived outside the relocated tree. Backing up, moving to a new machine, or
+///      deleting the default directory silently reverted the app to an empty database.
+///
+/// The fix is to look in the default directory first and, when a config there names a
+/// custom path, prefer a config inside that custom directory. The lookup stays a pure
+/// function of `APP_CONSTANTS` plus the filesystem: it reads at most one small YAML file
+/// and never recurses back into `get_data_dir()`.
+fn config_file_name() -> &'static str {
+  "pastebar_settings.yaml"
+}
 
-    if cfg!(target_os = "macos") {
-      PathBuf::from(format!(
-        "{}/pastebar_settings.yaml",
-        adjust_canonicalization(data_dir)
-      ))
-    } else if cfg!(target_os = "windows") {
-      PathBuf::from(format!(
-        "{}\\pastebar_settings.yaml",
-        adjust_canonicalization(data_dir)
-      ))
-    } else {
-      PathBuf::from(format!(
-        "{}/pastebar_settings.yaml",
-        adjust_canonicalization(data_dir)
-      ))
+/// The directory that holds the settings file when no custom path is configured, and the
+/// first place searched. Mirrors `get_default_data_dir()` without calling it, to keep the
+/// dependency direction one-way (see `get_data_dir`).
+fn config_search_root() -> PathBuf {
+  match APP_CONSTANTS.get() {
+    Some(c) => {
+      if cfg!(debug_assertions) {
+        c.app_dev_data_dir.clone()
+      } else {
+        c.app_data_dir.clone()
+      }
+    }
+    // Before `APP_CONSTANTS` is initialised there is no meaningful answer, and panicking
+    // here would turn a startup-ordering mistake into a crash. The caller treats a
+    // missing file as "no custom path configured", which is the correct default.
+    None => PathBuf::new(),
+  }
+}
+
+pub fn get_config_file_path() -> PathBuf {
+  let default_dir = config_search_root();
+  let default_path = default_dir.join(config_file_name());
+
+  // If the config in the default location names a custom directory, and that directory
+  // holds its own config file, the relocated copy wins — it is the one that travels with
+  // the user's data.
+  if let Some(custom) = read_custom_db_path_from(&default_path) {
+    let relocated = PathBuf::from(custom).join(config_file_name());
+    if relocated.exists() {
+      return relocated;
     }
   }
+
+  default_path
+}
+
+/// Reads `custom_db_path` out of a specific settings file without going through
+/// `load_user_config()`, so that this module cannot recurse into `get_data_dir()`.
+fn read_custom_db_path_from(path: &Path) -> Option<String> {
+  let contents = std::fs::read_to_string(path).ok()?;
+  let parsed: serde_yaml::Value = serde_yaml::from_str(&contents).ok()?;
+  parsed
+    .get("custom_db_path")?
+    .as_str()
+    .map(|s| s.to_string())
 }
 
 // fn simple_sql_logger() -> Option<Box<dyn Instrumentation>> {

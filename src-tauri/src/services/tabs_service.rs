@@ -21,9 +21,13 @@ pub struct CreateTab {
 pub fn create_new_tab(tab: &Tabs) -> Result<String, diesel::result::Error> {
   let connection = &mut establish_pool_db_connection();
 
-  let _ = diesel::insert_into(tabs::table())
+  // The insert result was previously discarded with `let _ =`, so this returned
+  // `Ok(tab_id)` for a tab that does not exist — and the frontend added it to the UI.
+  // The failure surfaced later as "the tab disappeared after a restart", with no error
+  // anywhere. Propagating it means the caller sees the failure when it happens.
+  diesel::insert_into(tabs::table())
     .values(tab)
-    .execute(connection);
+    .execute(connection)?;
 
   Ok(tab.tab_id.clone())
 }

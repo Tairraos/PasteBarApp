@@ -68,6 +68,23 @@ where
   R: Runtime,
 {
   fn on_clipboard_change(&mut self) -> CallbackResult {
+    // ISSUE-002: Tauri runs plugin `.setup` before the application's own `.setup`, so this
+    // monitor thread starts (clipboard::init is registered at main.rs:1394) before
+    // `db::init(app)` runs (main.rs:1054). A copy during that window would reach
+    // `establish_pool_db_connection()`, which panics — on a spawned thread, with no
+    // user-visible error, killing the monitor for the rest of the session.
+    //
+    // Skipping the event instead is correct behaviour: the pool is only milliseconds away,
+    // and the clipboard still holds the value afterwards. The alternative — buffering
+    // events until the pool appears — adds state to the hot path to recover a copy the
+    // user can trivially repeat.
+    if !crate::db::is_pool_ready() {
+      debug_output(|| {
+        println!("Clipboard event received before the database pool was ready; skipping.");
+      });
+      return CallbackResult::Next;
+    }
+
     let clipboard_manager = self.clipboard_manager.lock().unwrap();
     let app_settings = self.app_handle.state::<Mutex<HashMap<String, Setting>>>();
     let settings_map = app_settings.lock().unwrap();
