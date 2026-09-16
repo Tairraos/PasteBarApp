@@ -57,6 +57,9 @@ jobs:
       - name: Gate — documentation links and staleness
         run: bash scripts/harness/docs-lint.sh
 
+      - name: Gate — ISSUE references
+        run: node scripts/harness/check-issue-refs.mjs
+
       - name: Gate — ESLint (ratchet)
         run: node scripts/harness/lint-ratchet.mjs
 

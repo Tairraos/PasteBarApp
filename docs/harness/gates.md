@@ -21,18 +21,19 @@ elapsed time, followed by a summary naming what failed.
 
 ## The gates
 
-| #   | Gate          | Command                                             | Fails when                                                                                                                                                                                           | Blocks                  |
-| --- | ------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 1   | **hygiene**   | `scripts/harness/check-hygiene.sh`                  | a tracked file matches a forbidden pattern (`.env`, build artifacts, DB files, `node_modules`), or `.env` uses a key undocumented in `.env.sample`                                                   | everything              |
-| 2   | **scan**      | `scripts/harness/scan.sh`                           | the scan itself errors. Metrics are compared by hand against `scan-baseline.txt`                                                                                                                     | nothing (informational) |
-| 3   | **ipc-drift** | `node scripts/harness/gen-ipc-contract.mjs --check` | a frontend-invoked command is not registered, or a registered command has no `#[tauri::command]` definition                                                                                          | PR                      |
-| 4   | **docs-lint** | `scripts/harness/docs-lint.sh`                      | a doc is unreachable from `docs/README.md`/`AGENTS.md`, a relative link dangles, a `file:line` reference points at a missing file or an out-of-range line, or a "Last verified" date exceeds 90 days | PR                      |
-| 5   | **typecheck** | `npx tsc --noEmit -p tsconfig.json`                 | TypeScript errors. **Advisory until W4a** — see below                                                                                                                                                | W4a onward              |
-| 6   | **lint**      | `npx eslint . --ext .ts,.tsx`                       | any error above the per-file baseline in `DEBT-BASELINE.md`                                                                                                                                          | PR                      |
-| 7   | **format**    | `prettier --check` + `cargo fmt --check`            | any file is not Prettier/rustfmt-clean                                                                                                                                                               | PR                      |
-| 8   | **clippy**    | `node scripts/harness/clippy-ratchet.mjs`           | the count of `clippy::*` lints in this crate grows past the baseline                                                                                                                                 | PR (macOS runner only)  |
-| 9   | **test-rust** | `cargo test`                                        | any test fails                                                                                                                                                                                       | PR                      |
-| 10  | **test-js**   | `vitest run`                                        | any test fails, or coverage drops below the ratchet                                                                                                                                                  | PR                      |
+| #   | Gate           | Command                                             | Fails when                                                                                                                                                                                           | Blocks                  |
+| --- | -------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 1   | **hygiene**    | `scripts/harness/check-hygiene.sh`                  | a tracked file matches a forbidden pattern (`.env`, build artifacts, DB files, `node_modules`), or `.env` uses a key undocumented in `.env.sample`                                                   | everything              |
+| 2   | **scan**       | `scripts/harness/scan.sh`                           | the scan itself errors. Metrics are compared by hand against `scan-baseline.txt`                                                                                                                     | nothing (informational) |
+| 3   | **ipc-drift**  | `node scripts/harness/gen-ipc-contract.mjs --check` | a frontend-invoked command is not registered, or a registered command has no `#[tauri::command]` definition                                                                                          | PR                      |
+| 4   | **docs-lint**  | `scripts/harness/docs-lint.sh`                      | a doc is unreachable from `docs/README.md`/`AGENTS.md`, a relative link dangles, a `file:line` reference points at a missing file or an out-of-range line, or a "Last verified" date exceeds 90 days | PR                      |
+| 4b  | **issue-refs** | `node scripts/harness/check-issue-refs.mjs`         | an ISSUE-ID is duplicated, a `file:line` reference in `ISSUES.md` cannot be resolved, or points past the end of its file                                                                             | PR                      |
+| 5   | **typecheck**  | `npx tsc --noEmit -p tsconfig.json`                 | TypeScript errors. **Advisory until W4a** — see below                                                                                                                                                | W4a onward              |
+| 6   | **lint**       | `npx eslint . --ext .ts,.tsx`                       | any error above the per-file baseline in `DEBT-BASELINE.md`                                                                                                                                          | PR                      |
+| 7   | **format**     | `prettier --check` + `cargo fmt --check`            | any file is not Prettier/rustfmt-clean                                                                                                                                                               | PR                      |
+| 8   | **clippy**     | `node scripts/harness/clippy-ratchet.mjs`           | the count of `clippy::*` lints in this crate grows past the baseline                                                                                                                                 | PR (macOS runner only)  |
+| 9   | **test-rust**  | `cargo test`                                        | any test fails                                                                                                                                                                                       | PR                      |
+| 10  | **test-js**    | `vitest run`                                        | any test fails, or coverage drops below the ratchet                                                                                                                                                  | PR                      |
 
 ---
 
@@ -88,6 +89,25 @@ than no documentation, because it is confidently wrong. This gate catches the me
 half of that; review catches the rest.
 
 ---
+
+## Gate 4b — issue references
+
+**Purpose:** `ISSUES.md` is the spine of the record system, and a reference that cannot be
+followed is worse than no reference — the reader lands in unrelated code and believes it.
+
+**Checks:** (1) every ISSUE-ID is unique; (2) every backticked `file.ext:NN` or
+`file.ext:NN-MM` resolves to a tracked file and a line within it, with bare paths resolved
+by unique suffix so `services/utils.rs` finds `src-tauri/src/services/utils.rs` but an
+ambiguous match is reported; (3) every `ISSUE-NNN` mentioned anywhere in the file has a
+definition, or is explicitly marked withdrawn.
+
+**Withdrawn issues** keep their heading as a tombstone (ISSUE-026 was merged into
+ISSUE-005) so a historical commit message still resolves, but carry no `ID |` row. Numbers
+are never reused — reusing one would silently repoint every earlier citation at a different
+defect.
+
+**On failure:** fix the reference, or update the line numbers if the code moved. The gate
+found a genuine gap the first time it ran (a cited id with no row).
 
 ## Gate 5 — typecheck (advisory until W4a)
 

@@ -91,6 +91,17 @@ gate_docs() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate 4b — ISSUE ids and their file:line references
+# ---------------------------------------------------------------------------
+gate_issue_refs() {
+  # A `file:line` reference in ISSUES.md that can no longer be followed is worse than no
+  # reference: the reader lands in unrelated code and believes it. Re-verifying 30 of them
+  # by hand on every commit does not happen, so it is checked mechanically. The same script
+  # also rejects duplicate ISSUE-IDs, which would make a commit message citing one ambiguous.
+  node scripts/harness/check-issue-refs.mjs
+}
+
+# ---------------------------------------------------------------------------
 # Gate 5 — TypeScript type check
 # ---------------------------------------------------------------------------
 gate_typecheck() {
@@ -181,6 +192,7 @@ run_gate "hygiene"        gate_hygiene
 run_gate "scan"           gate_scan
 run_gate "ipc-drift"      gate_ipc
 run_gate "docs-lint"      gate_docs
+run_gate "issue-refs"     gate_issue_refs
 run_gate "typecheck"      gate_typecheck
 run_gate "lint"           gate_lint
 run_gate "format"         gate_format

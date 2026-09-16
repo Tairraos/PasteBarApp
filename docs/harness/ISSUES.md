@@ -5,9 +5,16 @@
 > **Severity legend:** P0 data-loss/crash/security · P1 iteration-blocking · P2 maintenance risk · P3 hygiene
 > **Type legend:** `BUG` (behaviour change allowed) · `DEBT` · `RISK` · `HYGIENE`
 >
-> Every row below was verified against the working tree, not inferred. `file:line`
-> references are valid at commit `066142f` and are re-checked by
-> `scripts/harness/check-issue-refs.mjs` (Phase 3 gate).
+> Every row below was verified against the working tree, not inferred. The references were
+> written against commit `066142f`; `scripts/harness/check-issue-refs.mjs` is now a live
+> gate (gate 4b) that fails when a `file:line` reference no longer resolves, points past the
+> end of its file, or when an ISSUE-ID is duplicated or cited without a definition. Run it
+> with `node scripts/harness/check-issue-refs.mjs --report` to see every reference checked.
+>
+> **Line numbers in the `位置` rows were captured at Phase 1 and have since moved** — wave
+> W1 edited `db.rs`, `user_settings_command.rs`, `history_commands.rs`, `settings_service.rs`
+> and `tabs_service.rs`, and W4a deleted 186 files. Each fixed issue carries a
+> `状态`/`修复说明` row describing what actually changed; trust that over the line numbers.
 
 ---
 
