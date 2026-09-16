@@ -482,6 +482,25 @@ Two further findings came out of the same sweep:
   `修复说明 |` Declared `@dnd-kit/utilities@^3.1.1`, `@radix-ui/react-portal@^1.0.4` and `redux@^4.2.1` in `packages/pastebar-app-ui/package.json`. A re-run of the walk reports zero undeclared imports. `scripts/harness/vendored-imports.mjs` now makes this check repeatable rather than a one-off grep, since the same class of defect will recur as vendored code is added.
   `所属阶段 | 4 (W2)`
 
+### ISSUE-035 · linkify-it DoS advisory, and the silent link-detection regression its fix caused
+
+`ID | ISSUE-035`
+`位置 | packages/pastebar-app-ui/src/lib/utils.ts, packages/pastebar-app-ui/src/libs/bbcode.tsx`
+`类型 | RISK`
+`风险等级 | P1`
+`影响范围 | Untrusted clipboard text; link detection in every rendered clip`
+`现象与依据 |` `linkify-it@5.0.0` carries a high-severity advisory: a quadratic-complexity DoS in the `mailto:` validator scan loop, triggered by attacker-influenced text. This is not theoretical for PasteBar — linkification runs over **clipboard content**, which is by definition text the user did not write, and it happens on every render of every clip. Upgrading to 6.1.0 removes the advisory.
+The upgrade is a genuine major break in two independent ways, both of which were only visible because the build and a new test were run:
+
+1. **The default export is gone.** v6 exports `linkifyit`, `LinkifyIt` and `REBuilder` as named exports; the default export is no longer callable, so `linkifyIt()` threw `TS2349: This expression is not callable` at all **12 call sites across 7 files**.
+2. **`fuzzyLink` default flipped from `true` to `false`.** v5 detected bare domains (`example.com`, `www.example.com`); v6 detects only explicit `http(s)://` URLs. Nothing failed, nothing warned — bare domains in clips simply stopped being clickable.
+   `建议方案 |` Upgrade to 6.1.0, restore the v5 detection behaviour explicitly, and pin the behaviour with tests so the next bump cannot repeat the silent half of this.
+   `行为变更 | 有（修复性）— v6 的 `fuzzyLink: false` 默认值曾会使裸域名不再被识别为链接；本修复恢复 v5 行为。`
+   `状态 | ✅ 已修复 (W2, 依赖清理)`
+   `修复说明 |` Upgraded to `linkify-it@6.1.0` (audit baseline 51 → 28, high/critical 30 → 9). All 12 call sites now go through a single `createLinkify()` factory in `lib/utils.ts` that sets `fuzzyLink: true`, rather than calling `linkifyit()` directly in a dozen places — with twelve copies the option is exactly the kind of default that gets forgotten in one of them, and the failure mode is a link that quietly stops being clickable.
+   The regression was caught not by the compiler, the build, or the existing tests — all of which passed — but by a new `src/libs/bbcode.test.ts` (7 tests) written to pin linkify's behaviour. It asserts that bare domains ARE detected, and states why, so the next bump that flips `fuzzyLink` back fails loudly. It also asserts an ordering property that depends on match offsets being applied against the original string, and includes a wall-clock bound on `mailto:`-shaped pathological input — the shape the original advisory was about.
+   `所属阶段 | 4 (W2)`
+
 ---
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)

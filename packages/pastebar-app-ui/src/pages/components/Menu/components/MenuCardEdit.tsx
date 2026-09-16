@@ -13,7 +13,6 @@ import {
   showMenuNameNotSavedError,
 } from '~/store'
 import clsx from 'clsx'
-import linkifyIt from 'linkify-it'
 import {
   AlertTriangle,
   Check,
@@ -35,7 +34,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { ensureUrlPrefix } from '~/lib/utils'
+import { createLinkify, ensureUrlPrefix } from '~/lib/utils'
 
 import LinkCard from '~/components/atoms/link-card/link-card'
 import Spacer from '~/components/atoms/spacer'
@@ -136,7 +135,7 @@ export function MenuEditContent({
 
   useEffect(() => {
     if (isLink) {
-      const linkify = linkifyIt()
+      const linkify = createLinkify()
       const matches = linkify.match(clipValue.value)
       if (!matches || matches.length > 1) {
         showLinkValidationError.value = true
@@ -203,7 +202,7 @@ export function MenuEditContent({
 
     if (!force) {
       if (isLink) {
-        const linkify = linkifyIt()
+        const linkify = createLinkify()
         const matches = linkify.match(clipValue.value)
         if (!matches || matches.length > 1) {
           showLinkValidationError.value = true
@@ -397,7 +396,7 @@ export function MenuEditContent({
                       showLinkValidationError.value = undefined
                     }
                     if (e.target.value.length > 5) {
-                      const linkify = linkifyIt()
+                      const linkify = createLinkify()
                       const matches = linkify.match(e.target.value)
                       if (!matches || matches.length > 1) {
                         showLinkValidationError.value = true

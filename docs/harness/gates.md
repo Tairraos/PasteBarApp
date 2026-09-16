@@ -199,7 +199,10 @@ plus `cargo fmt`. `cargo fmt --check` is skipped under `--fast`.
 not scripted, no workflow ran it, and every install site passed `--no-audit`, suppressing
 even npm's own warning.
 
-**First run: 51 production advisories, 30 of them high** (ISSUE-032). Three are direct
+**First run: 51 production advisories, 30 of them high** (ISSUE-032). **Now 28 / 9** — the
+dependency prune (ISSUE-033) deleted 22 of them along with the 315 packages nothing imported,
+and the `linkify-it` 5 → 6.1.0 upgrade (ISSUE-035) closed the last reachable high-severity
+advisory. Three were direct
 dependencies that reach the shipped renderer — `react-router-dom` (XSS via open redirect,
 imported at `main.tsx:16`), `lodash-es` (code injection via `_.template`) and `js-yaml`
 (prototype pollution). A desktop app ships its renderer, and that webview holds the user's

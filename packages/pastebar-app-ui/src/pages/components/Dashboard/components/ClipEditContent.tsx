@@ -18,7 +18,6 @@ import {
 import clsx from 'clsx'
 import DOMPurify from 'dompurify'
 import { useAtomValue } from 'jotai'
-import linkifyIt from 'linkify-it'
 import {
   AlertTriangle,
   Bold,
@@ -54,7 +53,7 @@ import {
 } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 
-import { ensureUrlPrefix } from '~/lib/utils'
+import { createLinkify, ensureUrlPrefix } from '~/lib/utils'
 
 import ImageWithFallback from '~/components/atoms/image/image-with-fallback-on-error'
 import LinkCard from '~/components/atoms/link-card/link-card'
@@ -349,7 +348,7 @@ export function ClipEditContent({
 
   useEffect(() => {
     if (isLink) {
-      const linkify = linkifyIt()
+      const linkify = createLinkify()
       const matches = linkify.match(clipValue.value)
       if (!matches || matches.length > 1) {
         showLinkValidationError.value = true
@@ -507,7 +506,7 @@ export function ClipEditContent({
         formTemplateLocalOptions.value.formOptions?.openUrl &&
         !formTemplateLocalOptions.value.formOptions?.isOpenUrlDisabled
       ) {
-        const linkify = linkifyIt()
+        const linkify = createLinkify()
         const matches = linkify.match(formTemplateLocalOptions.value.formOptions?.openUrl)
         if (!matches || matches.length > 1) {
           showLinkValidationError.value = true
@@ -515,7 +514,7 @@ export function ClipEditContent({
         }
       }
       if (isLink) {
-        const linkify = linkifyIt()
+        const linkify = createLinkify()
         const matches = linkify.match(saveValue)
         if (!matches || matches.length > 1) {
           showLinkValidationError.value = true
@@ -1025,7 +1024,7 @@ export function ClipEditContent({
                     showLinkValidationError.value = undefined
                   }
                   if (e.target.value.length > 5) {
-                    const linkify = linkifyIt()
+                    const linkify = createLinkify()
                     const matches = linkify.match(e.target.value)
                     if (!matches || matches.length > 1) {
                       showLinkValidationError.value = true

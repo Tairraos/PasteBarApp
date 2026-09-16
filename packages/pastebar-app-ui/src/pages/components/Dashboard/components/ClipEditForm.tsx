@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Signal } from '@preact/signals-react'
-import linkifyIt from 'linkify-it'
 import {
   AlertCircle,
   AlertTriangle,
@@ -21,6 +20,8 @@ import {
   Trash,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+import { createLinkify } from '~/lib/utils'
 
 import ToolTip from '~/components/atoms/tooltip'
 import SimpleBar from '~/components/libs/simplebar-react'
@@ -122,7 +123,7 @@ export function ClipEditForm({
       showLinkValidationError.value = undefined
     }
     if (debouncedUrlInput.length > 5) {
-      const linkify = linkifyIt()
+      const linkify = createLinkify()
       const matches = linkify.match(debouncedUrlInput)
       if (!matches || matches.length > 1) {
         showLinkValidationError.value = true

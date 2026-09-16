@@ -190,18 +190,28 @@ the conservative default (no amnesty granted before the count is known).
 
 ---
 
-## 4b. Dependency advisory baseline — 51 production, 30 high
+## 4b. Dependency advisory baseline — 28 production, 9 high
 
 Measured at Phase 3 with `npm audit --omit=dev` (ISSUE-032). Nothing in this repository had
 ever run an audit before; every install site passed `--no-audit`.
 
-| Severity  | Count  |
-| --------- | ------ |
-| critical  | 0      |
-| high      | 30     |
-| moderate  | 19     |
-| low       | 2      |
-| **total** | **51** |
+| Severity  | Phase 3 | Now    |
+| --------- | ------- | ------ |
+| critical  | 0       | 0      |
+| high      | 30      | 9      |
+| moderate  | 19      | 18     |
+| low       | 2       | 1      |
+| **total** | **51**  | **28** |
+
+**Where the 23 went.** Two independent causes, and the larger one was a surprise:
+
+- **Removing unused dependencies deleted 22 advisories outright** (ISSUE-033). They were not
+  fixed; they were shipped by 315 packages nothing imported. This is the most direct payoff
+  of the prune and the reason the audit baseline was re-measured rather than left alone.
+- **`linkify-it` 5 → 6.1.0** closed the last reachable high-severity advisory (ISSUE-035) —
+  a quadratic-complexity DoS in the `mailto:` validator, in a code path that processes
+  clipboard text. That upgrade turned out to break the API _and_ silently change link
+  detection; see ISSUE-035.
 
 Direct high/critical dependencies — the ones a human can act on — are listed in
 `audit-baseline.json`. All remaining are **build-chain tooling** (`@svgr/webpack`,

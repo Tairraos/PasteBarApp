@@ -1,11 +1,10 @@
 import * as React from 'react'
 import { open } from '@tauri-apps/api/shell'
 import { isKeyAltPressed } from '~/store'
-import linkifyIt from 'linkify-it'
 import { Check, Clipboard, ClipboardPaste } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { ensureUrlPrefix } from '~/lib/utils'
+import { createLinkify, ensureUrlPrefix } from '~/lib/utils'
 
 import ToolTip from '~/components/atoms/tooltip'
 import { Badge, ButtonGhost } from '~/components/ui'
@@ -94,7 +93,7 @@ export default class BBCodeParser {
   }
 
   linkifyText(text: string) {
-    const linkify = linkifyIt()
+    const linkify = createLinkify()
     const matches = linkify.match(text)
 
     if (!matches) {

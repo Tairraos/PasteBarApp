@@ -97,6 +97,19 @@ const tauriWindow = {
   __currentWindow: tauriWindow,
 }
 
+// The transport underneath the API: `@tauri-apps/api/tauri`'s `invoke()` and
+// `api/event`'s `listen()` both call `window.__TAURI_IPC__(...)` with no existence check.
+// Several stores call `listen()` at MODULE LOAD time (`store/playerStore.ts` subscribes to
+// playback events on import), so any test that imports one — directly or transitively, as
+// importing `~/libs/bbcode` does — produced nine unhandled "window.__TAURI_IPC__ is not a
+// function" rejections. The tests still passed, which is what made it easy to miss: the
+// failures showed up as accumulated unhandled errors and a non-zero coverage run.
+//
+// Resolving with `undefined` is the correct stub for a not-listening window: Tauri's real
+// `listen()` resolves to an unlisten function, and callers guard on the result.
+;(window as unknown as Record<string, unknown>).__TAURI_IPC__ = () =>
+  Promise.resolve(undefined)
+
 // --- console hygiene -----------------------------------------------------------------
 // The app logs a lot (167 console.* call sites at Phase 3). Letting that through buries
 // the assertion output, so it is muted by default. A test that asserts on logging can

@@ -56,6 +56,13 @@ jobs:
       - name: Gate — static metrics (informational)
         run: bash scripts/harness/scan.sh
 
+      - name: Gate — dead-code reachability
+        # Fails when any tracked source is unreachable from the app entries. W4a deleted 186
+        # such files and the dependency prune depended on that measurement; without a gate
+        # the same debt accretes again. Test files are declared as entry points (vitest
+        # discovers them by glob) — see TEST_ROOTS in the script, and gates.md gate 2b.
+        run: node scripts/harness/reachability.mjs --check
+
       - name: Gate — IPC contract drift
         run: node scripts/harness/gen-ipc-contract.mjs --check
 

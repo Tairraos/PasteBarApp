@@ -1,6 +1,7 @@
 import { UniqueIdentifier } from '@dnd-kit/core'
 import createBoardTree from '~/libs/create-board-tree'
 import { clsx, type ClassValue } from 'clsx'
+import { linkifyit } from 'linkify-it'
 import { twMerge } from 'tailwind-merge'
 
 import {
@@ -409,6 +410,23 @@ export const getSelectedText = function (): SelectionProps {
 export function hasEmoji(text: string) {
   EMOJIREGEX.lastIndex = 0
   return EMOJIREGEX.test(text)
+}
+
+/**
+ * Create a linkify-it instance with this app's settings.
+ *
+ * linkify-it 6 flipped `fuzzyLink` to `false` (it was `true` in 5), which silently stopped
+ * bare domains like `example.com` and `www.example.com` from being detected as links —
+ * only explicit `http(s)://` links survived. That is a user-visible regression for a
+ * clipboard manager, where a pasted bare domain is a normal thing to have in a clip, so
+ * the v5 behaviour is restored explicitly here.
+ *
+ * Every call site goes through this factory rather than calling `linkifyit()` directly:
+ * the option is the kind of default that gets forgotten in one of a dozen places, and the
+ * failure mode is a link that quietly stops being clickable.
+ */
+export function createLinkify() {
+  return linkifyit({ fuzzyLink: true })
 }
 
 export function ensureUrlPrefix(url: string | null | undefined) {

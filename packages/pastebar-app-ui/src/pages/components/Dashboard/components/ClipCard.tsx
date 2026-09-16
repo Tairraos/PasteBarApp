@@ -31,7 +31,6 @@ import {
 } from '~/store'
 import { cva } from 'class-variance-authority'
 import { useAtomValue } from 'jotai'
-import linkifyIt from 'linkify-it'
 import {
   Check,
   Clipboard,
@@ -60,7 +59,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { ensureUrlPrefix } from '~/lib/utils'
+import { createLinkify, ensureUrlPrefix } from '~/lib/utils'
 
 import mergeRefs from '~/components/atoms/merge-refs'
 import PlayButtonClipTitle from '~/components/atoms/play-button/PlayButtonClipTitle'
@@ -883,7 +882,7 @@ export function ClipCard({
                                   e.preventDefault()
                                   return
                                 }
-                                const linkify = linkifyIt()
+                                const linkify = createLinkify()
                                 const matches = linkify.match(clip.value ?? '')
                                 if (matches && matches.length === 1) {
                                   open(ensureUrlPrefix(matches[0].raw))

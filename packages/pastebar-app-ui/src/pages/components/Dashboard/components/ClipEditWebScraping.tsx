@@ -1,6 +1,5 @@
 import { arrayMove } from '@dnd-kit/sortable'
 import { Signal } from '@preact/signals-react'
-import linkifyIt from 'linkify-it'
 import {
   AlertTriangle,
   Check,
@@ -14,6 +13,8 @@ import {
   X,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+import { createLinkify } from '~/lib/utils'
 
 import ToolTip from '~/components/atoms/tooltip'
 import { CodeViewerMemo } from '~/components/code-viewer'
@@ -154,7 +155,7 @@ export function ClipEditWebScraping({
               showLinkValidationError.value = undefined
             }
             if (e.target.value.length > 5) {
-              const linkify = linkifyIt()
+              const linkify = createLinkify()
               const matches = linkify.match(e.target.value)
               if (!matches || matches.length > 1) {
                 showLinkValidationError.value = true

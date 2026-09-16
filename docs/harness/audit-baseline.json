@@ -1,12 +1,12 @@
 {
   "$comment": "Production dependency advisory baseline (npm audit --omit=dev). Counts may only go DOWN (docs/harness/GOLDEN-RULES.md R9). A PR fails if the count grows; the scheduled CI job fails on any high/critical. See ISSUE-032 in docs/harness/ISSUES.md. Regenerate: node scripts/harness/audit-ratchet.mjs --update",
   "updatedFor": "2026-09-16",
-  "total": 51,
+  "total": 28,
   "bySeverity": {
-    "low": 3,
-    "moderate": 23,
-    "high": 25,
+    "low": 1,
+    "moderate": 18,
+    "high": 9,
     "critical": 0
   },
-  "directHighCritical": ["@svgr/webpack", "glob-all", "linkify-it", "rimraf", "rollup"]
+  "directHighCritical": ["glob-all"]
 }

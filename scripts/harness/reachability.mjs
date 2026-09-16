@@ -57,8 +57,12 @@ const TEST_ROOTS = (() => {
       return
     }
     for (const e of entries) {
-      if (e.name === 'node_modules' || e.name === 'libs') continue
+      // Skip by PATH PREFIX, not by bare directory name: `e.name === 'libs'` also skips
+      // the legitimate `src/libs/` source directory, which made an entire real directory
+      // invisible to the walk (and is how `src/libs/bbcode.test.ts` went unnoticed).
+      if (e.name === 'node_modules') continue
       const rel = `${dir}/${e.name}`
+      if (rel.includes(VENDOR) || `${rel}/`.includes(VENDOR)) continue
       if (e.isDirectory()) walk(rel)
       else if (/\.test\.tsx?$/.test(e.name) || /^src\/test\/.*\.ts$/.test(rel))
         out.push(rel)
