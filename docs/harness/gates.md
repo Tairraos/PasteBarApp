@@ -26,6 +26,7 @@ elapsed time, followed by a summary naming what failed.
 | 1   | **hygiene**    | `scripts/harness/check-hygiene.sh`                  | a tracked file matches a forbidden pattern (`.env`, build artifacts, DB files, `node_modules`), or `.env` uses a key undocumented in `.env.sample`                                                   | everything              |
 | 2   | **scan**       | `scripts/harness/scan.sh`                           | the scan itself errors. Metrics are compared by hand against `scan-baseline.txt`                                                                                                                     | nothing (informational) |
 | 2b  | **reachable**  | `node scripts/harness/reachability.mjs --check`     | any source file no entry can reach (dead code regresses)                                                                                                                                             | PR                      |
+| 2c  | **layering**   | `node scripts/harness/check-layering.mjs`           | a backend layer imports upward (`services → commands`, `models/db → services`)                                                                                                                       | PR                      |
 | 3   | **ipc-drift**  | `node scripts/harness/gen-ipc-contract.mjs --check` | a frontend-invoked command is not registered, or a registered command has no `#[tauri::command]` definition                                                                                          | PR                      |
 | 4   | **docs-lint**  | `scripts/harness/docs-lint.sh`                      | a doc is unreachable from `docs/README.md`/`AGENTS.md`, a relative link dangles, a `file:line` reference points at a missing file or an out-of-range line, or a "Last verified" date exceeds 90 days | PR                      |
 | 4b  | **issue-refs** | `node scripts/harness/check-issue-refs.mjs`         | an ISSUE-ID is duplicated, a `file:line` reference in `ISSUES.md` cannot be resolved, or points past the end of its file                                                                             | PR                      |
@@ -90,6 +91,35 @@ change, with an error that points at the wrong file.
 
 **On failure:** delete the file, import it from an entry, or declare it live-without-imports
 in this script with the reason.
+
+---
+
+## Gate 2c — backend layering
+
+**Purpose:** AGENTS.md rule 1 states the backend layering (`commands → services →
+models/db`), and until this gate nothing enforced it. A rule that lives only in a document
+survives exactly until the first change made in a hurry — and this repository is worked on
+by agents by design, so the rule is enforced instead of described.
+
+**Checks:** `services` must not import `commands`; `models` and `db` must not import
+`commands` or `services`. `#[cfg(test)]` modules are skipped, because a test asserting on a
+higher layer is not a production dependency and failing on it would push tests toward weaker
+assertions. `main.rs` is exempt as the composition root.
+
+**What it found on the first run.** Two violations, both `db → services`:
+`db.rs` imported `load_user_config` (because `get_data_dir()` needs it) and `debug_output`
+(used four times), while `services` imported `db::get_config_file_path` in the opposite
+direction. **That is a module cycle, and Rust compiles it happily** — the compiler was never
+going to report this, which is precisely the argument for a structural gate. Both were fixed
+by moving code _down_: the config file IO into `db.rs`, and `debug_output` into `helpers.rs`.
+See ISSUE-017.
+
+**Deliberately not checked:** `services → services` edges. Several are legitimate, and a gate
+that fails on correct code gets disabled. The bad shape that did exist — a _utility_ module
+importing a _business_ service — needed judgement, so it was fixed by hand.
+
+**On failure:** move the shared logic down into the lower layer, or pass what is needed as
+an argument. Do not add an exception without a reason recorded here.
 
 ---
 

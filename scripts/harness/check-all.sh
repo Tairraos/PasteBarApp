@@ -91,6 +91,21 @@ gate_reachable() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate 2c — backend layering (commands -> services -> models/db)
+# ---------------------------------------------------------------------------
+gate_layering() {
+  # ISSUE-017: the rule existed in AGENTS.md and nothing enforced it. Writing it down is not
+  # enforcement, and this repository is worked on by agents by design — so a rule with no
+  # check is a rule that survives until the first change made in a hurry.
+  #
+  # The first run found a real cycle: `db.rs` imported `services` in two places
+  # (`load_user_config`, `debug_output`), while `services` imported `db::get_config_file_path`
+  # in the other direction. Rust allows module cycles, so it compiled — the compiler was
+  # never going to report this. Both were resolved by moving the code down.
+  node scripts/harness/check-layering.mjs
+}
+
+# ---------------------------------------------------------------------------
 # Gate 3 — IPC drift
 # ---------------------------------------------------------------------------
 gate_ipc() {
@@ -208,6 +223,7 @@ gate_test_rust() {
 run_gate "hygiene"        gate_hygiene
 run_gate "scan"           gate_scan
 run_gate "reachable"      gate_reachable
+run_gate "layering"       gate_layering
 run_gate "ipc-drift"      gate_ipc
 run_gate "docs-lint"      gate_docs
 run_gate "issue-refs"     gate_issue_refs

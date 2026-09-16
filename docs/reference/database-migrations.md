@@ -68,17 +68,17 @@ version is absent.
 | `db.rs:166-168` | `create_db_file()` if the DB file does not exist                 |
 | `db.rs:170`     | `run_migrations()`                                               |
 
-`db::init(app)` is called from the Tauri app `.setup` closure at `src-tauri/src/main.rs:1061`.
+`db::init(app)` is called from the Tauri app `.setup` closure at `src-tauri/src/main.rs:463`.
 
 ### ISSUE-002 — the ordering bug
 
 **`db::init` runs too late to protect the clipboard monitor.** Tauri executes plugin
 `.setup` closures _before_ the app `.setup` closure. `clipboard::init()` is registered via
-`.plugin(clipboard::init())` at `src-tauri/src/main.rs:1401`, and its plugin setup immediately spawns the
+`.plugin(clipboard::init())` at `src-tauri/src/main.rs:803`, and its plugin setup immediately spawns the
 clipboard watcher thread. That thread's `on_clipboard_change` calls into `history_service`,
 which reaches `establish_pool_db_connection()` (`db.rs:185-196`) — and that function
 `panic!`s when the pool is not yet usable. `db::init` (and therefore pool creation and the
-migration run) only happens later, at `src-tauri/src/main.rs:1061`.
+migration run) only happens later, at `src-tauri/src/main.rs:463`.
 
 Net effect: a copy performed in the startup window can `panic!` inside the clipboard thread.
 Documented as **ISSUE-002** (P0) in [`../harness/ISSUES.md`](../harness/ISSUES.md); the fix

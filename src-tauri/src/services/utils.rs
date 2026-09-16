@@ -15,10 +15,7 @@ use winreg::RegKey;
 use tld;
 use url::Url;
 
-use crate::menu::AssociatedItemTree;
 use crate::models::Setting;
-
-use super::collections_service;
 
 // Global regex cache for template patterns
 lazy_static! {
@@ -26,22 +23,6 @@ lazy_static! {
 }
 
 pub const GLOBAL_TEMPLATES_ENABLED_KEY: &str = "globalTemplatesEnabled";
-
-pub fn pretty_print_json<T: Serialize>(data: &Result<T, diesel::result::Error>) -> String {
-  data
-    .as_ref()
-    .map(|_items| {
-      serde_json::to_string_pretty(_items)
-        .map_err(|_| "Failed to serialize to JSON.".to_string())
-        .and_then(|json_str| {
-          json_str
-            .to_colored_json_auto()
-            .map_err(|_| "Failed to colorize JSON.".to_string())
-        })
-        .unwrap_or_else(|err| err)
-    })
-    .unwrap_or("Error fetching data.".to_string())
-}
 
 pub fn pretty_print_struct<T: Serialize>(data: &T) -> String {
   serde_json::to_string_pretty(data)
@@ -52,28 +33,6 @@ pub fn pretty_print_struct<T: Serialize>(data: &T) -> String {
         .map_err(|_| "Failed to colorize JSON.".to_string())
     })
     .unwrap_or_else(|err| err)
-}
-
-fn print_tree(node: &AssociatedItemTree, indent: usize) -> String {
-  let prefix = " ".repeat(indent);
-  let mut result = format!("{}- {}\n", prefix, node.item.name);
-  for child in &node.children {
-    result.push_str(&print_tree(child, indent + 2));
-  }
-  result
-}
-
-pub fn pretty_print_forest(trees: &[AssociatedItemTree]) -> String {
-  let mut result = String::new();
-  for tree in trees {
-    result.push_str(&print_tree(tree, 2));
-  }
-  result
-}
-
-pub fn print_db_items(items: &Vec<collections_service::AssociatedMenu>) {
-  let serialized_output = pretty_print_struct(items);
-  println!("{}", serialized_output);
 }
 
 pub fn delete_file_and_maybe_parent(file_path: &Path) -> Result<(), std::io::Error> {
@@ -284,11 +243,10 @@ pub fn apply_global_templates(text: &str, settings_map: &HashMap<String, Setting
   result
 }
 
-pub fn debug_output<F: FnOnce()>(f: F) {
-  if cfg!(debug_assertions) {
-    f();
-  }
-}
+// Re-exported so the many existing `services::utils::debug_output` call sites keep working;
+// the definition moved to `helpers` so `db` can use it without importing `services`
+// (ISSUE-017). Prefer importing from `crate::helpers` in new code.
+pub use crate::helpers::debug_output;
 
 #[cfg(target_os = "windows")]
 const SUBKEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";

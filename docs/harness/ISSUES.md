@@ -59,7 +59,7 @@
 ### ISSUE-002 · Clipboard monitor can run before `db::init`, panicking on first copy
 
 `ID | ISSUE-002`
-`位置 | src-tauri/src/clipboard/mod.rs:512-531 (plugin setup), src-tauri/src/clipboard/mod.rs:57-71 (on_clipboard_change), src-tauri/src/main.rs:1060-1061 (.setup), src-tauri/src/main.rs:1401 (.plugin(clipboard::init()))`
+`位置 | src-tauri/src/clipboard/mod.rs:512-531 (plugin setup), src-tauri/src/clipboard/mod.rs:57-71 (on_clipboard_change), src-tauri/src/main.rs:462 (.setup), src-tauri/src/main.rs:803 (.plugin(clipboard::init()))`
 `类型 | BUG`
 `风险等级 | P0`
 `影响范围 | App startup on every platform; clipboard capture thread`
@@ -165,7 +165,7 @@
 ### ISSUE-010 · IPC command surface has 57 backend commands with no frontend caller
 
 `ID | ISSUE-010`
-`位置 | src-tauri/src/main.rs:1282-1400 (115 registered names) vs 58 distinct names invoked from `packages/pastebar-app-ui/src`|`类型 | DEBT`
+`位置 | src-tauri/src/main.rs:684-802 (115 registered names) vs 58 distinct names invoked from `packages/pastebar-app-ui/src`|`类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | IPC contract, dead code, attack surface |
 `现象与依据 |` Cross-referencing the generated handler list against every `invoke('…')` literal yields 115 registered − 58 invoked = **57 commands never called** by the UI (e.g. `insert_clipboard_history`, `update_clipboard_history_by_ids`, `delete_link_metadata`, `cmd_create_directory`, `set_icon`). The plan's pre-scan suspected _unregistered_ commands too: that is **disproved** — every name the frontend invokes is registered. The real drift is in the other direction, plus two commands invoked only through a computed string in `ClipEditContent.tsx:1734,1848` (`run_web_request`, `run_web_scraping`), which a naive literal scan would miss.
@@ -190,7 +190,7 @@
 `类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | Startup, tray menu, window management |
-`现象与依据 |` `scan.sh` reports 199 total and 96 in main.rs. Examples on the startup path: `src-tauri/src/main.rs:696-699` (`app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`), `src-tauri/src/main.rs:1048`, `db.rs:191-196` (`panic!("Error connecting to db pool")`), `db.rs:218-221` (`fs::create_dir_all(…).unwrap()`, `fs::File::create(…).unwrap()`), `src-tauri/src/menu.rs:43`. Any of these aborts the process from inside a tray callback or a window event handler, which the user sees as the app vanishing.
+`现象与依据 |` `scan.sh` reports 199 total and 96 in main.rs. Examples on the startup path: `src-tauri/src/main.rs:94-102` (`app.save_window_state(…).unwrap()`, `app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`), `db.rs:191-196` (`panic!("Error connecting to db pool")`), `db.rs:218-221` (`fs::create_dir_all(…).unwrap()`, `fs::File::create(…).unwrap()`), `src-tauri/src/menu.rs:43`. Any of these aborts the process from inside a tray callback or a window event handler, which the user sees as the app vanishing.
 `建议方案 |` Phase 4 W1: replace startup-path unwraps with logged, recoverable error handling; keep a `debug_output` trace; do not change the frontend-visible error strings.
 `行为变更 | 无（错误处理路径）`
 `所属阶段 | 4 (W1)`
@@ -210,7 +210,7 @@
 ### ISSUE-014 · `cron_jobs` hourly cleanup never ticks
 
 `ID | ISSUE-014`
-`位置 | src-tauri/src/cron_jobs.rs:8-14, 60-63, src-tauri/src/clipboard/mod.rs:90-93, src-tauri/src/main.rs:1062`
+`位置 | src-tauri/src/cron_jobs.rs:8-14, 60-63, src-tauri/src/clipboard/mod.rs:90-93, src-tauri/src/main.rs:465`
 `类型 | DEBT`
 `风险等级 | P1`
 `影响范围 | Auto-clear clipboard history (age-based retention) |
@@ -252,13 +252,18 @@
 `类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | Backend architecture |
-`现象与依据 |`The three-tier shape exists on disk but nothing enforces it:`services/history_service.rs`calls`crate::db::\*`directly,`src-tauri/src/services/utils.rs:22`imports`super::collections_service`, and `main.rs` reaches into every layer (`use crate::services::…`, `use commands::…`) and itself defines Tauri commands (`app_ready`, `open_history_window`, …) alongside the `commands/`modules. There is no structural test or lint rule that would reject a new`services → commands`edge.`建议方案 |`Phase 3 records the rule in`GOLDEN-RULES.md`; Phase 4 W3 moves the main.rs commands into `commands/`and adds an import-direction check script.`行为变更 | 无`
-`所属阶段 | 2 (rules) → 4 (W3)`
+`现象与依据 |`The three-tier shape exists on disk but nothing enforces it:`services/history_service.rs`calls`crate::db::\*`directly,`src-tauri/src/services/utils.rs:22`imports`super::collections_service`, and `main.rs` reaches into every layer (`use crate::services::…`, `use commands::…`) and itself defines Tauri commands (`app_ready`, `open_history_window`, …) alongside the `commands/`modules. There is no structural test or lint rule that would reject a new`services → commands`edge.`建议方案 |`Phase 3 records the rule in`GOLDEN-RULES.md`; Phase 4 W3 moves the main.rs commands into `commands/`and adds an import-direction check script.
+`行为变更 | 无`
+`状态 | ✅ 已修复 (W3)`
+`修复说明 |`The rule now has a gate:`scripts/harness/check-layering.mjs`(gate 2c). It rejects`services → commands`, `models → {commands, services}`and`db → {commands, services}`, skips `#[cfg(test)]`modules (a test asserting on a higher layer is not a production edge), and exempts`main.rs`as the composition root.
+  Two of the three problems named above were already gone by the time the gate was written —`main.rs`no longer defines any`#[tauri::command]`(W1 moved them all into`commands/`), and `services`no longer imported`commands`. **The gate's first run then found the violation the prose had missed entirely: `db.rs`imported`services`in two places.**`load_user_config`fed`get_data_dir()`, and `debug_output`was used four times — while`services`imported`db::get_config_file_path`in the other direction. Rust permits module cycles, so this compiled and nothing ever reported it. Both were fixed by moving code **down** rather than relaxing the rule:`UserConfig`+`load_user_config`+`save_user_config`moved into`db.rs`(they are file IO over a path`db`owns;`user_settings_service`keeps the business wrappers), and`debug_output`moved to`helpers.rs`, which has no crate-internal imports, with a re-export left in `services/utils.rs`so existing call sites are untouched.
+  Also cleaned up in the same pass:`pretty_print_json`, `pretty_print_forest`, `print_tree`and`print_db_items`were dead code (zero call sites), and`print_db_items`was the *only* reason`services/utils.rs`imported`collections_service`— a utility module reaching up into business logic. Deleting them removed that reverse edge outright.
+  Deliberately **not** encoded as a rule:`services → services`edges. Several are legitimate (a service composing another's public function), and a gate that fails on correct code gets switched off. The specific bad shape — utility-into-business — needed judgement, so it was fixed by hand and is recorded here instead.`所属阶段 | 2 (rules) → 4 (W3)`
 
 ### ISSUE-018 · 22 source files exceed 1000 lines
 
 `ID | ISSUE-018`
-`位置 | packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx:3368, .../ClipEditContent.tsx:2292, .../layout/NavBar.tsx:2064, .../Dashboard.tsx:1830, src-tauri/src/main.rs:1410, src-tauri/src/services/history_service.rs:1356, .../store/settingsStore.ts:1341 (full list: `bash scripts/harness/scan.sh`) |
+`位置 | packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx:3368, .../ClipEditContent.tsx:2292, .../layout/NavBar.tsx:2064, .../Dashboard.tsx:1830, src-tauri/src/main.rs:812, src-tauri/src/services/history_service.rs:1356, .../store/settingsStore.ts:1341 (full list: `bash scripts/harness/scan.sh`) |
 `类型 | DEBT`
 `风险等级 | P2`
 `影响范围 | Agent edit reliability, review size, merge conflicts |
@@ -502,6 +507,25 @@ The upgrade is a genuine major break in two independent ways, both of which were
    `修复说明 |` Upgraded to `linkify-it@6.1.0` (audit baseline 51 → 28, high/critical 30 → 9). All 12 call sites now go through a single `createLinkify()` factory in `lib/utils.ts` that sets `fuzzyLink: true`, rather than calling `linkifyit()` directly in a dozen places — with twelve copies the option is exactly the kind of default that gets forgotten in one of them, and the failure mode is a link that quietly stops being clickable.
    The regression was caught not by the compiler, the build, or the existing tests — all of which passed — but by a new `src/libs/bbcode.test.ts` (7 tests) written to pin linkify's behaviour. It asserts that bare domains ARE detected, and states why, so the next bump that flips `fuzzyLink` back fails loudly. It also asserts an ordering property that depends on match offsets being applied against the original string, and includes a wall-clock bound on `mailto:`-shaped pathological input — the shape the original advisory was about.
    `所属阶段 | 4 (W2)`
+
+### ISSUE-036 · Fifteen dead items reported by the compiler, five of them unverified
+
+`ID | ISSUE-036`
+`位置 | src-tauri/src/db.rs:68, canonicalization, src-tauri/src/simple_cache.rs:15, src-tauri/src/clipboard/mod.rs:335, src-tauri/src/services/tabs_service.rs:53`
+`类型 | DEBT`
+`风险等级 | P3`
+`影响范围 | Backend maintainability; misleading signal on the module map`
+`现象与依据 |` `cargo check` reports 15 items in this crate's own code that nothing calls. They are not evenly interesting, and the difference matters:
+
+- **Confirmed dead, safe to delete** (6): `db::adjust_canonicalization`, `db::try_pool_db_connection`, `db::get_default_db_path_string`, `db::can_access_or_create`, `services::utils::is_valid_json`, and both `simple_cache` types (8 of its associated items). These are leftovers; `simple_cache.rs` has no live methods at all.
+- **Confirmed dead but name-suspicious** (3): `collections_service::get_selected_collection_id`, `tabs_service::get_tabs_by_collection_id`, `tabs_service::get_tab_by_tab_id`. Checked by hand: the frontend reaches collections through the `select_collection_by_id` command, which looks up by id rather than by "the selected one" — so these are unused, not un-wired. Worth stating explicitly because dead code with a plausible name is how a missing feature hides.
+- **NOT dead — the compiler is wrong here** (1 group): `clipboard::ClipboardManager::{write_text, write_image, read_image, read_image_binary}`. `write_text` has **14 call sites** elsewhere; the warning fires because the methods are unused _through this impl_ while callers go through another type. Verifying rather than trusting the warning is the point of listing them separately.
+- **Cosmetic, and a real (if small) bug each** (3): `app_commands.rs:143` (`is_permissions_trusted` assigned then never read), `window_commands.rs:279` (`scale_factor` likewise), `window_ext.rs:50` (`doc_rect` likewise). Each is a dead store — the value is computed and discarded, which usually means the author intended to use it.
+- **Unverified** (1): `metadata/mod.rs:28`, reported as "multiple associated items are never used" without naming them. Not yet investigated.
+  `建议方案 |` Delete the confirmed-dead set in a wave of its own (pure deletions, verified by a build and the test suite). Investigate the three dead stores — each may be a real defect rather than cleanup, since a computed-then-discarded value is what a missing assignment looks like. Do not delete the `clipboard` methods without checking call sites first: the compiler's "never used" here is a false positive, and this entry exists partly to stop someone acting on it.
+  `行为变更 | 无（删除） |
+`状态 | ⬜ 未开始 |
+  `所属阶段 | 5 (W5)`
 
 ---
 

@@ -54,20 +54,24 @@ pub fn update_moved_menu_items_in_collection(
 
 #[tauri::command]
 pub fn update_moved_clips_in_collection(updated_move_clips: Vec<UpdatedOnMoveClipData>) -> String {
-  println!(
-    "Processing move clips data: {}",
-    pretty_print_struct(&updated_move_clips)
-  );
+  debug_output(|| {
+    println!(
+      "Processing move clips data: {}",
+      pretty_print_struct(&updated_move_clips)
+    );
+  });
 
   collections_service::update_moved_clips_in_collection(updated_move_clips)
 }
 
 #[tauri::command]
 pub fn select_collection_by_id(select_collection: SelectByCollectionId) -> String {
-  println!(
-    "Processing select collection: {}",
-    pretty_print_struct(&select_collection)
-  );
+  debug_output(|| {
+    println!(
+      "Processing select collection: {}",
+      pretty_print_struct(&select_collection)
+    );
+  });
 
   let collection_id_value = select_collection.collection_id;
 
@@ -76,10 +80,12 @@ pub fn select_collection_by_id(select_collection: SelectByCollectionId) -> Strin
 
 #[tauri::command]
 pub fn update_collection_by_id(updated_collection: UpdatedCollectionData) -> String {
-  println!(
-    "Processing update collection: {}",
-    pretty_print_struct(&updated_collection)
-  );
+  debug_output(|| {
+    println!(
+      "Processing update collection: {}",
+      pretty_print_struct(&updated_collection)
+    );
+  });
 
   if updated_collection.collection_id.is_none() {
     return "Collection ID is required".to_string();

@@ -163,13 +163,13 @@ Consequences visible in the code:
 ## 5. Registration
 
 All handlers are registered in one `tauri::generate_handler![…]` block in
-`src-tauri/src/main.rs:1282-1390`, inside the `.setup()` closure's builder chain. Each entry
+`src-tauri/src/main.rs:684-802`, inside the `.setup()` closure's builder chain. Each entry
 is a bare path: `main.rs`-local functions by name (`app_ready`, `update_setting`,
 `quickpaste_hide_paste_close`, `set_icon`), and `commands/` functions qualified by module
 (`items_commands::create_item`, `user_settings_command::cmd_get_setting`).
 
 Two commented-out entries show retired commands that were never removed from the source:
-`src-tauri/src/main.rs:1373-1374` disable `cmd_set_custom_db_path` and `cmd_remove_custom_db_path`
+`src-tauri/src/main.rs:781-782` disable `cmd_set_custom_db_path` and `cmd_remove_custom_db_path`
 ("Replaced by …").
 
 ### Commands defined directly in `main.rs`
@@ -194,7 +194,7 @@ layering violation. They are:
 | `open_history_window`                 | 375 / 455 | Two `#[cfg]`-gated definitions of the same name.                   |
 | `open_quickpaste_window`              | 530       | async.                                                             |
 
-Note also `menu::build_system_menu` (`src-tauri/src/main.rs:1334`), which is registered from the `menu`
+Note also `menu::build_system_menu` (`src-tauri/src/main.rs:765`), which is registered from the `menu`
 module rather than `commands/`.
 
 ---
@@ -205,7 +205,7 @@ These are the fresh, verified facts from [`harness/ISSUES.md`](../harness/ISSUES
 issue numbers are stable and must be cited in any fix commit.
 
 **ISSUE-010 — 57 registered commands have no frontend caller.** Cross-referencing the
-generated handler list (`src-tauri/src/main.rs:1282-1390`, 115 registered names) against every `invoke('…')`
+generated handler list (`src-tauri/src/main.rs:684-802`, 115 registered names) against every `invoke('…')`
 literal in `packages/pastebar-app-ui/src` yields 115 − 58 = **57 commands never invoked by the
 UI** — for example `insert_clipboard_history`, `update_clipboard_history_by_ids`,
 `delete_link_metadata`, `cmd_create_directory`, `set_icon`. `node
@@ -218,7 +218,7 @@ ISSUES.md:150-160.
 are in `main.rs` — the startup path, tray callbacks and window event handlers, where a panic
 aborts the process and the user sees the app vanish. Examples: `src-tauri/src/main.rs:696-699`
 (`app.get_window("main").unwrap()`, `w.emit_all(…).unwrap()`, `w.show().unwrap()`),
-`src-tauri/src/main.rs:1048`, and `src-tauri/src/main.rs:1256` (`emit_all("scheme-request-received", …).unwrap()`).
+`src-tauri/src/main.rs:94`, and `src-tauri/src/main.rs:658` (`emit_all("scheme-request-received", …).unwrap()`).
 `commands/**` itself holds only 24 of them. Details at ISSUES.md:174-184.
 
 **ISSUE-013 — `println!` in release builds.** The project convention is

@@ -63,6 +63,12 @@ jobs:
         # discovers them by glob) — see TEST_ROOTS in the script, and gates.md gate 2b.
         run: node scripts/harness/reachability.mjs --check
 
+      - name: Gate — backend layering
+        # commands -> services -> models/db (AGENTS.md rule 1). Its first run found a real
+        # db <-> services module cycle that Rust compiles without complaint — see ISSUE-017
+        # and gates.md gate 2c.
+        run: node scripts/harness/check-layering.mjs
+
       - name: Gate — IPC contract drift
         run: node scripts/harness/gen-ipc-contract.mjs --check
 

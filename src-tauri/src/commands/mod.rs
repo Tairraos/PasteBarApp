@@ -1,3 +1,4 @@
+pub(crate) mod app_commands;
 pub(crate) mod backup_restore_commands;
 pub(crate) mod clipboard_commands;
 pub(crate) mod collections_commands;
@@ -12,3 +13,4 @@ pub(crate) mod shell_commands;
 pub(crate) mod tabs_commands;
 pub(crate) mod translations_commands;
 pub(crate) mod user_settings_command;
+pub(crate) mod window_commands;

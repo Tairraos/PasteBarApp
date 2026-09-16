@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -11,14 +12,13 @@ use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
 use diesel::r2d2 as diesel_r2d2;
 
-use crate::services::user_settings_service::load_user_config;
 use diesel::sqlite::SqliteConnection;
 
 // use diesel::connection::{set_default_instrumentation, Instrumentation, InstrumentationEvent};
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
-use crate::services::utils::debug_output;
+use crate::helpers::debug_output;
 
 // Visible to the test module below, which runs these against an in-memory SQLite so the
 // real migrations are exercised rather than a hand-built schema that can drift from them.
@@ -482,6 +482,68 @@ pub fn get_config_file_path() -> PathBuf {
   }
 
   default_path
+}
+
+// ===========================
+//  User config file IO
+// ===========================
+//
+// Moved here from `services/user_settings_service.rs` (ISSUE-017). These are file reads and
+// writes over a path this module owns (`get_config_file_path`), and the previous placement
+// made `db` import `services` — the one direction the layering forbids. `get_data_dir()`
+// needs `load_user_config()`, so the reader has to sit at or below `db`; a service that
+// reads a file the infrastructure module cannot is not a service, it is misplaced IO.
+
+/// The on-disk shape of `pastebar_settings.yaml`.
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct UserConfig {
+  /// The custom DB path, if user specified one.
+  pub custom_db_path: Option<String>,
+
+  /// General-purpose key-value settings.
+  #[serde(default)]
+  pub data: HashMap<String, serde_yaml::Value>,
+}
+
+/// Read the user config, falling back to defaults.
+///
+/// Every failure path returns `UserConfig::default()` rather than an error: this is read on
+/// the startup path (via `get_data_dir`) where there is no caller able to handle a failure,
+/// and a corrupt config file must not prevent the app from starting.
+pub fn load_user_config() -> UserConfig {
+  let path = get_config_file_path();
+  if !path.exists() {
+    return UserConfig::default();
+  }
+
+  match std::fs::read_to_string(&path) {
+    Ok(contents) => match serde_yaml::from_str::<UserConfig>(&contents) {
+      Ok(cfg) => cfg,
+      Err(e) => {
+        eprintln!("Error parsing user config YAML: {:#}", e);
+        UserConfig::default()
+      }
+    },
+    Err(e) => {
+      eprintln!("Error reading user config file: {:#}", e);
+      UserConfig::default()
+    }
+  }
+}
+
+/// Save the `UserConfig` back to `pastebar_settings.yaml`.
+pub fn save_user_config(cfg: &UserConfig) -> Result<(), String> {
+  let path = get_config_file_path();
+  if let Some(parent) = path.parent() {
+    std::fs::create_dir_all(parent)
+      .map_err(|e| format!("Failed to create config directory: {}", e))?;
+  }
+
+  let yaml_str =
+    serde_yaml::to_string(cfg).map_err(|e| format!("Failed to serialize config to YAML: {}", e))?;
+  std::fs::write(&path, yaml_str).map_err(|e| format!("Failed to write config file: {}", e))?;
+
+  Ok(())
 }
 
 /// Reads `custom_db_path` out of a specific settings file without going through

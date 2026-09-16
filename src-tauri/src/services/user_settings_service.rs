@@ -1,54 +1,11 @@
-use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::collections::HashMap;
 
-use crate::db::get_config_file_path;
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct UserConfig {
-  /// The custom DB path, if user specified one.
-  pub custom_db_path: Option<String>,
-
-  /// General-purpose key-value settings.
-  #[serde(default)]
-  pub data: HashMap<String, serde_yaml::Value>,
-}
-
-pub fn load_user_config() -> UserConfig {
-  let path = get_config_file_path();
-  if !path.exists() {
-    return UserConfig::default();
-  }
-
-  match std::fs::read_to_string(&path) {
-    Ok(contents) => match serde_yaml::from_str::<UserConfig>(&contents) {
-      Ok(cfg) => cfg,
-      Err(e) => {
-        eprintln!("Error parsing user config YAML: {:#}", e);
-        UserConfig::default()
-      }
-    },
-    Err(e) => {
-      eprintln!("Error reading user config file: {:#}", e);
-      UserConfig::default()
-    }
-  }
-}
-
-/// Save the `UserConfig` back to `pastebar_settings.yaml`.
-pub fn save_user_config(cfg: &UserConfig) -> Result<(), String> {
-  let path = get_config_file_path();
-  if let Some(parent) = path.parent() {
-    std::fs::create_dir_all(parent)
-      .map_err(|e| format!("Failed to create config directory: {}", e))?;
-  }
-
-  let yaml_str =
-    serde_yaml::to_string(cfg).map_err(|e| format!("Failed to serialize config to YAML: {}", e))?;
-  std::fs::write(&path, yaml_str).map_err(|e| format!("Failed to write config file: {}", e))?;
-
-  Ok(())
-}
+// `UserConfig`, `load_user_config` and `save_user_config` live in `db` because they are
+// file IO over a path that `db` owns — keeping them here made `db` import `services`, which
+// is the wrong direction (ISSUE-017). This module keeps the business-facing wrappers and
+// depends downward, so the edge runs one way only.
+use crate::db::{load_user_config, save_user_config, UserConfig};
 
 // ===========================
 //  Custom DB Path Methods
