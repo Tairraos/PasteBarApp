@@ -3,19 +3,10 @@
   "updatedFor": "2026-09-16",
   "total": 51,
   "bySeverity": {
-    "low": 2,
-    "moderate": 19,
-    "high": 30,
+    "low": 3,
+    "moderate": 23,
+    "high": 25,
     "critical": 0
   },
-  "directHighCritical": [
-    "@svgr/webpack",
-    "glob-all",
-    "js-yaml",
-    "linkify-it",
-    "lodash-es",
-    "react-router-dom",
-    "rimraf",
-    "rollup"
-  ]
+  "directHighCritical": ["@svgr/webpack", "glob-all", "linkify-it", "rimraf", "rollup"]
 }

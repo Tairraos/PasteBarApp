@@ -433,7 +433,12 @@ commit messages written against this revision. **No action required.**
   The remaining high findings are transitive, mostly through `@babel/*` and `@svgr/webpack` in the build chain. A desktop app ships its renderer, so a renderer-side XSS is not a theoretical concern: the webview holds the user's clipboard history and the IPC bridge is exposed to it.
   This was not in the plan's pre-scan at all (§3.1 task 1.5 listed `npm audit` as an input, but the task was executed as a no-op because `--no-audit` was everywhere).
   `建议方案 |` Two parts. (1) A scheduled `audit` job in `quality.yml` so the count is visible and cannot drift back to "never run" — it must not block PRs, matching the plan's §3.9 "小门禁快、大扫描定时". The count is pinned in `docs/harness/audit-baseline.json` so it may only shrink, and a scheduled run fails when it grows. (2) Upgrading `react-router-dom`, `lodash-es` and `js-yaml` is real work with real regression risk and belongs in its own wave (W2), not bolted onto the gate.
-  `行为变更 | 无（门禁与记录；升级本身属 W2，尚未执行）`
+  `行为变更 | 无（门禁与记录；升级本身见下方进度）`
+  `状态 | 🟡 部分修复 — 门禁已落地；渲染进程依赖已升级，构建链待办`
+  `修复说明 |` The gate landed (gate 7b) and the three dependencies that reach the **shipped renderer** were upgraded to patched versions within their existing major — `react-router-dom` 6.20.0 → 6.30.6, `lodash-es` 4.17.21 → 4.18.1, `js-yaml` 4.1.0 → 4.3.2. Equal-major bumps keep the API contract the code is written against, so these were safe to land with the gate rather than deferred to a wave.
+  High/critical advisories fell **30 → 25**; the renderer's three direct findings are gone. `vite build` exits 0 and 9 new tests in `packages/pastebar-app-ui/src/lib/router-upgrade.test.ts` pin the react-router API surface main.tsx consumes (`createBrowserRouter`, `RouterProvider`, `lazy` loaders, splat fallback) so a future bump fails in CI rather than as a blank window in a packaged app.
+  One of those tests also pins _why_ the `lodash-es` advisory is not exploitable here: the vulnerable entry point is `_.template`, which this codebase never calls. The test scans `src/` and fails if it is ever introduced, turning a standing advisory into an actionable signal.
+  **Still open:** the remaining 25 high/critical are build-chain tooling (`@svgr/webpack`, `glob-all`, `linkify-it`, `rimraf`, `rollup`) plus transitive `@babel/*`. They do not ship to users. `js-yaml`'s count rose from a transitive `3.14.1` under `@changesets/cli`; that is dev-only and excluded by `--omit=dev`.
   `所属阶段 | 3（门禁）→ 4 (W2, 升级)`
 
 ---

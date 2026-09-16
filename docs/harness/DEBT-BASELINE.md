@@ -199,9 +199,10 @@ ever run an audit before; every install site passed `--no-audit`.
 | **total** | **51** |
 
 Direct high/critical dependencies — the ones a human can act on — are listed in
-`audit-baseline.json`. Three reach the shipped renderer: `react-router-dom`,
-`lodash-es`, `js-yaml`; the rest (`@svgr/webpack`, `glob-all`, `linkify-it`, `rimraf`) are
-build-chain.
+`audit-baseline.json`. All remaining are **build-chain tooling** (`@svgr/webpack`,
+`glob-all`, `linkify-it`, `rimraf`, `rollup`); none ships to users. The three that did reach
+the shipped renderer (`react-router-dom`, `lodash-es`, `js-yaml`) were upgraded and are now
+clear.
 
 **Enforcement:** the count may only shrink. `check-all.sh` gate 7b and the PR CI job fail if
 it grows; the weekly scheduled `audit` job runs `--strict` and fails on any high/critical, so
