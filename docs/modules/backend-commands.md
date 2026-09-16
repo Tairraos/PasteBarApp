@@ -33,23 +33,48 @@ What this layer must never do, and what the code actually does today:
 
 `src-tauri/src/commands/` — 15 files, 4 025 lines.
 
-| File                           | Lines | Purpose                                                                             |
-| ------------------------------ | ----- | ----------------------------------------------------------------------------------- |
-| `backup_restore_commands.rs`   | 366   | Create/list/restore/delete zip backups of the DB and image dirs; report data paths. |
-| `clipboard_commands.rs`        | 795   | Copy/paste a clip or history item, run templates and form-fill, `copy_text`.        |
-| `collections_commands.rs`      | 193   | Collection CRUD, move items/clips between collections, select active collection.    |
-| `download_update.rs`           | 83    | Download a release asset over HTTPS and execute it.                                 |
-| `format_converter_commands.rs` | 375   | Pure string conversion (CSV↔JSON, YAML, TOML, HTML, Markdown). Single command.     |
-| `history_commands.rs`          | 428   | Clipboard-history queries, deletions, pinning, save-to-file, source-app list.       |
-| `items_commands.rs`            | 593   | Clip/menu item CRUD, image upload/delete, pin moves, link clip to menu item.        |
-| `link_metadata_commands.rs`    | 605   | Fetch/unfurl link and path metadata, audio validation and download.                 |
-| `mod.rs`                       | 14    | `pub(crate) mod` declarations for the 14 sibling files.                             |
-| `request_commands.rs`          | 11    | Thin pass-through to `request_service` for web request + scraping.                  |
-| `security_commands.rs`         | 45    | bcrypt hash/verify and OS-keyring password storage.                                 |
-| `shell_commands.rs`            | 26    | Thin pass-through to `shell_service` (shell exec, path checks).                     |
-| `tabs_commands.rs`             | 92    | Tab create/update/delete/bulk-update.                                               |
-| `translations_commands.rs`     | 141   | Debug-only missing-translation key writing and menu-language change.                |
-| `user_settings_command.rs`     | 258   | Custom data-location validation and relocation; YAML key-value settings.            |
+| File                         | Lines | Purpose                                                                                                 |
+| ---------------------------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| `backup_restore_commands.rs` | 723   | Create/list/restore/delete zip backups; report data paths. Backups hold saved content only — see below. |
+| `clipboard_commands.rs`      | 795   | Copy/paste a clip or history item, run templates and form-fill, `copy_text`.                            |
+
+### What a backup contains
+
+A backup is **saved content, not a snapshot of everything**:
+
+| Included                                                     | Excluded                                         |
+| ------------------------------------------------------------ | ------------------------------------------------ |
+| `collections`, `tabs`, `collection_clips`, `collection_menu` | `clipboard_history` (except pinned/starred rows) |
+| `items` (saved clips)                                        | `clipboard-images/` (the history's images)       |
+| `settings`                                                   |                                                  |
+| `clip-images/` (images belonging to saved clips)             |                                                  |
+| pinned and starred clipboard entries                         |                                                  |
+
+The distinction is that history is bulk transient data — it is what makes a backup large,
+it regenerates by using the app, and restoring it is not what a user asks for when they say
+"restore my data". Rows the user **marked** (pinned or starred) are kept, because a mark is
+a deliberate act of saving.
+
+**Restoring therefore clears the current history.** `restore_backup` replaces the database
+file wholesale, and the archive carries no history rows. This is intended behaviour, not a
+bug — but it is the one consequence worth knowing before restoring.
+
+`create_backup` refuses to run unless it can `VACUUM` first (see
+[`backend-database.md`](./backend-database.md)); the frontend offers a forced retry when that
+fails.
+| `collections_commands.rs` | 193 | Collection CRUD, move items/clips between collections, select active collection. |
+| `download_update.rs` | 83 | Download a release asset over HTTPS and execute it. |
+| `format_converter_commands.rs` | 375 | Pure string conversion (CSV↔JSON, YAML, TOML, HTML, Markdown). Single command. |
+| `history_commands.rs` | 441 | Clipboard-history queries, deletions, pinning, save-to-file, source-app list. |
+| `items_commands.rs` | 593 | Clip/menu item CRUD, image upload/delete, pin moves, link clip to menu item. |
+| `link_metadata_commands.rs` | 605 | Fetch/unfurl link and path metadata, audio validation and download. |
+| `mod.rs` | 14 | `pub(crate) mod` declarations for the 14 sibling files. |
+| `request_commands.rs` | 11 | Thin pass-through to `request_service` for web request + scraping. |
+| `security_commands.rs` | 45 | bcrypt hash/verify and OS-keyring password storage. |
+| `shell_commands.rs` | 26 | Thin pass-through to `shell_service` (shell exec, path checks). |
+| `tabs_commands.rs` | 92 | Tab create/update/delete/bulk-update. |
+| `translations_commands.rs` | 141 | Debug-only missing-translation key writing and menu-language change. |
+| `user_settings_command.rs` | 258 | Custom data-location validation and relocation; YAML key-value settings. |
 
 92 `#[tauri::command]` attributes appear across `commands/**` and `main.rs`; the generated
 handler list has **115** registered names — the difference is that several command functions

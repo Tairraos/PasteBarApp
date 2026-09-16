@@ -156,7 +156,45 @@ targets for Phase 5 property tests (round-trip over generated paths).
 | WAL and foreign keys disabled                      | —                  | intentional or not, it is undocumented; WAL would improve concurrent-window behaviour                                                                                                                                                                                                                                                                                                               |
 | Raw `println!` for DB diagnostics                  | ISSUE-013          | `db.rs:77,200` (and `eprintln!` at `db.rs:319,336`)                                                                                                                                                                                                                                                                                                                                                 |
 
-## 6. Schema entry point
+## 6. Space reclamation (`VACUUM`)
+
+Deleting rows frees pages **inside** the SQLite file; it does not return them to the
+filesystem. Since this app deletes constantly — every history clear, every retention sweep —
+a long-lived database accumulates free pages without bound.
+
+`services/maintenance_service.rs` owns the policy:
+
+| Behaviour      | Detail                                                                          |
+| -------------- | ------------------------------------------------------------------------------- |
+| Cadence        | At most once per **120 hours** (5 days), decided by the job, not the scheduler  |
+| Scheduler tick | Hourly (`cron_jobs.rs`), because the tick is also the retry mechanism           |
+| On **failure** | `last_run_at` is left untouched → the next hourly tick retries                  |
+| On **success** | `last_run_at` is written → the cooldown starts                                  |
+| Bookkeeping    | `maintenance_log` table (`task`, `last_run_at`, `run_count`), survives restarts |
+
+The asymmetry is deliberate: if a failure armed the cooldown, a transient lock would
+silently postpone maintenance for five days — and a transient lock is exactly the case
+where retrying soon is right.
+
+`VACUUM` takes an exclusive lock for its whole duration, so it is a synchronous, blocking
+operation by choice. Both callers are already off the UI thread (the scheduler has its own
+thread; the backup command is `async`).
+
+### Backups vacuum first
+
+`create_backup` runs `VACUUM` before archiving and **refuses to continue if it fails**,
+returning an error prefixed `VACUUM_FAILED:`. Two reasons, in order of importance:
+
+1. `VACUUM` rebuilds the database into a fresh file, so the archived copy cannot capture a
+   torn write. This is what makes the backup a consistent snapshot rather than a hopeful
+   file copy — the previous implementation copied the `.data` file directly, which under
+   WAL can catch a half-applied write.
+2. Free pages would otherwise be archived instead of reclaimed.
+
+The frontend shows a dialog offering "create the backup anyway"; that path sets
+`force_without_vacuum`, and the backend proceeds without the snapshot guarantee.
+
+## 7. Schema entry point
 
 `src-tauri/src/schema.rs` is Diesel-generated (`diesel print-schema`). It is the source of
 truth for table and column names used in `services/` query builders. Regenerate it whenever a

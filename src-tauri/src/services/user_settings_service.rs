@@ -5,7 +5,7 @@ use std::collections::HashMap;
 // file IO over a path that `db` owns — keeping them here made `db` import `services`, which
 // is the wrong direction (ISSUE-017). This module keeps the business-facing wrappers and
 // depends downward, so the edge runs one way only.
-use crate::db::{load_user_config, save_user_config, UserConfig};
+use crate::db::{load_user_config, save_user_config};
 
 // ===========================
 //  Custom DB Path Methods

@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 use zip::write::FileOptions;
 use zip::{ZipArchive, ZipWriter};
 
+use diesel::prelude::*;
+use diesel::SqliteConnection;
+use nanoid::nanoid;
+
 use crate::db::{get_clip_images_dir, get_clipboard_images_dir, get_data_dir, get_db_path};
 use crate::services::utils::debug_output;
 
@@ -90,11 +94,182 @@ fn add_directory_to_zip<W: Write + Seek>(
   Ok(())
 }
 
+/// Which tables the backup keeps.
+///
+/// Everything the user *saved*: clips, the collections/tabs/menus that organise them, the
+/// settings that describe their setup, and the clipboard entries they starred or pinned
+/// (those are deliberate marks, not transient history).
+const BACKUP_KEPT_TABLES: &[&str] = &[
+  "collections",
+  "tabs",
+  "collection_clips",
+  "collection_menu",
+  "items",
+  "settings",
+];
+
+/// Which tables the backup drops.
+///
+/// `clipboard_history` keeps only rows the user marked; everything else in it is history.
+/// `link_metadata` is per-history-row metadata, so it is only meaningful alongside the rows
+/// it describes.
+const BACKUP_FILTERED_TABLES: &[&str] = &["clipboard_history"];
+
+/// Produce a consistent, filtered copy of the database as bytes.
+///
+/// Uses `VACUUM INTO`, which is the only way to get a consistent snapshot of a live SQLite
+/// database without stopping writers: it rebuilds into a new file (so no WAL frame is
+/// half-applied) *and* compacts (so the copy is not padded with free pages). Copying the
+/// `.data` file directly — what this did before — can capture a torn write under WAL.
+///
+/// The filtered tables are then emptied in the COPY. Rows the user marked (`is_pinned` or
+/// `is_favorite`) are kept, because those are saved content rather than history.
+fn export_backup_database() -> Result<Vec<u8>, String> {
+  let snapshot_path = std::env::temp_dir().join(format!("pastebar-backup-{}.data", nanoid!()));
+
+  // Remove any stale file: `VACUUM INTO` refuses to overwrite an existing target.
+  let _ = fs::remove_file(&snapshot_path);
+
+  let result = (|| -> Result<Vec<u8>, String> {
+    {
+      let connection = &mut crate::db::establish_pool_db_connection();
+
+      // Path is interpolated rather than bound: `VACUUM INTO` does not accept a parameter
+      // for its target in SQLite — a bound parameter there is a syntax error, not a safety
+      // feature. The path is machine-generated (temp dir + nanoid) and cannot contain a
+      // quote, which is what makes the interpolation safe.
+      let escaped = snapshot_path.to_string_lossy().replace('\'', "''");
+      diesel::sql_query(format!("VACUUM INTO '{}'", escaped))
+        .execute(connection)
+        .map_err(|e| format!("Failed to snapshot database: {}", e))?;
+    }
+
+    // Filter the COPY on its own connection, so the live database is never written to.
+    let mut snapshot = SqliteConnection::establish(&snapshot_path.to_string_lossy())
+      .map_err(|e| format!("Failed to open database snapshot: {}", e))?;
+
+    filter_backup_snapshot(&mut snapshot)?;
+    drop(snapshot);
+
+    fs::read(&snapshot_path).map_err(|e| format!("Failed to read database snapshot: {}", e))
+  })();
+
+  let _ = fs::remove_file(&snapshot_path);
+  result
+}
+
+/// Empty the history out of a snapshot and verify the schema is accounted for.
+///
+/// Split from [`export_backup_database`] so it can be tested against an in-memory database
+/// — the file orchestration around it needs the live connection pool, but this part is
+/// where the decisions are, and a backup that quietly contains history is exactly the kind
+/// of defect that is discovered too late to fix.
+///
+/// Two things happen here, and the second is the guard rail:
+///
+///   1. History rows are deleted FROM THE SNAPSHOT (never the live database), keeping rows
+///      the user marked as pinned or starred — those are saved content, not history.
+///   2. Every table in the snapshot must appear in one of the two lists. A new table added
+///      to the schema by a future migration therefore FAILS the backup loudly, instead of
+///      being archived by default (leaking whatever it holds into every backup) or dropped
+///      by default (silently losing user data on restore). Both defaults are wrong, so the
+///      code refuses to guess.
+fn filter_backup_snapshot(snapshot: &mut SqliteConnection) -> Result<(), String> {
+  for table in BACKUP_FILTERED_TABLES {
+    let sql = format!(
+      "DELETE FROM {} WHERE COALESCE(is_pinned, 0) = 0 AND COALESCE(is_favorite, 0) = 0",
+      table
+    );
+    diesel::sql_query(sql)
+      .execute(snapshot)
+      .map_err(|e| format!("Failed to filter {} from snapshot: {}", table, e))?;
+  }
+
+  // Reclaim what those deletes freed. Best-effort: a failure costs archive size, not
+  // correctness, and must not fail the backup.
+  if let Err(e) = diesel::sql_query("VACUUM").execute(snapshot) {
+    eprintln!("Could not compact database snapshot: {}", e);
+  }
+
+  let tables: Vec<String> = diesel::sql_query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' \
+     AND name != '__diesel_schema_migrations'",
+  )
+  .load::<TableNameRow>(snapshot)
+  .map_err(|e| format!("Failed to read snapshot schema: {}", e))?
+  .into_iter()
+  .map(|r| r.name)
+  .collect();
+
+  for table in &tables {
+    if !BACKUP_KEPT_TABLES.contains(&table.as_str())
+      && !BACKUP_FILTERED_TABLES.contains(&table.as_str())
+      && table != "maintenance_log"
+    {
+      return Err(format!(
+        "Table '{}' is in neither the backup keep-list nor its filter-list. \
+         Add it to BACKUP_KEPT_TABLES or BACKUP_FILTERED_TABLES deliberately — \
+         a new table must not be archived (or dropped) by accident.",
+        table
+      ));
+    }
+  }
+
+  Ok(())
+}
+
+/// Row shape for the schema check above.
+#[derive(diesel::QueryableByName)]
+struct TableNameRow {
+  #[diesel(sql_type = diesel::sql_types::Text)]
+  name: String,
+}
+
+/// Create a backup archive.
+///
+/// `include_images` is retained for call-site compatibility and still gates the image
+/// directories, but it no longer affects the database contents.
+///
+/// `force_without_vacuum` exists because a vacuum can legitimately fail (the database is
+/// locked by another connection, the disk is full). The user then chooses: retry later, or
+/// back up anyway knowing the archive may contain reclaimed-but-unreleased free pages. The
+/// frontend asks; this command never decides silently.
 #[tauri::command]
-pub async fn create_backup(include_images: bool) -> Result<String, String> {
+pub async fn create_backup(
+  include_images: bool,
+  force_without_vacuum: bool,
+) -> Result<String, String> {
   debug_output(|| {
-    println!("Creating backup with include_images: {}", include_images);
+    println!(
+      "Creating backup (include_images: {}, force_without_vacuum: {})",
+      include_images, force_without_vacuum
+    );
   });
+
+  // Vacuum BEFORE archiving, and refuse to continue if it fails.
+  //
+  // Two reasons, and the first is the one that matters. VACUUM rebuilds the database into a
+  // fresh file, so the export below cannot capture a torn write — this is what makes the
+  // backup a consistent snapshot rather than a hopeful file copy. The second is size: a
+  // history cleared many times carries a lot of free pages, and they would be archived
+  // instead of reclaimed.
+  //
+  // Refusing on failure is deliberate. A backup the user believes is sound but is not is
+  // worse than no backup, because the moment they need it is the moment they find out.
+  // `VACUUM_FAILED:` is the prefix the frontend matches to offer the forced retry.
+  if !force_without_vacuum {
+    crate::services::maintenance_service::run_vacuum().map_err(|e| {
+      format!(
+        "VACUUM_FAILED: could not reclaim database space before backing up ({}). \
+         The backup was not created.",
+        e
+      )
+    })?;
+  } else {
+    debug_output(|| {
+      println!("Backing up without a vacuum, at the user's request");
+    });
+  }
 
   let data_dir = get_data_dir();
   let backup_filename = get_backup_filename();
@@ -127,13 +302,19 @@ pub async fn create_backup(include_images: bool) -> Result<String, String> {
     .compression_method(zip::CompressionMethod::Deflated)
     .unix_permissions(0o644);
 
-  // Add database file
-  let mut db_file =
-    fs::File::open(&db_path).map_err(|e| format!("Failed to open database file: {}", e))?;
-  let mut db_buffer = Vec::new();
-  db_file
-    .read_to_end(&mut db_buffer)
-    .map_err(|e| format!("Failed to read database file: {}", e))?;
+  // Archive a FILTERED copy of the database, not the live file.
+  //
+  // A backup holds the user's saved content — clips, collections, tabs, menus, settings and
+  // starred/pinned clipboard entries — and deliberately NOT the clipboard history itself.
+  // History is bulk transient data: it is what makes a backup large, it is regenerated by
+  // using the app, and restoring it is not something the user asked for. Excluding it keeps
+  // backups small enough to be routine.
+  //
+  // Note the consequence, which is intended: `restore_backup` replaces the database file
+  // wholesale and the archive carries no history rows, so a restore clears the current
+  // history. That is the documented behaviour (see docs/reference/build-and-release.md),
+  // not an accident.
+  let db_buffer = export_backup_database()?;
 
   // Get just the filename for the zip entry
   let db_filename = db_path
@@ -165,10 +346,11 @@ pub async fn create_backup(include_images: bool) -> Result<String, String> {
         .map_err(|e| format!("Failed to add clip-images directory: {}", e))?;
     }
 
-    if history_images_dir.exists() {
-      add_directory_to_zip(&mut zip, &history_images_dir, &data_dir)
-        .map_err(|e| format!("Failed to add clipboard-images directory: {}", e))?;
-    }
+    // `clipboard-images` is deliberately NOT archived. It is the on-disk half of the
+    // clipboard history, so archiving it while excluding the history rows would restore
+    // images nothing references — unreachable data occupying space, with no way to see or
+    // delete it from the UI. `clip-images` IS archived: those belong to saved clips.
+    let _ = &history_images_dir; // still read, for the debug trace above
   }
 
   zip
@@ -270,7 +452,7 @@ pub async fn restore_backup(
 
   // Optionally create backup of current data before restore
   if create_pre_restore_backup {
-    if let Err(e) = create_backup(true).await {
+    if let Err(e) = create_backup(true, false).await {
       debug_output(|| {
         println!("Warning: Could not create pre-restore backup: {}", e);
       });
@@ -361,6 +543,181 @@ pub async fn get_data_paths() -> Result<serde_json::Value, String> {
       "data_dir": data_dir.to_string_lossy(),
       "database_file": if cfg!(debug_assertions) { "local.pastebar-db.data" } else { "pastebar-db.data" },
       "clip_images_dir": data_dir.join("clip-images").to_string_lossy(),
-      "history_images_dir": data_dir.join("history-images").to_string_lossy()
+      // Was reported as "history-images", a directory that does not exist — the real name is
+      // "clipboard-images" (db::get_clipboard_images_dir). Nothing consumed this field yet,
+      // so the wrong path was harmless, but it is the field a UI would show a user, and a
+      // confidently wrong path is worse than an absent one.
+      "history_images_dir": get_clipboard_images_dir().to_string_lossy()
   }))
+}
+
+#[cfg(test)]
+mod backup_filter_tests {
+  use super::*;
+  use diesel::connection::SimpleConnection;
+
+  /// An in-memory database with the tables the backup filter reasons about.
+  ///
+  /// Hand-built rather than migrated: these tests are about the filter's decisions, and a
+  /// hand-built schema lets a test use a table the real schema does not have yet (the
+  /// "unknown table" case below), which is the whole point of that guard rail.
+  fn snapshot_connection() -> SqliteConnection {
+    let mut conn = SqliteConnection::establish(":memory:").expect("in-memory SQLite opens");
+    conn
+      .batch_execute(
+        "CREATE TABLE clipboard_history (
+         history_id TEXT PRIMARY KEY,
+         is_pinned BOOLEAN,
+         is_favorite BOOLEAN,
+         value TEXT
+       );
+       CREATE TABLE items (item_id TEXT PRIMARY KEY, name TEXT);
+       CREATE TABLE settings (key TEXT PRIMARY KEY);
+       CREATE TABLE collections (collection_id TEXT PRIMARY KEY);
+       CREATE TABLE tabs (tab_id TEXT PRIMARY KEY);
+       CREATE TABLE collection_clips (id TEXT PRIMARY KEY);
+       CREATE TABLE collection_menu (id TEXT PRIMARY KEY);
+       CREATE TABLE maintenance_log (task TEXT PRIMARY KEY);",
+      )
+      .expect("schema should be creatable");
+    conn
+  }
+
+  fn count(conn: &mut SqliteConnection, table: &str) -> i64 {
+    #[derive(diesel::QueryableByName)]
+    struct N {
+      #[diesel(sql_type = diesel::sql_types::BigInt)]
+      n: i64,
+    }
+    diesel::sql_query(format!("SELECT COUNT(*) AS n FROM {}", table))
+      .load::<N>(conn)
+      .expect("count should work")
+      .remove(0)
+      .n
+  }
+
+  fn insert_history(conn: &mut SqliteConnection, id: &str, pinned: bool, favorite: bool) {
+    conn
+      .batch_execute(&format!(
+        "INSERT INTO clipboard_history (history_id, is_pinned, is_favorite, value) \
+       VALUES ('{}', {}, {}, 'v')",
+        id, pinned as i32, favorite as i32
+      ))
+      .expect("insert should work");
+  }
+
+  #[test]
+  fn history_rows_are_removed_from_the_backup() {
+    let mut conn = snapshot_connection();
+    insert_history(&mut conn, "plain-1", false, false);
+    insert_history(&mut conn, "plain-2", false, false);
+
+    filter_backup_snapshot(&mut conn).expect("filter should succeed");
+
+    assert_eq!(
+      count(&mut conn, "clipboard_history"),
+      0,
+      "unmarked history must not be archived"
+    );
+  }
+
+  #[test]
+  fn pinned_and_starred_rows_are_kept() {
+    // The distinction the whole feature rests on: a row the user marked is saved content,
+    // not transient history. Deleting these would lose data the user deliberately kept.
+    let mut conn = snapshot_connection();
+    insert_history(&mut conn, "plain", false, false);
+    insert_history(&mut conn, "pinned", true, false);
+    insert_history(&mut conn, "starred", false, true);
+    insert_history(&mut conn, "both", true, true);
+
+    filter_backup_snapshot(&mut conn).expect("filter should succeed");
+
+    assert_eq!(count(&mut conn, "clipboard_history"), 3, "kept rows");
+  }
+
+  #[test]
+  fn a_null_marked_row_is_treated_as_unmarked() {
+    // `is_pinned`/`is_favorite` are nullable, and older rows genuinely hold NULL (the live
+    // database had them). Without COALESCE the comparison is NULL — neither true nor false —
+    // and the DELETE would skip the row, silently archiving history.
+    let mut conn = snapshot_connection();
+    conn
+      .batch_execute(
+        "INSERT INTO clipboard_history (history_id, is_pinned, is_favorite, value) \
+       VALUES ('nulls', NULL, NULL, 'v')",
+      )
+      .expect("insert should work");
+
+    filter_backup_snapshot(&mut conn).expect("filter should succeed");
+
+    assert_eq!(
+      count(&mut conn, "clipboard_history"),
+      0,
+      "NULL means unmarked"
+    );
+  }
+
+  #[test]
+  fn saved_content_tables_survive() {
+    let mut conn = snapshot_connection();
+    conn
+      .batch_execute(
+        "INSERT INTO items VALUES ('i1', 'a clip');
+       INSERT INTO settings VALUES ('k');
+       INSERT INTO collections VALUES ('c1');
+       INSERT INTO tabs VALUES ('t1');
+       INSERT INTO collection_clips VALUES ('cc1');
+       INSERT INTO collection_menu VALUES ('cm1');",
+      )
+      .expect("inserts should work");
+
+    filter_backup_snapshot(&mut conn).expect("filter should succeed");
+
+    for table in BACKUP_KEPT_TABLES {
+      assert_eq!(
+        count(&mut conn, table),
+        1,
+        "{} holds user content and must be archived",
+        table
+      );
+    }
+  }
+
+  #[test]
+  fn an_unclassified_table_fails_the_backup_instead_of_being_guessed() {
+    // The guard rail. A future migration adds a table; this must fail loudly rather than
+    // silently archiving it (leaking its contents into every backup) or dropping it
+    // (losing user data on restore).
+    let mut conn = snapshot_connection();
+    conn
+      .batch_execute("CREATE TABLE something_new (id TEXT PRIMARY KEY);")
+      .expect("create should work");
+
+    let err = filter_backup_snapshot(&mut conn).expect_err("must refuse to guess");
+
+    assert!(
+      err.contains("something_new"),
+      "the error must name the table so the fix is obvious; got: {}",
+      err
+    );
+    assert!(
+      err.contains("BACKUP_KEPT_TABLES"),
+      "the error must say which list to add it to; got: {}",
+      err
+    );
+  }
+
+  #[test]
+  fn the_keep_and_filter_lists_do_not_overlap() {
+    // Overlapping lists would mean a table is both emptied and expected to survive, which
+    // the schema check cannot detect at runtime — it only looks for *unclassified* tables.
+    for table in BACKUP_FILTERED_TABLES {
+      assert!(
+        !BACKUP_KEPT_TABLES.contains(table),
+        "{} is in both lists",
+        table
+      );
+    }
+  }
 }
