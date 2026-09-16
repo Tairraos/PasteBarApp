@@ -25,6 +25,7 @@ elapsed time, followed by a summary naming what failed.
 | --- | -------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | 1   | **hygiene**    | `scripts/harness/check-hygiene.sh`                  | a tracked file matches a forbidden pattern (`.env`, build artifacts, DB files, `node_modules`), or `.env` uses a key undocumented in `.env.sample`                                                   | everything              |
 | 2   | **scan**       | `scripts/harness/scan.sh`                           | the scan itself errors. Metrics are compared by hand against `scan-baseline.txt`                                                                                                                     | nothing (informational) |
+| 2b  | **reachable**  | `node scripts/harness/reachability.mjs --check`     | any source file no entry can reach (dead code regresses)                                                                                                                                             | PR                      |
 | 3   | **ipc-drift**  | `node scripts/harness/gen-ipc-contract.mjs --check` | a frontend-invoked command is not registered, or a registered command has no `#[tauri::command]` definition                                                                                          | PR                      |
 | 4   | **docs-lint**  | `scripts/harness/docs-lint.sh`                      | a doc is unreachable from `docs/README.md`/`AGENTS.md`, a relative link dangles, a `file:line` reference points at a missing file or an out-of-range line, or a "Last verified" date exceeds 90 days | PR                      |
 | 4b  | **issue-refs** | `node scripts/harness/check-issue-refs.mjs`         | an ISSUE-ID is duplicated, a `file:line` reference in `ISSUES.md` cannot be resolved, or points past the end of its file                                                                             | PR                      |
@@ -53,6 +54,42 @@ is documented in `.env.sample`.
 **History:** the first run of this gate failed on 3 tracked files, resolved in Phase 3 §5.5.
 `npm ci` no longer needs `.env`, because `DATABASE_URL` is only consumed by the `diesel` CLI
 and the app builds its own diesel environment at runtime.
+
+---
+
+## Gate 2b — dead-code reachability
+
+**Purpose:** W4a deleted 186 files that no entry could reach; the dependency prune that
+followed was possible only because that reachability was measured rather than guessed. This
+gate keeps the property instead of achieving it once.
+
+**Checks:** `reachability.mjs` walks imports from the three Vite entries, the i18n build
+plugin root, and the test suite, then reports every tracked `.ts`/`.tsx` source that nothing
+reaches. Any unreachable file fails.
+
+**The test-suite footgun.** Vitest discovers test files by glob, so nothing imports them —
+and the first version of this scan therefore reported the entire test suite as dead code. A
+delete wave following that output would have removed the tests that Phase 5 exists to
+create. Live-without-imports files are declared in `TEST_ROOTS` / `TOOLCHAIN_ROOTS` with the
+reason, which is why the check's failure message tells you to add an entry _with a reason_
+rather than to raise a threshold.
+
+**A separate tool for the vendored question.** `scripts/harness/vendored-imports.mjs` runs the
+same walk but follows imports _into_ `src/components/libs/**`. R7 keeps vendored code out of
+every gate, but "out of scope for editing" is not "not in the bundle": a vendored component a
+reachable file imports is compiled into the app, and the packages _it_ imports are real
+dependencies. That distinction is what kept the dependency prune honest, and it is how the
+three phantom dependencies below were found.
+
+**Phantom dependencies (ISSUE-034).** The walk found three packages imported directly but
+declared in neither manifest, resolving only through npm hoisting:
+`@dnd-kit/utilities` (3 reachable files), `@radix-ui/react-portal` (2 reachable files), and
+`redux` (vendored `react-arborist`). They now have explicit declarations. A build that works
+because a dependency's internals happen to hoist is a build that breaks when those internals
+change, with an error that points at the wrong file.
+
+**On failure:** delete the file, import it from an entry, or declare it live-without-imports
+in this script with the reason.
 
 ---
 

@@ -76,6 +76,21 @@ gate_scan() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate 2b — dead-code reachability
+# ---------------------------------------------------------------------------
+gate_reachable() {
+  # W4a deleted 186 files that no entry could reach, and the dependency prune that followed
+  # depended on knowing which files were reachable. Without a gate, dead code accretes again
+  # — and the second time it will be harder to spot, because the obvious symptom (unused
+  # dependencies) was just cleaned up.
+  #
+  # The scan treats test files as entry points (vitest discovers them by glob, so nothing
+  # imports them). That was a real footgun: reported as "dead", a future wave would delete
+  # the test suite. See TEST_ROOTS in scripts/harness/reachability.mjs.
+  node scripts/harness/reachability.mjs --check
+}
+
+# ---------------------------------------------------------------------------
 # Gate 3 — IPC drift
 # ---------------------------------------------------------------------------
 gate_ipc() {
@@ -192,6 +207,7 @@ gate_test_rust() {
 # ---------------------------------------------------------------------------
 run_gate "hygiene"        gate_hygiene
 run_gate "scan"           gate_scan
+run_gate "reachable"      gate_reachable
 run_gate "ipc-drift"      gate_ipc
 run_gate "docs-lint"      gate_docs
 run_gate "issue-refs"     gate_issue_refs

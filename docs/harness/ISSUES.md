@@ -463,6 +463,25 @@ Two further findings came out of the same sweep:
   Four real defects surfaced once the noise was gone and were fixed with it: a missing `EnterEnter` key in `ClipViewForm`'s key-press display map (a clip set to "press Enter twice" rendered an **empty badge**; the sibling `ClipEditForm` copy had the key all along), an `InputHeader` tooltip passing a non-existent `content` prop to a component that requires `text` (every such tooltip rendered an **empty bubble**), an always-nullish expression in `bbcode.tsx`, and a phantom `content` forward in `icon-tooltip`.
   `所属阶段 | 4 (W2)`
 
+### ISSUE-034 · Three packages imported directly but declared in neither manifest
+
+`ID | ISSUE-034`
+`位置 | packages/pastebar-app-ui/src/components/molecules/modal/index.tsx, packages/pastebar-app-ui/src/pages/components/Dashboard/Dashboard.tsx, packages/pastebar-app-ui/src/components/libs/react-arborist/state/root-reducer.ts`
+`类型 | RISK`
+`风险级别 | P1`
+`影响范围 | Build reproducibility; every fresh install`
+`现象与依据 |` A reachability walk that follows imports into the vendored trees found three packages imported by compiled code but declared in neither `package.json`:
+
+- `@dnd-kit/utilities` — imported by `Dashboard.tsx`, `ClipboardHistorySettings.tsx` and `PlayerMenu.tsx`. Resolves only because `@dnd-kit/core` depends on it and npm hoists it.
+- `@radix-ui/react-portal` — imported by `modal/index.tsx` and `Dashboard.tsx`. Hoisted from sibling radix packages.
+- `redux` — imported by vendored `react-arborist`. Reaches the root only through `react-dnd-html5-backend → dnd-core → redux`.
+  None of these is declared, so nothing records that the app depends on them. They work until an upstream package drops or reorganises its own dependency, at which point the build fails with a module-resolution error pointing at app code that did nothing wrong. The audit prune very nearly demonstrated this: removing 315 packages was one unlucky deletion away from taking `redux` with it.
+  `建议方案 |` Declare all three in the UI manifest at the versions currently resolved.
+  `行为变更 | 无（仅声明；解析结果不变）`
+  `状态 | ✅ 已修复 (W2, 依赖清理)`
+  `修复说明 |` Declared `@dnd-kit/utilities@^3.1.1`, `@radix-ui/react-portal@^1.0.4` and `redux@^4.2.1` in `packages/pastebar-app-ui/package.json`. A re-run of the walk reports zero undeclared imports. `scripts/harness/vendored-imports.mjs` now makes this check repeatable rather than a one-off grep, since the same class of defect will recur as vendored code is added.
+  `所属阶段 | 4 (W2)`
+
 ---
 
 ## 5. Disproved pre-scan suspicions (recorded so they are not re-investigated)
