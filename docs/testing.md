@@ -247,9 +247,18 @@ complete" stays visible:
 - [ ] Raise the coverage floor toward the §4 targets (50% for `lib`/`store`/`hooks`,
       60% for backend `services/`) and update the baseline in a dedicated commit.
       Current: 30.27% lines / 4.11% functions.
-- [ ] **Break-it check:** revert the fix for ISSUE-002 and ISSUE-014 and confirm the
-      corresponding test fails. A test that stays green when its subject is broken is
-      deleted, not kept.
+- [x] **Break-it check.** A test that stays green when its subject is broken is worse than
+      no test, so the two most important ones were verified by reverting their fix:
+
+      | Reverted fix | Result |
+      | --- | --- |
+      | `get_default_data_dir()` back to `APP_CONSTANTS.get().unwrap()` (ISSUE-002) | 2 tests fail, both with a panic |
+      | `regex::escape(name)` removed from the template pattern | 2 tests fail — the metacharacter and catastrophic-backtracking cases |
+
+      Both were restored and the suite is green again.
+
+- [ ] Break-it check for ISSUE-014 (the retention scheduler) — that code is not yet under
+      test.
 
 ### Known limitations, stated honestly
 
