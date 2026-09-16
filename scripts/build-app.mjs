@@ -298,10 +298,24 @@ function buildDmg(appPath, version, arch, outFile) {
   }
 }
 
-function collectArtifacts() {
+function collectArtifacts(version, { pruneOtherDmgs = false } = {}) {
   mkdirSync(OUT_DIR, { recursive: true })
 
   const collected = { app: null, dmg: null }
+
+  // Remove DMGs from previous versions when collecting a NEW build.
+  //
+  // They accumulate: `target/` is meant to show the current artifact, and after a few builds
+  // it held a 0.7.2 and a 0.7.3 side by side, where picking the wrong one to test an
+  // unversioned-looking name is an easy mistake. Only done on the success/collect path —
+  // never when salvaging a partial build, where an older DMG may be the only usable one.
+  if (pruneOtherDmgs) {
+    for (const f of readdirSync(OUT_DIR)) {
+      if (f.endsWith('.dmg') && !f.includes(version)) {
+        rmSync(path.join(OUT_DIR, f), { force: true })
+      }
+    }
+  }
 
   if (existsSync(MACOS_BUNDLE)) {
     const dest = path.join(OUT_DIR, 'PasteBar.app')
@@ -409,7 +423,7 @@ async function main() {
     // The DMG step commonly fails in restricted environments (it mounts a disk image) while
     // the .app has already been produced. Report what was collected instead of implying
     // nothing is usable.
-    const partial = collectArtifacts()
+    const partial = collectArtifacts(version)
     console.error(`\nBuild exited ${code}.`)
     if (!partial.app) {
       console.error(
@@ -441,7 +455,7 @@ async function main() {
   }
 
   log('Collecting artifacts')
-  const collected = collectArtifacts()
+  const collected = collectArtifacts(version, { pruneOtherDmgs: true })
 
   if (!collected.dmg && collected.app) {
     log('Bundler produced no DMG; building one directly')
