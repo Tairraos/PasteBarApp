@@ -155,7 +155,7 @@ Both gates are skipped under `--fast` because a cold Tauri build is minutes, not
 
 ## Gates 9–10 — tests
 
-`cargo test` (11 tests) and `bash scripts/harness/run-tests.sh --coverage` (24 tests).
+`cargo test` (26 tests) and `bash scripts/harness/run-tests.sh --coverage` (33 tests).
 
 Both are **hard gates**. A missing `vitest` install is a failure rather than a skip: a gate
 that silently passes when its tool is absent is how a "green" build ends up testing nothing

@@ -1,7 +1,7 @@
 {
   "$comment": "Coverage ratchet. Percentages may only go UP (docs/harness/GOLDEN-RULES.md R9). Scope: src/lib, src/store, src/hooks — the logic layers, not components. Regenerate: bash scripts/harness/run-tests.sh --update-coverage",
-  "lines": 5.02,
-  "statements": 5.02,
-  "functions": 12.35,
-  "branches": 42.37
+  "lines": 30.27,
+  "statements": 30.27,
+  "functions": 4.11,
+  "branches": 73.61
 }

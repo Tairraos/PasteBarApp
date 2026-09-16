@@ -224,6 +224,12 @@ Done:
 - [x] Test setup shim for the jsdom gaps (`src/test/setup.ts`).
 - [x] `cargo test` wired into the gate suite; `{{base_folder}}` path round-trip property
       tests plus regression tests for ISSUE-001/002 in `src-tauri/src/db.rs`.
+- [x] `services/utils.rs`: `mask_value` (unicode safety, 1/2-char words, empty input — it
+      called `chars().next().unwrap()` per word) and `apply_global_templates` (disabled /
+      absent / malformed-JSON no-ops, and `regex::escape` on template names, which is the
+      difference between a literal name and a user-authored regex running over every
+      clipboard value).
+- [x] `settingsStore` custom-data-location actions, the frontend half of ISSUE-001/003.
 - [x] Coverage ratchet (`docs/harness/coverage-baseline.json`), enforced by
       `run-tests.sh --coverage` locally and in CI.
 - [x] Both suites run in `.github/workflows/quality.yml`.
@@ -231,15 +237,16 @@ Done:
 Still to do — recorded here so the boundary between "harness exists" and "harness is
 complete" stays visible:
 
-- [ ] Backend: `services/utils.rs` (`mask_value`, `apply_global_templates`),
-      `history_service::process_history_item`, format converters, language detection.
+- [ ] Backend: `history_service::process_history_item`, format converters, language
+      detection, and the remaining `services/` modules.
 - [ ] Backend: a test that builds a SQLite schema from the real `migrations/` directory, so
       a migration that would fail in production fails in CI. Requires exposing `MIGRATIONS`.
-- [ ] Frontend: `settingsStore` update + `settings-store-sync` broadcast, and store
-      rehydration.
+- [ ] Frontend: `settingsStore` update + `settings-store-sync` broadcast, store
+      rehydration, and the other stores (`clipboardHistoryStore`, `collectionStore`).
 - [ ] Component render tests for the components split out of the large files in W4.
 - [ ] Raise the coverage floor toward the §4 targets (50% for `lib`/`store`/`hooks`,
       60% for backend `services/`) and update the baseline in a dedicated commit.
+      Current: 30.27% lines / 4.11% functions.
 - [ ] **Break-it check:** revert the fix for ISSUE-002 and ISSUE-014 and confirm the
       corresponding test fails. A test that stays green when its subject is broken is
       deleted, not kept.

@@ -49,12 +49,21 @@ if (!Element.prototype.scrollIntoView) {
 }
 
 // --- Tauri ---------------------------------------------------------------------------
-// `@tauri-apps/api` reaches for `window.__TAURI_IPC__` / `__TAURI_METADATA__` at import
-// time. Tests that exercise IPC install the fake backend from `./fake-backend`, which
-// mocks the module directly; this stub only stops unrelated imports from throwing.
+// `@tauri-apps/api/window` builds a `WebviewWindow` at *module load time* from
+// `window.__TAURI_METADATA__.__currentWindow` and dereferences `.label` with no guard, so
+// importing any module that transitively imports the API throws before a single test runs.
+// The shape below mirrors what the real Tauri runtime injects. Tests that exercise IPC mock
+// `@tauri-apps/api/tauri` and `@tauri-apps/api/event` directly (see ./fake-backend); this
+// stub only satisfies module-load-time reads.
+const tauriWindow = {
+  label: 'main',
+  url: 'tauri://localhost/index.html',
+  title: 'PasteBar',
+  skip: true,
+}
 ;(window as unknown as Record<string, unknown>).__TAURI_METADATA__ = {
-  windows: [],
-  currentWindow: { label: 'main' },
+  __windows: [tauriWindow],
+  __currentWindow: tauriWindow,
 }
 
 // --- console hygiene -----------------------------------------------------------------

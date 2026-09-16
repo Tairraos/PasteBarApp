@@ -1,7 +1,14 @@
 /// <reference types="vitest" />
 import path from 'node:path'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type PluginOption } from 'vite'
+
+// The real i18n loader, not a stub. `~/locales/locales.ts` imports
+// "virtual:i18next-loader", which only exists because this plugin provides it — and the
+// settings store imports the locales module. Reusing the same plugin (with the same
+// options as vite.config.mts:104) means the test environment resolves i18n exactly as the
+// application does, instead of against a mock that could drift.
+import i18nextLoader from './src/lib/i18n-vite-loaded/loader'
 
 /**
  * Vitest configuration.
@@ -17,11 +24,25 @@ import { defineConfig } from 'vite'
  * See docs/testing.md for what belongs at this level and what does not.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    i18nextLoader({
+      paths: ['./src/locales/lang'],
+      namespaceResolution: 'basename',
+    }) as PluginOption,
+  ],
   resolve: {
     alias: {
       '~': path.join(__dirname, 'src'),
     },
+  },
+  // The app reads these as compile-time globals that Vite substitutes during a build
+  // (see the `define` block in vite.config.mts). Without them, importing a module that
+  // references one throws `ReferenceError` at load time.
+  define: {
+    APP_VERSION: JSON.stringify('0.7.0-test'),
+    APP_UI_VERSION: JSON.stringify('0.7.0-test'),
+    BUILD_DATE: JSON.stringify('2026-01-01T00:00:00.000Z'),
   },
   test: {
     globals: true,

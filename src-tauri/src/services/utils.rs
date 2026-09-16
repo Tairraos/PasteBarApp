@@ -307,3 +307,181 @@ pub fn is_windows_system_uses_dark_theme() -> bool {
   }
   false
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn setting(name: &str, text: Option<&str>, boolean: Option<bool>) -> Setting {
+    Setting {
+      name: name.to_string(),
+      value_text: text.map(|s| s.to_string()),
+      value_bool: boolean,
+      value_int: None,
+    }
+  }
+
+  // ---------------------------------------------------------------------------------
+  // mask_value — security relevant. This is what hides passwords and auto-masked words
+  // in the history list, so "it never leaks the original and never panics" is the
+  // contract, and the panic half is not theoretical: the implementation calls
+  // `chars().next().unwrap()` and `chars().last().unwrap()` per whitespace-split word.
+  // ---------------------------------------------------------------------------------
+
+  #[test]
+  fn mask_value_keeps_the_first_character_and_hides_the_rest() {
+    // 11 chars -> first, 9 masks, last.
+    assert_eq!(mask_value("password123"), "p•••••••••3")
+  }
+
+  #[test]
+  fn mask_value_never_returns_the_original_for_a_word_longer_than_two_chars() {
+    let secret = "hunter2";
+    let masked = mask_value(secret);
+    assert_ne!(masked, secret, "a maskable secret came back unchanged");
+  }
+
+  #[test]
+  fn mask_value_handles_words_of_one_and_two_characters_without_panicking() {
+    // Regression guard for the two unwraps: a two-character word produces
+    // `middle_len = 0`, and a one-character word takes the else branch.
+    assert_eq!(mask_value("a"), "a•");
+    assert_eq!(mask_value("ab"), "a•");
+  }
+
+  #[test]
+  fn mask_value_does_not_panic_on_empty_or_whitespace_input() {
+    // `split_whitespace` yields nothing for these, so the body never runs — but an
+    // implementation that used `split(' ')` instead would produce an empty word and
+    // panic on `chars().next().unwrap()`. That is exactly the regression this pins.
+    assert_eq!(mask_value(""), "");
+    assert_eq!(mask_value("   "), "");
+    assert_eq!(mask_value("\t\n"), "");
+  }
+
+  #[test]
+  fn mask_value_masks_each_word_independently() {
+    // For words longer than two characters the first AND last character are kept and
+    // everything between is masked ("secret" -> "s••••t"). Worth pinning precisely: the
+    // masked form is shown in the UI, so an off-by-one here is visible to the user.
+    assert_eq!(mask_value("secret token"), "s••••t t•••n");
+  }
+
+  #[test]
+  fn mask_value_is_unicode_safe() {
+    // `chars().count()` rather than `len()` matters here: a multibyte word must not be
+    // split mid-codepoint, which would panic on a byte-indexed slice.
+    let masked = mask_value("密码测试");
+    assert_eq!(
+      masked.chars().count(),
+      4,
+      "multibyte word was miscounted: {masked}"
+    );
+    assert!(masked.starts_with('密'));
+  }
+
+  // ---------------------------------------------------------------------------------
+  // apply_global_templates — user-supplied templates applied to clipboard text.
+  // ---------------------------------------------------------------------------------
+
+  fn templates(enabled: bool, json: &str) -> HashMap<String, Setting> {
+    let mut map = HashMap::new();
+    map.insert(
+      GLOBAL_TEMPLATES_ENABLED_KEY.to_string(),
+      setting(GLOBAL_TEMPLATES_ENABLED_KEY, None, Some(enabled)),
+    );
+    map.insert(
+      "globalTemplates".to_string(),
+      setting("globalTemplates", Some(json), None),
+    );
+    map
+  }
+
+  #[test]
+  fn templates_are_a_no_op_when_the_feature_is_disabled() {
+    let map = templates(false, r#"[{"name":"x","value":"Y","isEnabled":true}]"#);
+    assert_eq!(apply_global_templates("{{x}}", &map), "{{x}}");
+  }
+
+  #[test]
+  fn templates_are_a_no_op_when_the_setting_is_absent() {
+    // No panic, no substitution: a user who never opened the setting must not be
+    // affected by template machinery.
+    let empty = HashMap::new();
+    assert_eq!(
+      apply_global_templates("{{anything}}", &empty),
+      "{{anything}}"
+    );
+  }
+
+  #[test]
+  fn a_disabled_template_is_not_applied() {
+    let map = templates(true, r#"[{"name":"x","value":"Y","isEnabled":false}]"#);
+    assert_eq!(apply_global_templates("{{x}}", &map), "{{x}}");
+  }
+
+  #[test]
+  fn an_enabled_template_replaces_the_placeholder() {
+    let map = templates(
+      true,
+      r#"[{"name":"date","value":"2026-01-01","isEnabled":true}]"#,
+    );
+    assert_eq!(
+      apply_global_templates("Today: {{date}}", &map),
+      "Today: 2026-01-01"
+    );
+  }
+
+  #[test]
+  fn placeholder_matching_ignores_case_and_inner_whitespace() {
+    let map = templates(true, r#"[{"name":"Sig","value":"S","isEnabled":true}]"#);
+    assert_eq!(apply_global_templates("{{sig}}", &map), "S");
+    assert_eq!(apply_global_templates("{{  SIG  }}", &map), "S");
+  }
+
+  #[test]
+  fn malformed_template_json_leaves_the_text_untouched() {
+    // The setting is user-editable, so it can contain anything. Returning the original
+    // text is the only safe response; panicking or emptying the clipboard would be worse.
+    let map = templates(true, "{ not json at all");
+    assert_eq!(apply_global_templates("{{x}}", &map), "{{x}}");
+  }
+
+  #[test]
+  fn a_template_name_containing_regex_metacharacters_is_escaped() {
+    // `regex::escape(name)` is the difference between a literal template name and a
+    // user-authored regular expression running over every clipboard value. A name like
+    // "a.c" must not match "abc".
+    let map = templates(
+      true,
+      r#"[{"name":"a.c","value":"MATCHED","isEnabled":true}]"#,
+    );
+    assert_eq!(apply_global_templates("{{a.c}}", &map), "MATCHED");
+    assert_eq!(
+      apply_global_templates("{{abc}}", &map),
+      "{{abc}}",
+      "an unescaped '.' matched an arbitrary character"
+    );
+  }
+
+  #[test]
+  fn a_catastrophic_backtracking_pattern_is_not_reachable_through_a_template_name() {
+    // Without escaping, a name of "(a+)+$" would be compiled as-is, and applying it to a
+    // long clipboard value is the classic way to hang the UI thread. The test asserts the
+    // escaped behaviour: the literal text is what gets matched.
+    let map = templates(true, r#"[{"name":"(a+)+$","value":"X","isEnabled":true}]"#);
+    let text = "a".repeat(30);
+    assert_eq!(apply_global_templates(&text, &map), text);
+    assert_eq!(apply_global_templates("{{(a+)+$}}", &map), "X");
+  }
+
+  #[test]
+  fn templates_that_lack_a_name_or_value_are_skipped() {
+    let map = templates(
+      true,
+      r#"[{"value":"V","isEnabled":true},{"name":"n","isEnabled":true},
+          {"name":"ok","value":"OK","isEnabled":true}]"#,
+    );
+    assert_eq!(apply_global_templates("{{ok}}", &map), "OK");
+  }
+}
