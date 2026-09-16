@@ -70,8 +70,12 @@ function resolveImport(fromFile, spec) {
   return null
 }
 
+// Must include `export ... from` forms: a barrel that re-exports a module (`export * from
+// './label'`) makes that module reachable AND makes the packages it imports real
+// dependencies. Missing this made five @radix-ui packages look unused when the barrel was
+// pulling them into the bundle.
 const IMPORT_RE =
-  /(?:import\s+[^'"]*?from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"]([^'"]+)['"]/g
+  /(?:import\s+[^'"]*?from\s*|export\s+[^'"]*?from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"]([^'"]+)['"]/g
 const CSS_IMPORT_RE = /@import\s+['"]([^'"]+)['"]/g
 
 const seen = new Set()
@@ -194,16 +198,80 @@ if (ARGS.has('--unused')) {
     /^babel-plugin-/,
     /^@preact\//,
   ]
+  /**
+   * Peer dependencies are a legitimate reason to declare a package nothing imports: npm 7+
+   * installs them automatically, but only a DECLARATION guarantees the app gets the version
+   * its plugin was built against. `overlayscrollbars` is declared for exactly this reason —
+   * the code imports `overlayscrollbars-react`, whose peer range requires it.
+   */
+  // Only packages the app ACTUALLY IMPORTS can justify a peer declaration. Scanning every
+  // installed package would let an unrelated dependency's peer list excuse a dead entry.
+  const peerRequired = new Set()
+  const packageJsonOf = name => {
+    // UI is `packages/pastebar-app-ui`, so the hoisted root node_modules is TWO levels up;
+    // `'..'` alone resolves to `packages/`, which silently finds nothing.
+    for (const base of ['../..', '.']) {
+      const p = path.join(UI, base, 'node_modules', name, 'package.json')
+      if (existsSync(p)) {
+        try {
+          return JSON.parse(readFileSync(p, 'utf8'))
+        } catch {
+          return null
+        }
+      }
+    }
+    return null
+  }
+  for (const name of used) {
+    const pj = packageJsonOf(name)
+    if (!pj) continue
+    for (const n of Object.keys(pj.peerDependencies || {})) peerRequired.add(n)
+  }
+
+  /**
+   * Referenced only by vendored code that nothing reaches (ISSUE-033 bucket B). Deleting
+   * them would not remove a runtime dependency — the vendored files stay on disk and stay
+   * type-checked, so the import would simply become an error. They are blocked on a
+   * decision about vendored files (R7), not about dependencies.
+   */
+  const VENDORED_ONLY = new Set([
+    '@emotion/css',
+    '@react-aria/utils',
+    '@react-stately/utils',
+    'emery',
+    'react-twitter-embed',
+    'react-youtube',
+    'tauri-plugin-log-api',
+    'tauri-plugin-positioner-api',
+  ])
+
   const report = (label, pkg) => {
-    const unused = Object.keys(pkg.dependencies || {})
-      .filter(n => !used.has(n) && !TOOLING.some(re => re.test(n)))
+    const all = Object.keys(pkg.dependencies || {})
+    const candidates = all
+      .filter(
+        n =>
+          !used.has(n) &&
+          !TOOLING.some(re => re.test(n)) &&
+          !peerRequired.has(n) &&
+          !VENDORED_ONLY.has(n)
+      )
       .sort()
+    console.log(`\n${label}: ${all.length} declared`)
     console.log(
-      `\n${label}: ${unused.length} unused of ${
-        Object.keys(pkg.dependencies || {}).length
+      `  ${candidates.length} unused and removable${
+        candidates.length === 0 ? ' — nothing to do' : ''
       }`
     )
-    for (const n of unused) console.log(`  ${n}`)
+    for (const n of candidates) console.log(`    ${n}`)
+    const peers = all.filter(n => peerRequired.has(n) && !used.has(n)).sort()
+    if (peers.length)
+      console.log(`  ${peers.length} peer-declared (kept): ${peers.join(', ')}`)
+    const vendored = all.filter(n => VENDORED_ONLY.has(n)).sort()
+    if (vendored.length)
+      console.log(
+        `  ${vendored.length} referenced only by unreachable vendored code (kept, ISSUE-033): ` +
+          vendored.join(', ')
+      )
   }
   report('root', pkgRoot)
   report('ui', pkgUi)
