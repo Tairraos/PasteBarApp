@@ -1,0 +1,55 @@
+# Scan baseline
+
+Generated: 2026-09-16T02:40:30Z
+Commit: 066142f
+
+```
+METRIC                                 VALUE
+hygiene.tracked_build_artifacts        1
+hygiene.tracked_dotenv                 1
+hygiene.tracked_safelist               2
+ipc.backend_registered_commands        115
+ipc.frontend_invoked_commands          58
+rust.files                             41
+rust.lines                             12586
+rust.main_unwrap_expect                96
+rust.panic_macros                      2
+rust.println                           152
+rust.test_markers                      0
+rust.unwrap_expect                     199
+size.files_over_1000_lines             22
+size.files_over_500_lines              55
+todo.all                               4
+ts.any                                 30
+ts.console                             167
+ts.empty_catch                         6
+ts.files                               428
+ts.invoke_files                        35
+ts.lines                               80895
+ts.test_files                          5
+ts.ts_suppressions                     76
+
+--- source files over 1000 lines (excl. vendored/generated) ---
+    3368  packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx
+    2292  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditContent.tsx
+    2064  packages/pastebar-app-ui/src/layout/NavBar.tsx
+    1830  packages/pastebar-app-ui/src/pages/components/Dashboard/Dashboard.tsx
+    1739  packages/pastebar-app-ui/src/pages/settings/UserPreferences.tsx
+    1593  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditTemplate.tsx
+    1591  packages/pastebar-app-ui/src/pages/settings/ClipboardHistorySettings.tsx
+    1584  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipCard.tsx
+    1462  packages/pastebar-app-ui/src/pages/components/Dashboard/components/context-menus/ClipsCardContextMenu.tsx
+    1410  src-tauri/src/main.rs
+    1356  src-tauri/src/services/history_service.rs
+    1341  packages/pastebar-app-ui/src/store/settingsStore.ts
+    1274  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditWebRequest.tsx
+    1272  packages/pastebar-app-ui/src/pages/components/ClipboardHistory/ClipboardHistoryRow.tsx
+    1241  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditForm.tsx
+    1220  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipViewTemplate.tsx
+    1205  packages/pastebar-app-ui/src/pages/components/Dashboard/components/BoardTabs.tsx
+    1187  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditWebScraping.tsx
+    1133  packages/pastebar-app-ui/src/pages/main/ClipboardHistoryQuickPastePage.tsx
+    1110  packages/pastebar-app-ui/src/pages/components/Menu/components/MenuCardEdit.tsx
+    1061  packages/pastebar-app-ui/src/pages/components/Dashboard/components/Board.tsx
+    1019  packages/pastebar-app-ui/src/components/icons.tsx
+```
