@@ -237,6 +237,11 @@ Done:
 Still to do — recorded here so the boundary between "harness exists" and "harness is
 complete" stays visible:
 
+- [x] **`migrations/` against a real in-memory SQLite** (`db.rs` `migration_tests`). Uses the
+      same embedded `MIGRATIONS` set the app runs at startup, so a migration that does not
+      apply, is not idempotent, or drops a column the models expect now fails in CI instead of
+      at next launch on a fresh profile. Verified by corrupting a migration's `up.sql` and
+      confirming the suite fails.
 - [ ] Backend: `history_service::process_history_item`, format converters, language
       detection, and the remaining `services/` modules.
 - [ ] Backend: a test that builds a SQLite schema from the real `migrations/` directory, so

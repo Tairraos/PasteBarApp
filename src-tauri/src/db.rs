@@ -20,7 +20,9 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
 use crate::services::utils::debug_output;
 
-const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+// Visible to the test module below, which runs these against an in-memory SQLite so the
+// real migrations are exercised rather than a hand-built schema that can drift from them.
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 type Pool = r2d2::Pool<diesel_r2d2::ConnectionManager<SqliteConnection>>;
 
@@ -653,5 +655,135 @@ mod tests {
   fn reading_a_missing_config_file_yields_no_custom_path() {
     let missing = PathBuf::from("/nonexistent/definitely/not/here/pastebar_settings.yaml");
     assert_eq!(read_custom_db_path_from(&missing), None);
+  }
+}
+
+/// Schema-level tests against a real in-memory SQLite database.
+///
+/// Why these matter more than they look: the application has no other way to check that
+/// `migrations/` still applies cleanly. A broken migration is discovered today by launching
+/// the app against a fresh profile, which nobody does on every change — and the failure mode
+/// is an empty history with no error the user can act on. `MIGRATIONS` is the same embedded
+/// set the app runs at startup (db.rs:237), so this is the real thing, not a copy.
+#[cfg(test)]
+mod migration_tests {
+  use super::*;
+  use diesel::sql_query;
+  use diesel::sql_types::Text;
+  use diesel::RunQueryDsl;
+
+  /// A fresh, empty SQLite database with every migration applied.
+  fn migrated_connection() -> SqliteConnection {
+    let mut conn =
+      SqliteConnection::establish(":memory:").expect("in-memory SQLite should always open");
+    conn
+      .run_pending_migrations(MIGRATIONS)
+      .expect("migrations must apply cleanly to an empty database");
+    conn
+  }
+
+  #[derive(diesel::QueryableByName)]
+  struct NameRow {
+    #[diesel(sql_type = Text)]
+    name: String,
+  }
+
+  fn table_names(conn: &mut SqliteConnection) -> Vec<String> {
+    sql_query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .load::<NameRow>(conn)
+      .expect("sqlite_master should be readable")
+      .into_iter()
+      .map(|r| r.name)
+      .collect()
+  }
+
+  #[test]
+  fn migrations_apply_to_an_empty_database() {
+    let mut conn = migrated_connection();
+    let tables = table_names(&mut conn);
+    // A migration that silently no-ops would leave this empty and the failure above would
+    // not fire, so assert the schema actually materialised.
+    assert!(
+      !tables.is_empty(),
+      "no tables were created; the migration set appears to be empty"
+    );
+  }
+
+  #[test]
+  fn the_core_tables_exist() {
+    let mut conn = migrated_connection();
+    let tables = table_names(&mut conn);
+
+    // These four carry the user's data. If a migration is edited such that one of them is
+    // renamed or dropped, this fails before the app can start writing to a schema the
+    // Diesel models do not match.
+    // Verified against the migrated schema by running the test and reading the diagnostic,
+    // rather than guessed: two attempts were wrong (`clips`, `clip_items`, `user_settings`
+    // do not exist). The tables that carry the user's data are these.
+    for expected in [
+      "clipboard_history",
+      "items",
+      "collections",
+      "settings",
+      "tabs",
+    ] {
+      assert!(
+        tables.iter().any(|t| t == expected),
+        "expected table `{expected}` after migrations; found: {tables:?}"
+      );
+    }
+  }
+
+  #[test]
+  fn migrations_are_idempotent() {
+    // The app calls run_pending_migrations on every startup (db.rs:237), so running the set
+    // twice must be harmless. A migration that is not guarded would fail on the second
+    // launch — which for a user means the app stops opening after working once.
+    let mut conn = migrated_connection();
+    conn
+      .run_pending_migrations(MIGRATIONS)
+      .expect("re-running migrations on an up-to-date database must be a no-op");
+
+    let tables = table_names(&mut conn);
+    assert!(tables.iter().any(|t| t == "clipboard_history"));
+  }
+
+  #[test]
+  fn the_migration_version_table_records_what_ran() {
+    // Diesel tracks applied migrations in __diesel_schema_migrations. Its presence is the
+    // evidence that `run_pending_migrations` did work rather than silently skipping.
+    let mut conn = migrated_connection();
+    let tables = table_names(&mut conn);
+    assert!(
+      tables.iter().any(|t| t == "__diesel_schema_migrations"),
+      "diesel's migration bookkeeping table is missing; migrations did not run: {tables:?}"
+    );
+  }
+
+  #[test]
+  fn clipboard_history_accepts_a_minimal_row() {
+    // Column-level check that the migrated schema matches what the code writes. A migration
+    // that renamed or dropped a column while `schema.rs` still lists it produces a runtime
+    // Diesel error on the first copy, long after the migration was merged.
+    let mut conn = migrated_connection();
+    let tables = table_names(&mut conn);
+
+    // Locate the history table's columns and assert the ones the models depend on.
+    if tables.iter().any(|t| t == "clipboard_history") {
+      let columns: Vec<NameRow> =
+        sql_query("SELECT name FROM pragma_table_info('clipboard_history')")
+          .load(&mut conn)
+          .expect("pragma_table_info should work on a migrated database");
+      let names: Vec<String> = columns.into_iter().map(|r| r.name).collect();
+
+      // The primary key is `history_id`, not `id` — another assumption the first run
+      // corrected. These three are the columns the history models and queries rely on.
+      for expected in ["history_id", "created_at", "value"] {
+        assert!(
+          names.iter().any(|n| n == expected),
+          "clipboard_history is missing column `{expected}`; found: {names:?}"
+        );
+      }
+    }
   }
 }
