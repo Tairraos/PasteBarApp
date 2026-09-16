@@ -71,12 +71,20 @@ jobs:
       - name: Gate — Prettier formatting
         run: npx prettier --check . --ignore-path .prettierignore
 
-      - name: Gate — TypeScript (advisory until W4a)
-        # 408 pre-existing errors, almost all in the 191 unreachable source files
-        # (ISSUE-030). This step reports but does not block; it becomes a hard gate when
-        # wave W4a deletes the dead code. See docs/harness/DEBT-BASELINE.md §3.
+      - name: Gate — TypeScript (ratchet)
+        # Fails when project code has any type error; the 9 remaining errors are all
+        # vendored and frozen in docs/harness/typecheck-baseline.json (R7). The advisory
+        # mode from DECISIONS D-005 is retired — its exit condition (W4a + the dependency
+        # prune) is met. See docs/harness/gates.md gate 5.
+        run: node scripts/harness/typecheck-ratchet.mjs
+
+      - name: TypeScript strict — vendored tail (scheduled only)
+        # The 9 vendored errors do not block a PR, but they must not become invisible.
+        # Weekly run reports the full `--strict` list into the job log without failing the
+        # job, mirroring how the audit job surfaces pre-existing advisories.
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
-        run: npx tsc --noEmit -p tsconfig.json
+        run: node scripts/harness/typecheck-ratchet.mjs --strict
 
   # ---------------------------------------------------------------------------
   # Rust. Compiles Tauri, so it is the slow job.
