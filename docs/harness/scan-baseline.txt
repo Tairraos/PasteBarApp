@@ -1,46 +1,46 @@
 # Scan baseline
 
-Generated: 2026-09-16T02:40:30Z
-Commit: 066142f
+Generated: 2026-09-16T04:51:54Z
+Commit: fb6e941
 
 ```
 METRIC                                 VALUE
-hygiene.tracked_build_artifacts        1
-hygiene.tracked_dotenv                 1
-hygiene.tracked_safelist               2
+hygiene.tracked_build_artifacts        0
+hygiene.tracked_dotenv                 0
+hygiene.tracked_safelist               0
 ipc.backend_registered_commands        115
 ipc.frontend_invoked_commands          58
 rust.files                             41
-rust.lines                             12586
+rust.lines                             13061
 rust.main_unwrap_expect                96
 rust.panic_macros                      2
-rust.println                           152
-rust.test_markers                      0
+rust.println                           153
+rust.test_markers                      28
 rust.unwrap_expect                     199
 size.files_over_1000_lines             22
 size.files_over_500_lines              55
-todo.all                               4
-ts.any                                 30
+todo.all                               3
+ts.any                                 23
 ts.console                             167
 ts.empty_catch                         6
-ts.files                               428
-ts.invoke_files                        35
-ts.lines                               80895
-ts.test_files                          5
-ts.ts_suppressions                     76
+ts.files                               247
+ts.invoke_files                        36
+ts.lines                               71333
+ts.test_files                          8
+ts.ts_suppressions                     75
 
 --- source files over 1000 lines (excl. vendored/generated) ---
-    3368  packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx
+    3375  packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx
     2292  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditContent.tsx
     2064  packages/pastebar-app-ui/src/layout/NavBar.tsx
     1830  packages/pastebar-app-ui/src/pages/components/Dashboard/Dashboard.tsx
     1739  packages/pastebar-app-ui/src/pages/settings/UserPreferences.tsx
     1593  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditTemplate.tsx
     1591  packages/pastebar-app-ui/src/pages/settings/ClipboardHistorySettings.tsx
-    1584  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipCard.tsx
+    1583  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipCard.tsx
     1462  packages/pastebar-app-ui/src/pages/components/Dashboard/components/context-menus/ClipsCardContextMenu.tsx
-    1410  src-tauri/src/main.rs
-    1356  src-tauri/src/services/history_service.rs
+    1403  src-tauri/src/main.rs
+    1352  src-tauri/src/services/history_service.rs
     1341  packages/pastebar-app-ui/src/store/settingsStore.ts
     1274  packages/pastebar-app-ui/src/pages/components/Dashboard/components/ClipEditWebRequest.tsx
     1272  packages/pastebar-app-ui/src/pages/components/ClipboardHistory/ClipboardHistoryRow.tsx

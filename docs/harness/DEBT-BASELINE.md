@@ -18,9 +18,26 @@ bash scripts/harness/scan.sh
 
 ---
 
-## 1. Scan baseline (frozen at commit `fcbb60e`)
+## 1. Scan baseline
 
-Full report: [`scan-baseline.txt`](scan-baseline.txt). The metrics that must not regress:
+Full report: [`scan-baseline.txt`](scan-baseline.txt), refreshed at the end of the overhaul.
+The Phase-1 snapshot is preserved at commit `fcbb60e` for comparison.
+
+| Metric                            | Phase 1 (`fcbb60e`) | Now            | Change                                           |
+| --------------------------------- | ------------------- | -------------- | ------------------------------------------------ |
+| `hygiene.tracked_dotenv`          | 1                   | **0**          | ✅ fixed                                         |
+| `hygiene.tracked_build_artifacts` | 1                   | **0**          | ✅ fixed                                         |
+| `hygiene.tracked_safelist`        | 2                   | **0**          | ✅ fixed                                         |
+| `rust.test_markers`               | 0                   | **28**         | ✅ tests exist                                   |
+| `ts.test_files`                   | 5 (all vendored)    | **8** (3 real) | ✅                                               |
+| `ts.any`                          | 30                  | 23             | ↓                                                |
+| `todo.all`                        | 4                   | 3              | ↓                                                |
+| `rust.unwrap_expect`              | 199                 | 199            | unchanged — wave W1 was scoped to P0 correctness |
+| `size.files_over_1000_lines`      | 22                  | 22             | unchanged — waves W3/W4 not started              |
+
+Every metric either improved or is unchanged. Nothing regressed.
+
+The metrics that must not regress from here:
 
 | Metric                            | Baseline | Target          | Owner wave              |
 | --------------------------------- | -------- | --------------- | ----------------------- |
