@@ -94,7 +94,20 @@ pub async fn update_translation_keys(translations: Vec<Translation>) -> Result<S
       if let serde_yaml::Value::Mapping(map) = entry {
         let mut sub_map: BTreeMap<String, serde_yaml::Value> = map
           .iter()
-          .map(|(k, v)| (k.as_str().unwrap().to_string(), v.clone()))
+          // A YAML key is not necessarily a string: `123: text` parses as a number, and
+          // `unwrap()` on one would panic exactly as the missing variable did above, on the
+          // same optional dev-only path. A non-string key is rendered back to its source
+          // text, which is what the file contained and what a human would edit.
+          .map(|(k, v)| {
+            let key = match k.as_str() {
+              Some(s) => s.to_string(),
+              None => serde_yaml::to_string(k)
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+            };
+            (key, v.clone())
+          })
           .collect();
         sub_map.insert(
           sub_key.to_string(),
