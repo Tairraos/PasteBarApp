@@ -155,6 +155,44 @@ function readCatalogKeys(file) {
   return keys
 }
 
+/**
+ * Replace the contents of line and block comments with spaces, preserving every offset.
+ *
+ * Not a full JS tokenizer: it does not track string literals, so a `//` inside a string would
+ * be treated as a comment. That is acceptable here because the cost of the imprecision is a
+ * missed key (the string is not a `t()` call anyway), whereas the cost of NOT doing this is a
+ * false positive from any commented-out or example `t(...)`.
+ */
+function blankComments(src) {
+  const out = src.split('')
+  let i = 0
+  while (i < src.length) {
+    const two = src.slice(i, i + 2)
+    if (two === '//') {
+      while (i < src.length && src[i] !== '\n') {
+        out[i] = ' '
+        i++
+      }
+    } else if (two === '/*') {
+      out[i] = ' '
+      out[i + 1] = ' '
+      i += 2
+      while (i < src.length && src.slice(i, i + 2) !== '*/') {
+        if (src[i] !== '\n') out[i] = ' '
+        i++
+      }
+      if (i < src.length) {
+        out[i] = ' '
+        out[i + 1] = ' '
+        i += 2
+      }
+    } else {
+      i++
+    }
+  }
+  return out.join('')
+}
+
 function main() {
   const catalogs = new Map()
   for (const f of readdirSync(EN_DIR).filter(f => f.endsWith('.yaml'))) {
@@ -168,7 +206,13 @@ function main() {
   const callRe = /\bt\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
   for (const file of walk(UI_SRC)) {
-    const src = readFileSync(file, 'utf8')
+    // Comments are blanked rather than skipped, so line numbers stay correct.
+    //
+    // Without this the checker reads `t('Some sentence')` written inside a doc comment as a
+    // real call and reports it as a missing key — a false positive, and a self-inflicted one
+    // the moment anyone documents the t() convention. Blanking (rather than deleting) keeps
+    // every offset and line number in the original file.
+    const src = blankComments(readFileSync(file, 'utf8'))
     for (const m of src.matchAll(callRe)) {
       const text = m[2]
         .replace(/\\'/g, "'")
