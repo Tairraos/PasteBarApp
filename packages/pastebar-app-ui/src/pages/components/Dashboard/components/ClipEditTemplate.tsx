@@ -1378,7 +1378,7 @@ export function ClipEditTemplate({
                     field.isEnable ? (
                       field.label === 'Clipboard' ? (
                         <Trans
-                          i18nKey="Field {{Clipboard}} has been found in the template. This allows you to copy text to the clipboard, and it will be inserted into the template"
+                          i18nKey="Field <b>{{Clipboard}}</b> has been found in the template. This allows you to copy text to the clipboard, and it will be inserted into the template"
                           ns="common"
                         />
                       ) : (
@@ -1459,14 +1459,14 @@ export function ClipEditTemplate({
                         />
                       ) : (
                         <Trans
-                          i18nKey="Add field <b>&#123;&#123;<b>{{name}}</b>&#125;&#125;</b> into the template"
+                          i18nKey="Add field <b>{{name}}</b> into the template"
                           ns="dashboard"
                           values={{ name: field.label }}
                         />
                       )
                     ) : (
                       <Trans
-                        i18nKey="Disabled field <b>&#123;&#123;<b>{{name}}</b>&#125;&#125;</b>"
+                        i18nKey="Disabled field <b>{{name}}</b> has been found in the template"
                         ns="dashboard"
                         values={{ name: field.label }}
                       />

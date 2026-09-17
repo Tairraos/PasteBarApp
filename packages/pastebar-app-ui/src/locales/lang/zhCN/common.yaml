@@ -107,7 +107,6 @@ Errors:
   Failed to save image file: 保存图像文件失败
 Expand Edit: 展开编辑
 'Expires on {{proExpiresOn}}': 于 {{proExpiresOn}} 过期
-'? Field <b>{{Clipboard}}</b> has been found in the template. This allows you to copy text to the clipboard, and it will be inserted into the template': 在模板中找到字段 <b>{{Clipboard}}</b>。这允许您将文本复制到剪贴板，然后将其插入模板中。
 Field is not found in the template: 在模板中未找到字段
 Find Clip: 查找剪辑
 Find History: 查找历史

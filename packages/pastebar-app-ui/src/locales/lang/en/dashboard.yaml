@@ -292,3 +292,5 @@ Text Separator: Text Separator
 
 ReturnSeparator:
   New Line: New Line
+Add field <b>{{name}}</b> into the template: Add field <b>{{name}}</b> into the template
+Disabled field <b>{{name}}</b> has been found in the template: Disabled field <b>{{name}}</b> has been found in the template

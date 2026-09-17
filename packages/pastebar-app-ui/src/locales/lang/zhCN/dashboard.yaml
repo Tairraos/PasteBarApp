@@ -290,3 +290,5 @@ Text Separator: 文本分隔符
 
 ReturnSeparator:
   New Line: 换行
+Add field <b>{{name}}</b> into the template: 将字段 <b>{{name}}</b> 添加到模板中
+Disabled field <b>{{name}}</b> has been found in the template: 在模板中找到禁用字段 <b>{{name}}</b>

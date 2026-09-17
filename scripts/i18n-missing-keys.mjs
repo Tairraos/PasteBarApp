@@ -207,6 +207,26 @@ function blankComments(src) {
   return out.join('')
 }
 
+/**
+ * Decode the HTML entities i18next decodes before a `<Trans>` lookup.
+ *
+ * Only the entities that actually appear in these keys are handled; a full entity table would
+ * be a dependency for no benefit. `&#123;`/`&#125;` are braces, which is the case that broke
+ * a real key: the code used them to mean "literal {{", but the decoded result put an
+ * interpolation inside a `<b>` tag and no translation could match it.
+ */
+function decodeEntities(text) {
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, '\u00a0')
+    .replace(/&amp;/g, '&')
+}
+
 function main() {
   const catalogs = new Map()
   for (const f of readdirSync(EN_DIR).filter(f => f.endsWith('.yaml'))) {
@@ -265,10 +285,37 @@ function main() {
         missing.push({ file: path.relative(ROOT, file), line, ns: ns ?? '(none)', text })
       }
     }
+
+    // `<Trans i18nKey="...">` is checked too, because a Trans key can contain markup and is
+    // therefore easier to write in a way no catalog entry can match.
+    //
+    // The trap is HTML entities. `<Trans>` decodes them before looking the key up, so a key
+    // written `&#123;&#123;<b>{{name}}</b>&#125;&#125;` is looked up as `{{<b>{{name}}</b>}}`
+    // — which no sane translation can be, and the string renders in English. Passing the raw
+    // source text here would compare something i18next never asks for and miss it entirely.
+    const transRe = /i18nKey=(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/g
+    for (const m of src.matchAll(transRe)) {
+      const raw = m[1] ?? m[2] ?? m[3]
+      if (!raw || raw.includes('${')) continue
+      const text = decodeEntities(raw)
+
+      const after = src.slice(m.index, m.index + 400)
+      const nsMatch = /ns=(?:"([\w-]+)"|'([\w-]+)')/.exec(after)
+      const ns = nsMatch ? nsMatch[1] ?? nsMatch[2] : null
+      if (ns && !allowed.has(ns)) continue
+
+      const candidates = ns ? [catalogs.get(ns)] : [...catalogs.values()]
+      if (!candidates.some(c => c && c.has(text))) {
+        const line = src.slice(0, m.index).split('\n').length
+        missing.push({ file: path.relative(ROOT, file), line, ns: ns ?? '(none)', text })
+      }
+    }
   }
 
   if (missing.length === 0) {
-    console.log('i18n-missing-keys: OK — every t() key exists in the English catalog')
+    console.log(
+      'i18n-missing-keys: OK — every t() and <Trans> key exists in the English catalog'
+    )
     return
   }
 

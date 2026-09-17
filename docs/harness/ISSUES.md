@@ -659,4 +659,29 @@ Additionally, `create_backup` could not tell the user _why_ it failed before arc
 `状态 | ✅ 已修复 |
 `所属阶段 | 6 (follow-up)`
 
+**Follow-up: the checker itself was wrong, and it hid 56 more defects.** A second report from
+the user ("还有一些中文没显示的，比如 [Copy items only], [Auto-close window]") named keys that
+existed in neither catalog — the code called them and nothing defined them.
+
+Finding them required first fixing the check. It had been counting 93 "missing" keys while
+also **losing** real ones, because YAML's explicit-key form (`? <key>` then `: <value>`) was
+only half-handled: a value line beginning with `:` was re-read as a section header, leaving
+the key pending, so the _next_ genuine entry was consumed as its value and disappeared from
+the catalog. `Left-click toggles app visibility` was reported missing while sitting in the
+file. Three files were also left as unparseable YAML by inserting values that begin with
+`{{count}}` without quoting them.
+
+This matters beyond the parser: the count is what the ratchet compares against, so a checker
+that both invents and drops keys cannot say what is missing. The same lesson applied three
+times in this issue — indented sub-keys, quoted keys, and now explicit keys. In each case the
+fix was made against the real files, never by loosening the rule, and the tool now refuses to
+compare a file it cannot parse.
+
+Corrected: **56 keys** added to `en` with `zhCN` translations (dashboard request/scraping
+labels, database-directory dialogs, menu-label validation, save errors) plus a missing
+`ReturnSeparator` section. The gap is now **0**, not a baseline, so any new `t()` argument
+without a catalog entry fails the gate. Seven tests run the real catalogs through a real
+i18next — a static check proves a key exists, only i18next proves it is reachable through the
+namespace, `:::` and plural handling.
+
 ---
