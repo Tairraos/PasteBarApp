@@ -132,6 +132,23 @@ gate_issue_refs() {
 }
 
 # ---------------------------------------------------------------------------
+# Gate 4c — i18n keys used in code must exist in the English catalog
+# ---------------------------------------------------------------------------
+gate_i18n() {
+  # The English catalogs ARE the key set: `t('Some sentence')` is looked up by that
+  # sentence. A `t()` argument with no catalog entry cannot be translated at all — i18next
+  # echoes it — so the string silently stays English in a Chinese-only UI.
+  #
+  # This is the one i18n failure the existing translation audit cannot see: that script
+  # compares the other locales against English, so when the CODE and the catalog disagree
+  # about the key text, every file still agrees with every other file.
+  #
+  # Ratcheted rather than absolute: 94 such keys predate this gate (mostly newer dashboard
+  # and settings strings). The count may only go DOWN.
+  node scripts/harness/i18n-ratchet.mjs
+}
+
+# ---------------------------------------------------------------------------
 # Gate 5 — TypeScript type check (ratchet)
 # ---------------------------------------------------------------------------
 gate_typecheck() {

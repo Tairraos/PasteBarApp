@@ -630,3 +630,33 @@ Additionally, `create_backup` could not tell the user _why_ it failed before arc
 `所属阶段 | 6 (follow-up)`
 
 ---
+
+### ISSUE-040 · The tray menu advertised a hard-coded hotkey instead of the user's own
+
+`ID | ISSUE-040`
+`位置 | src-tauri/src/menu.rs:235, src-tauri/src/commands/app_commands.rs:39`
+`类型 | BUG`
+`风险等级 | P2`
+`影响范围 | Every user who changed the main-window hotkey from the default`
+`现象与依据 |` The tray's "open" item was built with a literal `accelerator("CmdOrCtrl+O")` on macOS. The real shortcut is registered by the **frontend**, from the `hotKeysShowHideMainAppWindow` setting (`App.tsx`, `@tauri-apps/api/globalShortcut`); Rust has no hotkey code at all. So the advertised key and the working key were two independent values that agreed only while the user never touched the default. A user who bound `Ctrl+Alt+[` pressed that key and it worked, while the menu kept claiming `Cmd+O`. The setting string is already in Tauri's accelerator format (`tao`'s parser maps `[` to `BracketLeft`), so it is now passed through unchanged rather than reformatted — reformatting could only create a new mismatch.
+`建议方案 |` Read the same setting the frontend registers and use it as the menu accelerator; show nothing when it is unset, which is accurate because no key is registered either. The value alone was not enough: the menu is constructed once, in `.setup`, and `update_setting` did not rebuild it, so changing the hotkey left the tray stale until the next launch while the frontend had already re-bound. `update_setting` now rebuilds the menu, scoped to the three settings the menu actually renders (`hotKeysShowHideMainAppWindow`, `isHistoryEnabled`, `isAppLocked`) rather than on every preference write. The rebuild sits in the **command** layer, not `settings_service`, because `menu.rs` already imports `services` and the reverse edge would invert the layering. A rebuild failure does not fail the save — the setting is already persisted, so an error would claim a lost change that was not lost. Two tests pin the assumption that had never been checked: that the formats this app stores parse as accelerators (the old code hard-coded its value, so the stored format was never run through the parser), and that a modifiers-only string fails rather than rendering an item with no shortcut.
+`行为变更 | 有（托盘显示用户真实热键，且无需重启即更新） |
+`状态 | ✅ 已修复 |
+`所属阶段 | 6 (follow-up)`
+
+---
+
+### ISSUE-041 · Nine unreachable translation catalogs hid 94 strings that were never translatable
+
+`ID | ISSUE-041`
+`位置 | packages/pastebar-app-ui/src/locales/lang/, scripts/i18n-missing-keys.mjs (new), src-tauri/src/services/translations/translations.yaml`
+`类型 | DEBT`
+`风险等级 | P3`
+`影响范围 | Chinese UI showing English text; 1.2 MB of unreachable translation`
+`现象与依据 |` The settings screen renders `t('Set system OS hotkeys ... and quick paste window. Supports up to 3-key combinations.')`, but `zhCN/settings2.yaml` defined that sentence **without** the trailing clause. The Chinese translation existed, was correct, and was never looked up — i18next echoed the argument and the user saw English. The existing `translation-audit.ts` cannot see this class of defect: it compares the other locales against English, so when the code and the catalog disagree about the key text, every file still agrees with every other file. A purpose-built check found **94** such keys (30 `common`, 30 `dashboard`, 18 `settings`, …) plus 28 keys missing from `zhCN` alone and a whole namespace (`specailCopyPaste`) with no Chinese file. Building the check was itself most of the work: the first run reported 228, of which the majority were artefacts of my own parser — indented `Window:::` sub-keys, quoted keys, YAML's explicit `? key` form, and colons inside quoted keys. Each was fixed against the real files rather than by loosening the rule, because a checker that over-reports is worse than none: it buries the true findings.
+`建议方案 |` Delete the eight catalogs that no selector can reach (`de`, `esES`, `fr`, `it`, `ru`, `tr`, `uk`, `zhTW`); they remain in git history. Keep `en`, which is not a language choice but the **key set** — `t('Some sentence')` is looked up by that sentence, so removing it would break every call. That distinction is now explicit in code as `DEFAULT_LOCALE` (`'en'`, i18next's fallback) versus `DEFAULT_USER_LOCALE` (`'zhCN'`): an install whose stored language is a deleted code would otherwise fall through to English for a user who never chose English, so unsupported codes now resolve to Chinese. Remove the settings language switcher, the first-run picker and its now-dead modal, and the unused `javascript-time-ago` locales. Fill the 28 `zhCN` gaps and the missing namespace. A ratcheted gate (`i18n-ratchet.mjs`, baseline 94 — may only go down) stops new keys from being added without a catalog entry; it was verified to fail by lowering the baseline, which exits 1.
+`行为变更 | 有（界面语言仅中文；新增未翻译文案会被门禁拦下） |
+`状态 | ✅ 已修复 |
+`所属阶段 | 6 (follow-up)`
+
+---

@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api'
 import { confirm } from '@tauri-apps/api/dialog'
 import { CopyComponent } from '~/libs/bbcode'
-import i18n from '~/locales'
-import { LANGUAGES } from '~/locales/languges'
 import {
   clipNotesDelays,
   clipNotesSizes,
@@ -590,49 +588,6 @@ export default function UserPreferences() {
                           </span>
                           <span>{t('Theme:::System', { ns: 'navbar' })}</span>
                         </Button>
-                      </Flex>
-                    </CardHeader>
-                  </Card>
-                </Box>
-
-                <Box className="animate-in fade-in max-w-xl mt-4">
-                  <Card>
-                    <CardHeader className="flex flex-col items-start justify-between space-y-0 pb-1 mb-4">
-                      <CardTitle className="animate-in fade-in text-md font-medium w-full mb-3">
-                        {t('Application UI Language', { ns: 'settings' })}
-                        <Text className="text-sm text-muted-foreground mt-2">
-                          {t('Change the application user interface language', {
-                            ns: 'settings',
-                          })}
-                        </Text>
-                      </CardTitle>
-                      <Flex className="gap-3 flex-wrap items-start justify-start">
-                        {LANGUAGES.map(
-                          ({
-                            code,
-                            name,
-                            flag,
-                          }: {
-                            code: string
-                            name: string
-                            flag: string
-                          }) => (
-                            <Button
-                              key={code}
-                              variant="ghost"
-                              onClick={() => {
-                                i18n.changeLanguage(code)
-                              }}
-                              className={`text-sm font-normal bg-slate-50 dark:bg-slate-950 ${
-                                i18n.language === code
-                                  ? 'bg-slate-300 font-semibold dark:bg-slate-600 text-dark dark:text-slate-200 hover:dark:bg-slate-600 hover:bg-slate-300'
-                                  : ''
-                              } dark:text-slate-200 px-3 !py-0.5`}
-                            >
-                              <span className="flags mr-3">{flag}</span> {name}
-                            </Button>
-                          )
-                        )}
                       </Flex>
                     </CardHeader>
                   </Card>

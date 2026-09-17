@@ -6,11 +6,11 @@ import { type } from '@tauri-apps/api/os'
 import { invoke } from '@tauri-apps/api/tauri'
 import { appWindow, LogicalSize, WebviewWindow } from '@tauri-apps/api/window'
 import { NavBar } from '~/layout/NavBar'
+import { DEFAULT_USER_LOCALE, isSupportedLocale } from '~/locales/languges'
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
-import LanguageSelectionModal from '~/components/organisms/modals/language-selection-modal'
 import { ThemeProvider } from '~/components/theme-provider'
 
 import useKeyPressAlt from '~/hooks/use-keypress-alt'
@@ -55,17 +55,7 @@ function App() {
   const { i18n, t } = useTranslation()
   const { toast } = useToast()
   const historyWindowOpening = useSignal(false)
-  const showLanguageSelectionModal = useSignal(false)
   const permissionsTrustedSignal = useSignal<boolean | null>(null)
-
-  const handleLanguageSelected = useCallback(
-    (languageCode: string) => {
-      settingsStore.updateSetting('userSelectedLanguage', languageCode)
-      settingsStore.updateSetting('isFirstRun', false)
-      showLanguageSelectionModal.value = false
-    },
-    [settingsStore]
-  )
 
   const handleActivity = useCallback(
     debounce(() => {
@@ -109,19 +99,18 @@ function App() {
           app_detect_languages_supported: appDetectLanguageSupport,
         } = constants
 
-        if (
-          settings.userSelectedLanguage?.valueText &&
-          settings.userSelectedLanguage?.valueText !== '' &&
-          i18n.language !== settings.userSelectedLanguage?.valueText
-        ) {
-          i18n.changeLanguage(settings.userSelectedLanguage.valueText)
-        }
+        const savedLanguage = settings.userSelectedLanguage?.valueText
 
-        if (
-          settings.userSelectedLanguage?.valueText === '' &&
-          i18n.resolvedLanguage !== 'en'
-        ) {
-          i18n.changeLanguage(i18n.resolvedLanguage)
+        // A stored language that is no longer offered (any of the nine deleted catalogs)
+        // must fall back to the user's default — Chinese — rather than sliding through to
+        // i18next's `en` fallback, which would silently turn the UI English for someone who
+        // never chose English and had been using a translated build.
+        const effectiveLanguage = isSupportedLocale(savedLanguage)
+          ? (savedLanguage as string)
+          : DEFAULT_USER_LOCALE
+
+        if (i18n.language !== effectiveLanguage) {
+          i18n.changeLanguage(effectiveLanguage)
         }
 
         settingsStore.initSettings({
@@ -264,8 +253,14 @@ function App() {
         })
 
         if (settings.isFirstRun?.valueBool) {
+          // The size change is still wanted on first run; the language picker it used to
+          // open is not — with one language there is nothing to choose, and a modal whose
+          // only option is already selected is pure friction on first launch.
           appWindow.setSize(new LogicalSize(1105, 710))
-          showLanguageSelectionModal.value = true
+          settingsStore.updateSetting('isFirstRun', false)
+          if (!isSupportedLocale(settings.userSelectedLanguage?.valueText)) {
+            settingsStore.updateSetting('userSelectedLanguage', DEFAULT_USER_LOCALE)
+          }
         }
 
         if (
@@ -549,15 +544,6 @@ function App() {
       return
     }
 
-    // If it's the first run and the language selection modal is active,
-    // wait for it to be closed before checking/showing the permissions modal.
-    if (settingsStore.isFirstRun && showLanguageSelectionModal.value) {
-      return
-    }
-
-    // Proceed if:
-    // - It's not the first run OR
-    // - It was the first run AND the language modal is now closed.
     if (permissionsTrustedSignal.value === false) {
       if (!openOSXSystemPermissionsModal.value) {
         openOSXSystemPermissionsModal.value = true
@@ -571,7 +557,6 @@ function App() {
     }
   }, [
     permissionsTrustedSignal.value,
-    showLanguageSelectionModal.value,
     settingsStore.isFirstRun,
     settingsStore.isAppReady,
     // openOSXSystemPermissionsModal // signal itself, stable reference
@@ -590,12 +575,11 @@ function App() {
   useEffect(() => {
     let welcomeTourToast: { dismiss: () => void } | undefined
 
-    // Ensure all prerequisites are met: settings ready, permission status known,
-    // and relevant modals (language, OSX permissions) are not active.
+    // Ensure all prerequisites are met: settings ready, permission status known, and the
+    // OSX permissions modal is not active.
     if (
       !settingsStore.isAppReady ||
       permissionsTrustedSignal.value === null ||
-      (settingsStore.isFirstRun && showLanguageSelectionModal.value) ||
       openOSXSystemPermissionsModal.value === true
     ) {
       return () => {
@@ -603,7 +587,7 @@ function App() {
       }
     }
 
-    // If we've passed the early exit, language and permissions modals are closed.
+    // If we've passed the early exit, the permissions modal is closed.
     // Now, only show the tour if permissions are actually trusted.
     if (permissionsTrustedSignal.value) {
       const tourCompleted = settingsStore.appToursCompletedList?.includes(
@@ -666,7 +650,6 @@ function App() {
     }
   }, [
     settingsStore.isAppReady,
-    showLanguageSelectionModal.value,
     settingsStore.isFirstRun,
     permissionsTrustedSignal.value,
     openOSXSystemPermissionsModal.value, // Added dependency
@@ -727,16 +710,6 @@ function App() {
             <Outlet />
           </div>
         </div>
-        {settingsStore.isFirstRun && (
-          <LanguageSelectionModal
-            open={showLanguageSelectionModal.value}
-            onClose={() => {
-              showLanguageSelectionModal.value = false
-              settingsStore.updateSetting('isFirstRun', false)
-            }}
-            onLanguageSelected={handleLanguageSelected}
-          />
-        )}
       </ThemeProvider>
     </>
   )

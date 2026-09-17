@@ -265,3 +265,5 @@ template: 模板
 '{{count}} fields not found in the template._other': '在模板中未找到 {{count}} 个字段。'
 '{{type}} Field': '{{type}} 字段'
 '{{type}} field': '{{type}} 字段'
+Flex Layout: 弹性布局
+Grid Layout: 网格布局

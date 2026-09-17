@@ -3,16 +3,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock; // Import RwLock from std::sync
 
+/// The tray-menu catalogs.
+///
+/// Chinese only, matching the product decision for the UI. English is kept as the fallback:
+/// [`Translations::get_lang`] returns it for any unrecognised code, so the menu degrades to
+/// readable English rather than to a "language not supported" message.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Translations {
   en: HashMap<String, String>,
-  de: HashMap<String, String>,
-  uk: HashMap<String, String>,
-  fr: HashMap<String, String>,
-  tr: HashMap<String, String>,
-  it: HashMap<String, String>,
-  esES: HashMap<String, String>,
-  ru: HashMap<String, String>,
+  #[allow(non_snake_case)]
   zhCN: HashMap<String, String>,
 }
 
@@ -42,15 +41,10 @@ impl Translations {
 
   fn get_lang(&self, lang: &str) -> Option<&HashMap<String, String>> {
     match lang {
-      "en" => Some(&self.en),
-      "de" => Some(&self.de),
-      "ru" => Some(&self.ru),
-      "uk" => Some(&self.uk),
-      "fr" => Some(&self.fr),
-      "tr" => Some(&self.tr),
-      "it" => Some(&self.it),
-      "esES" => Some(&self.esES),
       "zhCN" => Some(&self.zhCN),
+      // English, and anything unrecognised. An install upgraded from a multi-language build
+      // still has a deleted code stored (e.g. "de"); falling back to English keeps the menu
+      // readable. The frontend rewrites that stored value to zhCN on next launch.
       _ => Some(&self.en),
     }
   }

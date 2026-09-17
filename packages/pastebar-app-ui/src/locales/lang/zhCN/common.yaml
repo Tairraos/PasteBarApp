@@ -353,3 +353,5 @@ Confirm Add To Protected Collections: 确认添加到受保护的集合
 Confirm Disable PIN Protection: 确认禁用PIN保护
 Confirm Remove From Protected Collections: 确认从受保护的集合中移除
 Confirm Enable PIN Protection: 确认启用PIN保护
+Error: 错误
+Something went wrong! {{err}} Please try again.: 出错了！{{err}} 请重试。

@@ -3,13 +3,7 @@ import { settingsStore } from '~/store'
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import TimeAgo from 'javascript-time-ago'
-import deTimeAgo from 'javascript-time-ago/locale/de'
 import enTimeAgo from 'javascript-time-ago/locale/en'
-import esTimeAgo from 'javascript-time-ago/locale/es'
-import frTimeAgo from 'javascript-time-ago/locale/fr'
-import itTimeAgo from 'javascript-time-ago/locale/it'
-import ruTimeAgo from 'javascript-time-ago/locale/ru'
-import ukTimeAgo from 'javascript-time-ago/locale/uk'
 import zhTimeAgo from 'javascript-time-ago/locale/zh'
 import { initReactI18next } from 'react-i18next'
 // @ts-expect-error - Vite plugin
@@ -20,21 +14,15 @@ import { DEFAULT_LOCALE, LANGUAGES } from './languges'
 import { missingKeys, saveMissingKeysDevOnly } from './translation-utils'
 
 TimeAgo.addDefaultLocale(enTimeAgo)
-TimeAgo.addLocale(deTimeAgo)
-TimeAgo.addLocale(esTimeAgo)
-TimeAgo.addLocale(frTimeAgo)
-TimeAgo.addLocale(ruTimeAgo)
-TimeAgo.addLocale(ukTimeAgo)
 TimeAgo.addLocale(zhTimeAgo)
-TimeAgo.addLocale(itTimeAgo)
 
 export const timeAgoCache = new Map()
 
-// Define a mapping for non-dash language codes to the correct dash format
+// Dates use BCP-47 codes (`zh-CN`), while the catalog directories use the project's own
+// short codes (`zhCN`). Only Chinese remains, so this holds a single entry — the mapping is
+// kept rather than inlined because it is a translation table, not a special case.
 const langCodeMapping: { [key: string]: string } = {
   zhCN: 'zh-CN',
-  zhTW: 'zh-TW',
-  esES: 'es-ES',
 }
 
 const timeAgoInstancesCache = {

@@ -210,3 +210,20 @@ Disable capturing and storing images from clipboard: 禁用从剪贴板捕获和
 Custom Database Location: 自定义数据库位置
 Selected new data folder: 选定的新数据文件夹用于更改
 none: 无
+Are you sure you want to go back to the default data folder? This will remove the custom location setting.: 确定要恢复到默认数据文件夹吗？这将移除自定义位置设置。
+Are you sure you want to revert to the default database location? The application will restart.: 确定要恢复数据库到默认位置吗？应用将重新启动。
+Change Directory...: 更改目录...
+Copy database file: 复制数据库文件
+Current data location: 当前数据位置
+Current database location: 当前数据库位置
+Do you want to attempt to move the database file from "{{customPath}}" back to the default location?: 是否尝试将数据库文件从 "{{customPath}}" 移回默认位置？
+Enter new directory path or leave empty for default on next revert: 输入新的目录路径，留空则在下次恢复时使用默认位置
+Failed to select directory: 选择目录失败
+If a database file already exists at the default location, do you want to overwrite it? Choosing "Cancel" will skip moving the file if an existing file is found.: 如果默认位置已存在数据库文件，是否覆盖？选择「取消」将在发现已有文件时跳过移动。
+Move data: 移动数据
+Move database file: 移动数据库文件
+New Data Directory Path: 新的数据目录路径
+New Database Directory Path: 新的数据库目录路径
+Revert to Default and Restart: 恢复默认并重启
+Select Custom Data Folder...: 选择自定义数据文件夹...
+The selected folder is not empty. Do you want to create a "pastebar-data" subfolder to store the data?: 所选文件夹不为空。是否创建「pastebar-data」子文件夹来存放数据？

@@ -1,3 +1,12 @@
+# Tray-menu strings, translated in Rust.
+#
+# Separate from the frontend's locale catalogs (`packages/pastebar-app-ui/src/locales/lang`)
+# because the tray is built in Rust and must render before any webview exists — it cannot
+# call into i18next. Only the handful of labels the tray shows live here.
+#
+# Chinese only, matching the product decision for the UI. `en` is retained as the fallback
+# for an unknown or unset language: without it, a missing language code would print
+# "Language 'x' not supported." into a menu item.
 en:
   add_first_item_here: Add First Item Here
   disable_history_capture: Disable History Capture
@@ -9,72 +18,6 @@ en:
   unlock_pastebar: Unlock PasteBar
   quit: Quit
 
-de:
-  add_first_item_here: Menü hier hinzufügen
-  disable_history_capture: Zwischenablageerfassung deaktivieren
-  enable_history_capture: Zwischenablageerfassung aktivieren
-  clipboard_image_size: Bild in Zwischenablage
-  history_capture_is_disabled: Zwischenablageerfassung deaktiviert
-  recent_history: Zwischenablageverlauf
-  open_pastebar: PasteBar öffnen
-  unlock_pastebar: PasteBar entsperren
-  quit: Beenden
-
-esES:
-  add_first_item_here: Añadir menú aquí
-  disable_history_capture: Desactivar captura del portapapeles
-  enable_history_capture: Activar captura del portapapeles
-  clipboard_image_size: Imagen en portapapeles
-  history_capture_is_disabled: Captura del portapapeles desactivada
-  recent_history: Historial reciente
-  open_pastebar: Abrir PasteBar
-  unlock_pastebar: Desbloquear PasteBar
-  quit: Salir
-
-fr:
-  add_first_item_here: Ajouter menu ici
-  disable_history_capture: Désactiver capture du presse-papiers
-  enable_history_capture: Activer capture du presse-papiers
-  clipboard_image_size: Image dans presse-papiers
-  history_capture_is_disabled: Capture du presse-papiers désactivée
-  recent_history: Historique récent
-  open_pastebar: Ouvrir PasteBar
-  unlock_pastebar: Déverrouiller PasteBar
-  quit: Quitter
-
-it:
-  add_first_item_here: Aggiungi primo elemento
-  disable_history_capture: Disattiva cronologia
-  enable_history_capture: Attiva cronologia
-  clipboard_image_size: Dimensione Immagine negli Appunti
-  history_capture_is_disabled: Cattura cronologia disattivata
-  recent_history: Cronologia Recente
-  open_pastebar: Apri PasteBar
-  unlock_pastebar: Sblocca PasteBar
-  quit: Esci
-
-uk:
-  add_first_item_here: Додати сюди меню
-  disable_history_capture: Вимкнути захоплення буфера
-  enable_history_capture: Увімкнути захоплення буфера
-  clipboard_image_size: Зображення у буфері
-  history_capture_is_disabled: Захоплення буфера вимкнено
-  recent_history: Історія буферу
-  open_pastebar: Відкрити PasteBar
-  unlock_pastebar: Розблокувати PasteBar
-  quit: Вийти
-
-ru:
-  add_first_item_here: Добавить сюда меню
-  disable_history_capture: Отключить захват буфера
-  enable_history_capture: Включить захват буфера
-  clipboard_image_size: Изображение в буфере
-  history_capture_is_disabled: Захват истории отключен
-  recent_history: История буфера
-  open_pastebar: Открыть PasteBar
-  unlock_pastebar: Разблокировать PasteBar
-  quit: Выйти
-
 zhCN:
   add_first_item_here: 在此添加第一个项目
   disable_history_capture: 禁用历史记录捕获
@@ -85,14 +28,3 @@ zhCN:
   open_pastebar: 打开 PasteBar
   unlock_pastebar: 解锁 PasteBar
   quit: 退出
-
-tr:
-  add_first_item_here: İlk Öğeyi Buraya Ekle
-  disable_history_capture: Geçmiş Yakalamayı Devre Dışı Bırak
-  enable_history_capture: Geçmiş Yakalamayı Etkinleştir
-  clipboard_image_size: Pano Resim Boyutu
-  history_capture_is_disabled: Geçmiş Yakalama Devre Dışı
-  recent_history: Son Geçmiş
-  open_pastebar: PasteBar'ı Aç
-  unlock_pastebar: PasteBar'ı Kilit Aç
-  quit: Çıkış

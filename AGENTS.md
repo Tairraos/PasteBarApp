@@ -32,7 +32,8 @@ node scripts/harness/gen-ipc-contract.mjs --check   # IPC drift gate
 
 cd src-tauri && cargo clippy            # Rust lints
 npm run diesel:migration:run            # apply migrations
-npm run translation-audit               # i18n key audit
+npm run translation-audit                # list t() keys missing from the English catalog
+node scripts/harness/i18n-ratchet.mjs    # the same check as a gate (ratcheted)
 ```
 
 Frontend-only work (no Rust rebuild):

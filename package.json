@@ -1,6 +1,6 @@
 {
   "name": "pastebar-app",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
@@ -29,7 +29,7 @@
     "changeset": "changeset",
     "version:sync": "node scripts/sync-version.js",
     "version": "changeset version && npm run version:sync",
-    "translation-audit": "npx tsx scripts/translation-audit.ts",
+    "translation-audit": "node scripts/i18n-missing-keys.mjs",
     "app:build:no-bump": "node scripts/build-app.mjs --no-bump"
   },
   "dependencies": {
