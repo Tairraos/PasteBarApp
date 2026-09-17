@@ -685,3 +685,28 @@ i18next — a static check proves a key exists, only i18next proves it is reacha
 namespace, `:::` and plural handling.
 
 ---
+
+### ISSUE-042 · Hard-coded pixel arithmetic pushed the panel tabs out of view
+
+`ID | ISSUE-042`
+`位置 | packages/pastebar-app-ui/src/pages/main/PasteMenuPage.tsx, packages/pastebar-app-ui/src/components/organisms/menu-tree/`
+`类型 | BUG`
+`风险等级 | P2`
+`影响范围 | Both panels of the Paste Menu view; Clipboard History and Paste Menu tabs unreachable`
+`现象与依据 |` The user reported, with a dark-mode screenshot of a 750x595 window, that the selected menu row was grey-on-white and that opening the menus pushed **Clipboard History** and **Paste Menu** off the bottom of the window, with the right panel unreachable at any scroll position. Two independent causes, both a fixed number standing in for something derivable:
+
+**(a) The selected row was unreadable.** `MenuRow.tsx` carried `dark:!bg-slate-600 dark:!text-slate-50` while `menu-tree.module.css` set `background-color: rgba(203,213,225,.9)` for the same state. The Tailwind pair won, because `!` outranks a stylesheet rule, so a selected row was slate-600 with slate-50 text — two steps apart in luminance. The stylesheet's rule was worse than useless: it set a background and left the colour to inherit, which in dark mode meant near-white text on a near-white fill.
+
+**(b) The list ran 7px past its container.** Scroll areas were sized `height - 85 / -93 / -75`, guessing what the header and tabs occupied. They occupy 100px (search box 40+8, tabs 40+12), not 93, so the list overflowed and pushed the tabs down. Stacked on that, the inner wrapper asked for `h-[calc(100vh-95px)]` inside a parent of `h-[calc(100vh-70px)]` carrying `pt-4 pb-4` — a content box 32px shorter than its height — making the child 7px taller than the space that existed.
+`建议方案 |` Replace the arithmetic with `flex-1 min-h-0` and let flexbox divide the height, which cannot drift from the content. `min-h-0` is required: without it a flex child refuses to shrink below its content and grows the container instead of scrolling. The `flex-1` spacer that pushed the tabs down became margin on the tabs, since it would otherwise compete with the list for the same space. For the selected row, move the colours into the stylesheet as a pair per theme — background **and** colour together, which is what prevents the two from drifting apart again — and drop the Tailwind override. The dark fill is slate-700 rather than the light one reused: a light row on a near-black panel is the brightest thing on screen and reads as "disabled".
+`行为变更 | 有（两个标签页恢复可见；选中项在深色模式下可读） |
+`状态 | ✅ 已修复 |
+`所属阶段 | 6 (follow-up)`
+
+**Remaining instance.** `ClipboardHistoryPage.tsx` carries the same inner-wrapper pattern at
+line 2032, with the same 7px discrepancy. Its panel arithmetic differs otherwise (`pb-6`
+rather than `pb-4`, and several `SimpleBar` offsets), so it was left alone: the reported
+symptom was in the Paste Menu view, and rewriting the history panel's layout on the strength
+of a resemblance risks the view that is used most. It should be fixed and verified on its own.
+
+---

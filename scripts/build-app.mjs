@@ -337,15 +337,21 @@ function collectArtifacts(version, { pruneOtherDmgs = false } = {}) {
 
   const collected = { app: null, dmg: null }
 
-  // Remove DMGs from previous versions when collecting a NEW build.
+  // Remove stale DMGs when collecting a NEW build.
   //
   // They accumulate: `target/` is meant to show the current artifact, and after a few builds
   // it held a 0.7.2 and a 0.7.3 side by side, where picking the wrong one to test an
-  // unversioned-looking name is an easy mistake. Only done on the success/collect path —
-  // never when salvaging a partial build, where an older DMG may be the only usable one.
+  // unversioned-looking name is an easy mistake.
+  //
+  // When no DMG was requested the sweep is total, not version-scoped. Matching on version
+  // only left the previous version's DMG in place — `PasteBar_0.7.7_aarch64.dmg` survived a
+  // 0.7.8 build that produced no DMG — so `target/` advertised an artifact from an older
+  // build next to an app from a newer one. Only done on the success/collect path, never when
+  // salvaging a partial build, where an older DMG may be the only usable one.
   if (pruneOtherDmgs) {
+    const keepCurrent = has('--dmg')
     for (const f of readdirSync(OUT_DIR)) {
-      if (f.endsWith('.dmg') && !f.includes(version)) {
+      if (f.endsWith('.dmg') && (!keepCurrent || !f.includes(version))) {
         rmSync(path.join(OUT_DIR, f), { force: true })
       }
     }
@@ -487,6 +493,14 @@ async function main() {
       }
     } else {
       console.error('No .app was produced — the build failed before bundling.')
+    }
+
+    // Clean up here too. The success path does this below, but this branch exits early, and
+    // an exiting build used to leave `tauri.build.conf.json` and `bundle/macos/` behind —
+    // exactly the intermediates this script promises to remove.
+    if (!has('--keep-build-dir')) {
+      log('Cleaning build intermediates')
+      for (const r of cleanBuildDir()) console.log(`  removed ${r}`)
     }
     process.exit(code)
   }
