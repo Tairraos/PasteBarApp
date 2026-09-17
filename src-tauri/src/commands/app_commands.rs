@@ -7,6 +7,7 @@
 //! layer's job.
 
 use crate::db;
+use crate::menu::update_system_menu;
 use crate::models::Setting;
 use crate::services::settings_service::insert_or_update_setting_by_name;
 use crate::services::utils;
@@ -35,13 +36,60 @@ pub struct SettingUpdatePayload {
   pub value_number: Option<i32>,
 }
 
+/// Save a setting, and refresh the tray menu when the change is visible in it.
+///
+/// The menu renders the main-window shortcut (`hotKeysShowHideMainAppWindow` next to the
+/// "open" item), so changing that setting without rebuilding the menu leaves the tray
+/// advertising the previous key — and the tray is built once, in `.setup`, so nothing else
+/// would rebuild it. The frontend re-registers the actual shortcut immediately; without
+/// this, the label and the binding would disagree until the next launch.
+///
+/// Rebuild is scoped to the settings the menu actually reads. Rebuilding on every setting
+/// change would be wasted work on the hot path (settings are written on each preference
+/// toggle), and a menu rebuild briefly touches the tray.
 #[tauri::command]
-pub fn update_setting(setting: Setting, app_handle: tauri::AppHandle) -> Result<String, String> {
-  match insert_or_update_setting_by_name(&setting, app_handle) {
-    Ok(result) => Ok(result),
+pub fn update_setting(
+  setting: Setting,
+  app_handle: tauri::AppHandle,
+  db_items_state: tauri::State<crate::menu::DbItems>,
+  db_recent_history_items_state: tauri::State<crate::menu::DbRecentHistoryItems>,
+  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
+) -> Result<String, String> {
+  // Captured before the write: whether the menu-relevant value actually changed.
+  let affects_menu = MENU_SETTING_NAMES.contains(&setting.name.as_str());
+
+  match insert_or_update_setting_by_name(&setting, app_handle.clone()) {
+    Ok(result) => {
+      if affects_menu {
+        // A failure here must not fail the save: the setting is already persisted, so
+        // reporting an error would tell the user their change was lost when it was not.
+        // The stale label is cosmetic and corrects itself on the next menu rebuild.
+        if let Err(e) = update_system_menu(
+          &app_handle,
+          db_items_state,
+          db_recent_history_items_state,
+          app_settings,
+        ) {
+          debug_output(|| {
+            println!("Saved setting but could not refresh the tray menu: {}", e);
+          });
+        }
+      }
+      Ok(result)
+    }
     Err(err) => Err(err.to_string()),
   }
 }
+
+/// Settings whose value is rendered in the tray menu.
+const MENU_SETTING_NAMES: &[&str] = &[
+  // The "open" item's shortcut label.
+  "hotKeysShowHideMainAppWindow",
+  // Whether the recent-history submenu is shown at all.
+  "isHistoryEnabled",
+  // Whether the app is locked, which changes the "open" label to "unlock".
+  "isAppLocked",
+];
 
 #[cfg(target_os = "windows")]
 #[tauri::command]

@@ -151,6 +151,13 @@ pub fn build_tray_menu(
     }
   }
 
+  // The shortcut the user bound to "show/hide the main window", shown against the tray's
+  // "open" item. Read from the same setting the frontend registers, so the label and the
+  // actual binding cannot drift apart.
+  let main_app_hotkey = settings_map
+    .get("hotKeysShowHideMainAppWindow")
+    .and_then(|s| s.value_text.clone());
+
   let mut auto_mask_words_list = Vec::new();
 
   if let Some(setting) = settings_map.get("isAutoMaskWordsListEnabled") {
@@ -175,6 +182,7 @@ pub fn build_tray_menu(
         is_history_enabled,
         is_app_locked,
         auto_mask_words_list,
+        main_app_hotkey,
       );
       let mut locked_state = db_items_state.0.lock().unwrap();
       *locked_state = db_items;
@@ -196,6 +204,7 @@ fn build_system_tray_menu(
   is_history_enabled: bool,
   is_app_locked: bool,
   auto_mask_words_list: Vec<String>,
+  main_app_hotkey: Option<String>,
 ) -> SystemTrayMenu {
   let mut menuitem_quit = CustomMenuItem::new("quit".to_string(), Translations::get("quit"));
   let mut menuitem_show =
@@ -207,8 +216,24 @@ fn build_system_tray_menu(
 
   #[cfg(target_os = "macos")]
   {
+    // Quit keeps its documented, fixed shortcut: it is the app's own command, not something
+    // the user configures, and `Cmd+Q` is what a macOS user already expects.
     menuitem_quit = menuitem_quit.accelerator("CmdOrCtrl+Q");
-    menuitem_show = menuitem_show.accelerator("CmdOrCtrl+O");
+
+    // The "open" item's shortcut is NOT a constant — it is whatever the user bound in
+    // Settings (stored as `hotKeysShowHideMainAppWindow`). This used to be hard-coded to
+    // `CmdOrCtrl+O`, which meant the tray advertised a key that did nothing: the real
+    // shortcut is registered by the frontend from the user's setting, so the two disagreed
+    // whenever the user changed it from the default.
+    //
+    // The stored string is already in the accelerator format the menu and the global
+    // shortcut registrar both parse (`Ctrl+Alt+[`), so it is passed through unchanged —
+    // reformatting it here could only introduce a mismatch between the label and the
+    // binding. If it is absent (never configured) the item simply shows no shortcut, which
+    // is accurate: no key is registered either.
+    if let Some(hotkey) = main_app_hotkey.as_deref().filter(|k| !k.trim().is_empty()) {
+      menuitem_show = menuitem_show.accelerator(hotkey);
+    }
   }
 
   let mut menu = SystemTrayMenu::new();
@@ -396,4 +421,47 @@ fn create_recent_history_items(
       }
     })
     .collect()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::str::FromStr;
+
+  /// Every shortcut the tray can be asked to render must be one the accelerator parser
+  /// accepts.
+  ///
+  /// The tray label comes from a user setting (`hotKeysShowHideMainAppWindow`), so the input
+  /// is whatever they bound. Tauri's `set_menu` builds the menu natively and a string it
+  /// cannot parse is a failure at menu-construction time — which, in `.setup`, means the
+  /// app does not finish starting. This test turns that into a test failure instead.
+  ///
+  /// The default (`Ctrl+Alt+[`) is included because it is what most installs will have:
+  /// the previous code hard-coded `CmdOrCtrl+O` here and never exercised the real value, so
+  /// the format the app actually stores was never tested against the parser at all.
+  #[test]
+  fn user_shortcut_formats_are_parseable_accelerators() {
+    for hotkey in [
+      "Ctrl+Alt+[",  // the shipped default
+      "CmdOrCtrl+O", // the previously hard-coded value, still valid if a user set it
+      "Ctrl+Shift+A",
+      "Alt+Space",
+      "Cmd+Shift+[",
+      "F5",
+    ] {
+      assert!(
+        tao::accelerator::Accelerator::from_str(hotkey).is_ok(),
+        "the tray cannot render '{}': the accelerator parser rejected it, \
+         so this shortcut would break menu construction",
+        hotkey
+      );
+    }
+  }
+
+  #[test]
+  fn a_modifier_only_string_is_rejected_rather_than_silently_accepted() {
+    // Documents the boundary: `Ctrl+` has no main key. It must fail loudly here rather than
+    // produce a menu item with no shortcut, which is what a lenient parser would do.
+    assert!(tao::accelerator::Accelerator::from_str("Ctrl+").is_err());
+  }
 }
