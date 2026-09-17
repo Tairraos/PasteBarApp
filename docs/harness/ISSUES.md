@@ -96,7 +96,22 @@
 `现象与依据 |` `git ls-files` returns `.env`; content is `DATABASE_URL=sqlite://local.pastebar-db.data` and `MISSING_TRANSLATION_SAVE_PATH=../packages/pastebar-app-ui/src/locales/lang`. `.env.sample` lists the same two keys with empty values. No secret is currently leaked, but the file is a live foot-gun for any credential that gets added later, and it hard-codes one developer's layout.
 `建议方案 |` `git rm --cached .env` (keep the working copy), add `.env` to `.gitignore`, document every key in `.env.sample`. Phase 3 §5.5, enforced afterwards by the hygiene gate (ISSUE-030).
 `行为变更 | 无`
+`状态 | ✅ 已修复 (W1) |
 `所属阶段 | 3 (§5.5)`
+
+**Follow-up: the fix exposed a second defect.** Removing `.env` from the tree is right, but
+`update_translation_keys` read its key with `std::env::var(...).unwrap()` — so the moment the
+file was gone, the first call panicked. Because the frontend polls that command every five
+seconds in dev, `npm start` died on startup. The `is_empty()` check on the next line shows
+the author expected the variable to be absent; `unwrap()` meant that branch was unreachable
+when it was missing. It now returns `Err` for both unset and empty, matching what
+`.env.sample` documents (an empty value means "disabled"), and the frontend's existing
+`try/catch` logs it harmlessly. The two `println!` calls on the same path moved to
+`debug_output` per AGENTS.md rule 7.
+
+**Noticed 2026-09-17.** The status row above was missing until then — the entry read as
+unfixed long after the work landed, because the fix was recorded in the file's prose but not
+in its machine-readable status.
 
 ### ISSUE-005 · Generated build artifacts and a generated 108 KB safelist are git-tracked
 

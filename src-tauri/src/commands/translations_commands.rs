@@ -31,14 +31,21 @@ pub async fn update_translation_keys(translations: Vec<Translation>) -> Result<S
     return Err("This command is only available in debug mode".to_string());
   }
 
-  let base_path = std::env::var("MISSING_TRANSLATION_SAVE_PATH").unwrap();
-
-  if base_path.is_empty() {
-    return Err("MISSING_TRANSLATION_SAVE_PATH is not set".to_string());
-  }
+  // Unset and empty both mean "this workflow is not configured on this machine", which is the
+  // normal state for anyone not editing translations: `.env.sample` ships the key with an
+  // empty value and documents that as "disabled". `unwrap()` turned that documented state
+  // into a panic — and because the frontend calls this during startup, it took down the whole
+  // dev build instead of failing one optional command. The `is_empty` check that followed was
+  // unreachable whenever the variable was missing.
+  let base_path = match std::env::var("MISSING_TRANSLATION_SAVE_PATH") {
+    Ok(path) if !path.is_empty() => path,
+    _ => return Err("MISSING_TRANSLATION_SAVE_PATH is not set".to_string()),
+  };
 
   for translation in translations.iter() {
-    println!("Adding missing translation key {:?}", translation);
+    debug_output(|| {
+      println!("Adding missing translation key {:?}", translation);
+    });
 
     let path_str = format!(
       "{}/{}/{}.yaml",
@@ -129,7 +136,9 @@ pub async fn update_translation_keys(translations: Vec<Translation>) -> Result<S
       e.to_string()
     })?;
 
-    println!("Updated translation key with text: {:?}", translation);
+    debug_output(|| {
+      println!("Updated translation key with text: {:?}", translation);
+    });
   }
 
   Ok("Added".to_string())
