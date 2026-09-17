@@ -127,6 +127,8 @@ Errors:
   Please verify your path for any errors, or confirm to save as is.: 请检查路径是否有错误，或确认保持现状。
   Your command runs with errors, confirm you want to save as is.: 您的命令运行出错，确认是否保持现状。
   Your request runs with errors, confirm you want to save as is.: 您的请求运行出错，确认是否保持现状。
+  Your request has filters error, confirm you want to save as is.: 你的请求存在筛选错误，确认要按原样保存吗？
+  Your template has errors, confirm you want to save as is.: 你的模板存在错误，确认要按原样保存吗？
 FILTERED_TYPES:
   Dot Path: 点路径
   JSON Path: JSON 路径
@@ -267,3 +269,24 @@ template: 模板
 '{{type}} field': '{{type}} 字段'
 Flex Layout: 弹性布局
 Grid Layout: 网格布局
+API Key's Value: API 密钥值
+All (No Limit): 全部（无限制）
+Confirm to remove rules: 确认删除规则
+Filtered Response: 筛选后的响应
+Found {{foundCount}} results: 找到 {{foundCount}} 个结果
+Full Body Response: 完整响应正文
+Label Offset: 标签偏移
+No body returned for response: 响应未返回正文
+Remove all double quotes: 移除所有双引号
+Replace Value: 替换值
+Request error: 请求错误
+Request url is valid: 请求 URL 有效
+Request url might not be valid: 请求 URL 可能无效
+Return Count Limit: 返回数量限制
+Return Result As: 返回结果格式
+Return Type: 返回类型
+Scrapping Rules: 抓取规则
+Text Separator: 文本分隔符
+
+ReturnSeparator:
+  New Line: 换行

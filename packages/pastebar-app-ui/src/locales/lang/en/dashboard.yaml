@@ -127,6 +127,8 @@ Errors:
   Please verify your path for any errors, or confirm to save as is.: Please verify your path for any errors, or confirm to save as is.
   Your command runs with errors, confirm you want to save as is.: Your command runs with errors, confirm you want to save as is.
   Your request runs with errors, confirm you want to save as is.: Your request runs with errors, confirm you want to save as is.
+  Your request has filters error, confirm you want to save as is.: Your request has filters error, confirm you want to save as is.
+  Your template has errors, confirm you want to save as is.: Your template has errors, confirm you want to save as is.
 FILTERED_TYPES:
   Dot Path: Dot Path
   JSON Path: JSON Path
@@ -267,3 +269,26 @@ template: template
 '{{count}} fields not found in the template._other': '{{count}} fields not found in the template.'
 '{{type}} Field': '{{type}} Field'
 '{{type}} field': '{{type}} field'
+API Key's Value: API Key's Value
+All (No Limit): All (No Limit)
+Confirm to remove rules: Confirm to remove rules
+Filtered Response: Filtered Response
+Found {{foundCount}} results: Found {{foundCount}} results
+Full Body Response: Full Body Response
+Label Offset: Label Offset
+No body returned for response: No body returned for response
+Remove all double quotes: Remove all double quotes
+Replace Value: Replace Value
+Request error: Request error
+Request url is valid: Request url is valid
+Request url might not be valid: Request url might not be valid
+Return Count Limit: Return Count Limit
+Return Result As: Return Result As
+Return Type: Return Type
+Scrapping Rules: Scrapping Rules
+Text Separator: Text Separator
+? '{{count}} fields found in template but missing from fields definition.'
+: '{{count}} fields found in template but missing from fields definition.'
+
+ReturnSeparator:
+  New Line: New Line

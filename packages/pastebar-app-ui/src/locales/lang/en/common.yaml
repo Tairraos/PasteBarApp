@@ -107,6 +107,10 @@ Errors:
   Error loading link: Error loading link
   Cant save to file: Cant save to file
   Something went wrong! {{err}} Please try again.: Something went wrong! {{err}} Please try again.
+  Cant save file: Cant save file
+  Cant save image file: Cant save image file
+  Failed to save file: Failed to save file
+  Failed to save image file: Failed to save image file
 Expand Edit: Expand Edit
 Expires on {{proExpiresOn}}: Expires on {{proExpiresOn}}
 ? Field <b>{{Clipboard}}</b> has been found in the template. This allows you to copy text to the clipboard, and it will be inserted into the template
@@ -301,6 +305,7 @@ Type:
   Video: Video
   Web Request (HTTP): Web Request (HTTP)
   Web Scraper / Parser: Web Scraper / Parser
+  Image Base64: Image Base64
 TypeMenu:
   Clip Type: Clip Type
   Code Snippet: Code Snippet
@@ -357,3 +362,12 @@ second: second
 seconds: seconds
 show less: show less
 www.site: www.pastebar.app
+Clear found results: Clear found results
+Found Masked Words: Found Masked Words
+Rule Type: Rule Type
+? 'Run in {{pastingCountDown}}...'
+: 'Run in {{pastingCountDown}}...'
+Something goes wrong! Please try again.: Something goes wrong! Please try again.
+System Preferences -> Security & Privacy -> Accessibility: System Preferences -> Security & Privacy -> Accessibility
+Provided link {{clipValue}} might be invalid!: Provided link {{clipValue}} might be invalid!
+Provided path {{clipValue}} might be invalid!: Provided path {{clipValue}} might be invalid!

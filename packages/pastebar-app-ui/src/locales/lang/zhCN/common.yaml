@@ -101,6 +101,10 @@ Errors:
   Error loading link: 加载链接错误
   Cant save to file: 无法保存到文件
   'Something went wrong! {{err}} Please try again.': 出错了！{{err}} 请重试。
+  Cant save file: 无法保存文件
+  Cant save image file: 无法保存图像文件
+  Failed to save file: 保存文件失败
+  Failed to save image file: 保存图像文件失败
 Expand Edit: 展开编辑
 'Expires on {{proExpiresOn}}': 于 {{proExpiresOn}} 过期
 '? Field <b>{{Clipboard}}</b> has been found in the template. This allows you to copy text to the clipboard, and it will be inserted into the template': 在模板中找到字段 <b>{{Clipboard}}</b>。这允许您将文本复制到剪贴板，然后将其插入模板中。
@@ -292,6 +296,7 @@ Type:
   Video: 视频
   Web Request (HTTP): Web 请求 (HTTP)
   Web Scraper / Parser: Web 抓取器/解析器
+  Image Base64: 图像 Base64
 TypeMenu:
   Clip Type: 剪辑类型
   Code Snippet: 代码片段
@@ -355,3 +360,12 @@ Confirm Remove From Protected Collections: 确认从受保护的集合中移除
 Confirm Enable PIN Protection: 确认启用PIN保护
 Error: 错误
 Something went wrong! {{err}} Please try again.: 出错了！{{err}} 请重试。
+Clear found results: 清除查找结果
+Found Masked Words: 发现的屏蔽词
+Rule Type: 规则类型
+? 'Run in {{pastingCountDown}}...'
+: '{{pastingCountDown}} 后运行...'
+Something goes wrong! Please try again.: 出错了！请重试。
+System Preferences -> Security & Privacy -> Accessibility: 系统偏好设置 -> 安全性与隐私 -> 辅助功能
+Provided link {{clipValue}} might be invalid!: 提供的链接 {{clipValue}} 可能无效！
+Provided path {{clipValue}} might be invalid!: 提供的路径 {{clipValue}} 可能无效！

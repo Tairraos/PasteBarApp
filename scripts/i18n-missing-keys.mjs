@@ -113,11 +113,23 @@ function readCatalogKeys(file) {
       continue
     }
 
+    // A pending explicit key consumes the NEXT content line as its value, whatever that line
+    // looks like. It must be handled before the header check below, because a value line
+    // starts with `:` and `indexOf(':')` therefore returns 0 — which the header branch reads
+    // as "no inline value" and skips. Leaving the key pending then made the FOLLOWING real
+    // entry get swallowed as the value, so a valid key vanished from the catalog and was
+    // reported as missing (`Left-click toggles app visibility` in settings2.yaml).
+    if (pendingExplicitKey) {
+      recordKey(pendingExplicitKey.text, pendingExplicitKey.indent, stack, keys)
+      pendingExplicitKey = null
+      continue
+    }
+
     // Find the separator OUTSIDE any quoted key. A key like
     // `'Update: Permission Denied'` contains `: ` inside its own quotes, so a plain
     // `indexOf(': ')` splits mid-key and the real entry is never registered.
-    const idx = pendingExplicitKey ? raw.indexOf(':') : findSeparator(raw)
-    let indent = raw.length - raw.trimStart().length
+    const idx = findSeparator(raw)
+    const indent = raw.length - raw.trimStart().length
 
     if (idx <= 0) {
       // A section header (`Window:`) or a block scalar start: it has no inline value.
@@ -130,29 +142,31 @@ function readCatalogKeys(file) {
       continue
     }
 
-    // `trimStart` matters: `slice(0, idx)` keeps the indentation, which would emit
-    // `Window:::  Attach Window` (two spaces) and never match the lookup key.
-    //
     // Quotes are stripped because YAML allows a quoted key (`'Update: Permission Denied'`)
     // and i18next is called with the unquoted text; comparing the raw line would report
-    // every quoted key as missing.
-    const key = pendingExplicitKey
-      ? pendingExplicitKey.text
-      : stripQuotes(raw.slice(0, idx).trim())
-    if (pendingExplicitKey) {
-      indent = pendingExplicitKey.indent
-      pendingExplicitKey = null
-    }
-    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
-
-    keys.add(key)
-    if (stack.length) {
-      const pathParts = [...stack.map(s => s.key), key]
-      keys.add(pathParts.join(':::'))
-      keys.add(pathParts.join('.'))
-    }
+    // every quoted key as missing. `trimStart` matters for the same reason at depth: the raw
+    // slice keeps indentation, which would emit `Window:::  Attach Window` and never match.
+    recordKey(stripQuotes(raw.slice(0, idx).trim()), indent, stack, keys)
   }
   return keys
+}
+
+/**
+ * Register `key` at `indent`, emitting the flattened forms i18next will look up.
+ *
+ * Each key is recorded as written (`Minimize Window`) and, when nested inside sections, in
+ * both forms i18next accepts (`Window:::Minimize Window` and `Window.Minimize Window`).
+ * Missing the `:::` form reported every nested entry as absent — 200+ false positives.
+ */
+function recordKey(key, indent, stack, keys) {
+  while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
+
+  keys.add(key)
+  if (stack.length) {
+    const pathParts = [...stack.map(s => s.key), key]
+    keys.add(pathParts.join(':::'))
+    keys.add(pathParts.join('.'))
+  }
 }
 
 /**
@@ -214,11 +228,23 @@ function main() {
     // every offset and line number in the original file.
     const src = blankComments(readFileSync(file, 'utf8'))
     for (const m of src.matchAll(callRe)) {
+      // Unescape exactly what i18next receives at runtime: the JS string VALUE.
+      //
+      // The subtlety is that the two sides are read at different levels. The catalog is raw
+      // YAML text, where `(\n)` stays a backslash followed by `n` (two characters). The code
+      // is raw JS SOURCE, where that same value is written `(\\n)` (three characters).
+      // Comparing them directly reports a working key as missing — which is exactly what
+      // happened for `SEPARATOR_TYPES:::New Line (\n)` before this was handled.
+      //
+      // So a doubled backslash collapses to one, and a newline escape becomes a real newline.
+      // Order matters: a literal backslash is parked in a sentinel first, otherwise the
+      // newline rule consumes half of it and yields a string the caller never passes.
       const text = m[2]
+        .replace(/\\\\/g, '\u0000')
         .replace(/\\'/g, "'")
         .replace(/\\"/g, '"')
         .replace(/\\n/g, '\n')
-        .replace(/\\\\/g, '\\')
+        .replace(/\u0000/g, '\\')
 
       // Skip non-keys: interpolation-only, single words, and anything without a space or
       // sentence punctuation is far more likely a variable than a catalog key.

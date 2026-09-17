@@ -50,3 +50,5 @@ Create backup anyway: 仍然创建备份
 This will back up your clips, collections, menus and settings.: 将备份你的片段、集合、菜单和设置。
 Your clipboard history is not included.: 不包含剪贴板历史记录。
 Clip images are included.: 包含片段图片。
+Could not determine backup folder location from path {{path}}: 无法从路径 {{path}} 确定备份文件夹位置
+Failed to derive a valid backup folder location.: 无法推导出有效的备份文件夹位置。

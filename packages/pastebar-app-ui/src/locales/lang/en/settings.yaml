@@ -218,3 +218,12 @@ Words or sentences listed below will not be captured in clipboard history if fou
 none: none
 passcode reset: passcode reset
 password reset: password reset
+An error occurred during directory processing.: An error occurred during directory processing.
+An error occurred during directory selection or setup.: An error occurred during directory selection or setup.
+Failed to apply custom database location.: Failed to apply custom database location.
+Failed to create directory. Please check permissions and try again.: Failed to create directory. Please check permissions and try again.
+Found existing "pastebar-data" folder. The application will use this folder to store data.: Found existing "pastebar-data" folder. The application will use this folder to store data.
+Invalid directory selected.: Invalid directory selected.
+Password is incorrect: Password is incorrect
+Please select a directory first.: Please select a directory first.
+Please select a new directory different from the current one.: Please select a new directory different from the current one.

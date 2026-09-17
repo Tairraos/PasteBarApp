@@ -28,3 +28,8 @@ Submenu: 子菜单
 Toggle inactive menu items: 切换非活动菜单项
 active: 活动
 menu items in: 菜单项在
+Are you sure you want to remove image from the menu?: 确定要从菜单中移除图片吗？
+Clip value can't edit: 片段值无法编辑
+Menu is a link to Clip. You can't edit the label directly: 菜单是指向片段的链接，无法直接编辑标签
+Menu label cannot be empty.: 菜单标签不能为空。
+Menu label is too long. Max length is: 菜单标签过长。最大长度为

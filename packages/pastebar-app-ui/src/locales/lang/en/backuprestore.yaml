@@ -50,3 +50,5 @@ Create backup anyway: Create backup anyway
 This will back up your clips, collections, menus and settings.: This will back up your clips, collections, menus and settings.
 Your clipboard history is not included.: Your clipboard history is not included.
 Clip images are included.: Clip images are included.
+Could not determine backup folder location from path {{path}}: Could not determine backup folder location from path {{path}}
+Failed to derive a valid backup folder location.: Failed to derive a valid backup folder location.

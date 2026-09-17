@@ -227,3 +227,4 @@ New Database Directory Path: 新的数据库目录路径
 Revert to Default and Restart: 恢复默认并重启
 Select Custom Data Folder...: 选择自定义数据文件夹...
 The selected folder is not empty. Do you want to create a "pastebar-data" subfolder to store the data?: 所选文件夹不为空。是否创建「pastebar-data」子文件夹来存放数据？
+Password is incorrect: 密码不正确
