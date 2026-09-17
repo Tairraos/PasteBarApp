@@ -44,7 +44,10 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const UI_PKG = path.join(ROOT, 'packages/pastebar-app-ui/package.json')
 const ROOT_PKG = path.join(ROOT, 'package.json')
+const RUST_DIR = path.join(ROOT, 'src-tauri')
 const RUST_TARGET = path.join(ROOT, 'src-tauri/target/release')
+// Generated per build by `writeBuildConfig`; removed with the other intermediates.
+const BUILD_CONFIG = path.join(RUST_DIR, 'tauri.build.conf.json')
 const OUT_DIR = path.join(ROOT, 'target')
 const BUNDLE_DIR = path.join(RUST_TARGET, 'bundle')
 
@@ -172,7 +175,7 @@ function isShim(file) {
   }
 }
 
-function runBuild(env) {
+function runBuild(env, wantDmg) {
   // Invoke the CLI's JS entry point through the real node found above.
   //
   // NOT `node_modules/.bin/tauri`: that file starts with `#!/usr/bin/env node`, which
@@ -187,11 +190,13 @@ function runBuild(env) {
   // `runBuild` reports a build failure in 0.1s without ever invoking cargo.
   const nodeBin = path.join(env.PATH.split(':')[0], 'node')
 
-  const res = spawnSync(
-    nodeBin,
-    [cli, 'build', '--config', 'src-tauri/tauri.release.conf.json'],
-    { cwd: ROOT, env, stdio: 'inherit' }
-  )
+  const configPath = writeBuildConfig(wantDmg)
+
+  const res = spawnSync(nodeBin, [cli, 'build', '--config', configPath], {
+    cwd: ROOT,
+    env,
+    stdio: 'inherit',
+  })
 
   if (res.error) {
     console.error(`Could not start the build: ${res.error.message}`)
@@ -206,6 +211,35 @@ function runBuild(env) {
 
 const MACOS_BUNDLE = path.join(BUNDLE_DIR, 'macos/PasteBar.app')
 const DMG_DIR = path.join(BUNDLE_DIR, 'dmg')
+
+/**
+ * Write the release config for this build, with the bundle targets it actually needs.
+ *
+ * `tauri.release.conf.json` lists `dmg` among its targets, so every build ran
+ * `bundle_dmg.sh` — which mounts a disk image, needs privileges, and takes a while — even
+ * when the DMG was not wanted. It also left the staging image and `bundle/dmg/` behind.
+ *
+ * Rather than removing `dmg` from the checked-in config (a DMG is still a legitimate
+ * release artifact, requested with `--dmg`), the target list is narrowed per build into a
+ * generated config. The checked-in file stays the source of truth for every other setting,
+ * so this only ever changes which artifacts get produced.
+ *
+ * The generated file is written into `src-tauri/` because `--config` paths resolve relative
+ * to the Tauri config directory, and it is deleted by `cleanBuildDir` along with the rest of
+ * the intermediates.
+ */
+function writeBuildConfig(wantDmg) {
+  const base = path.join(RUST_DIR, 'tauri.release.conf.json')
+  const config = JSON.parse(readFileSync(base, 'utf8'))
+
+  const targets = config.tauri.bundle.targets.filter(t => wantDmg || t !== 'dmg')
+  config.tauri.bundle.targets = targets
+
+  const out = path.join(RUST_DIR, 'tauri.build.conf.json')
+  writeFileSync(out, JSON.stringify(config, null, 2) + '\n')
+  log(`Bundle targets: ${targets.join(', ')}`)
+  return path.relative(ROOT, out)
+}
 
 /**
  * Build a DMG ourselves instead of relying on Tauri's `bundle_dmg.sh`.
@@ -369,6 +403,8 @@ export function cleanBuildDir({ keepReleaseBinary = false } = {}) {
     path.join(ROOT, 'src-tauri/target/debug'),
     path.join(ROOT, 'src-tauri/target/release/bundle'),
     BUNDLE_DIR,
+    // The per-build Tauri config; regenerated on every run.
+    BUILD_CONFIG,
   ]
 
   if (!keepReleaseBinary) {
@@ -418,7 +454,7 @@ async function main() {
   rmSync(BUNDLE_DIR, { recursive: true, force: true })
 
   log('Building (frontend + Rust release + bundle)')
-  const code = runBuild(buildEnv())
+  const code = runBuild(buildEnv(), has('--dmg'))
   if (code !== 0) {
     // The DMG step commonly fails in restricted environments (it mounts a disk image) while
     // the .app has already been produced. Report what was collected instead of implying
@@ -436,9 +472,10 @@ async function main() {
       console.error(
         'A failure at the bundling/DMG step means the DMG is missing, not the app.'
       )
-      // Same recovery as the success path: the .app is complete and usable, so finish the
-      // job the user actually asked for rather than handing back a half-delivered build.
-      if (!partial.dmg) {
+      // The .app is complete and usable even though bundling failed, so finish the job
+      // rather than handing back a half-delivered build. The DMG is only attempted when it
+      // was actually requested — a failure at that step is the usual reason to be here.
+      if (has('--dmg') && !partial.dmg) {
         try {
           const arch = process.arch === 'arm64' ? 'aarch64' : 'x64'
           const dest = path.join(OUT_DIR, `PasteBar_${version}_${arch}.dmg`)
@@ -455,9 +492,16 @@ async function main() {
   }
 
   log('Collecting artifacts')
+  // The DMG is built only on request.
+  //
+  // The app is what gets tested, and producing the DMG costs an `hdiutil` session that
+  // mounts a disk image — slow, and blocked outright in restricted environments. When it is
+  // not asked for, any DMG left in `target/` from an earlier run is removed so the directory
+  // always describes THIS build rather than accumulating one file per version.
+  const wantDmg = has('--dmg')
   const collected = collectArtifacts(version, { pruneOtherDmgs: true })
 
-  if (!collected.dmg && collected.app) {
+  if (wantDmg && !collected.dmg && collected.app) {
     log('Bundler produced no DMG; building one directly')
     try {
       const arch = process.arch === 'arm64' ? 'aarch64' : 'x64'
@@ -469,7 +513,8 @@ async function main() {
     }
   }
 
-  const { app, dmg } = collected
+  const { app } = collected
+  const dmg = wantDmg ? collected.dmg : null
 
   if (!has('--keep-build-dir')) {
     log('Cleaning build intermediates')
@@ -481,10 +526,16 @@ async function main() {
   console.log(`  version: ${version}`)
   if (app) console.log(`  app:     ${path.relative(ROOT, app)}`)
   else console.error('  app:     MISSING')
-  if (dmg) console.log(`  dmg:     ${path.relative(ROOT, dmg)}`)
-  else console.error('  dmg:     MISSING')
+  if (wantDmg) {
+    if (dmg) console.log(`  dmg:     ${path.relative(ROOT, dmg)}`)
+    else console.error('  dmg:     MISSING (requested with --dmg)')
+  } else {
+    log('No DMG built (pass --dmg to also produce one)')
+  }
 
-  if (!app || !dmg) process.exit(1)
+  // Only the app is required. A missing DMG is the normal outcome now, not a failure.
+  if (!app) process.exit(1)
+  if (wantDmg && !dmg) process.exit(1)
 }
 
 // Only run when invoked directly, so a test can import `bumpPatch` without building.

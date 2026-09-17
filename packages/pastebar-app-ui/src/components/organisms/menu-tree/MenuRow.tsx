@@ -35,7 +35,12 @@ export default function MenuRow<T>({
             } dark:bg-slate-900 bg-slate-200`
           : ''
       } ${
-        node.isSelected && !node.isEditing ? 'dark:!bg-slate-600 dark:!text-slate-50' : ''
+        // Selected colours live in menu-tree.module.css, which sets background AND colour
+        // together for each theme. The `dark:!bg-slate-600 dark:!text-slate-50` that used to
+        // be here won over the stylesheet because of its `!`, giving a light grey row with
+        // near-white text — the unreadable state this replaces. Two places deciding the same
+        // thing is how they drifted apart.
+        node.isSelected && !node.isEditing ? 'menu-row-selected' : ''
       } transition-all overflow-hidden`}
       onFocus={e => e.stopPropagation()}
       onClick={node.handleClick}

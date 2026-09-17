@@ -13,11 +13,14 @@ with unlimited clipboard history, custom clips, collections and multi-window pas
 npm start                     # dev mode: Vite on :4422 + tauri dev
 
 # Release build — bumps the patch version, builds, collects target/, cleans intermediates.
-# Produces target/PasteBar.app and target/PasteBar_<version>_<arch>.dmg
-npm run app:build             # 0.7.0 -> 0.7.1, then build
+# Produces target/PasteBar.app. The DMG is NOT built unless asked for.
+npm run app:build             # 0.7.0 -> 0.7.1, then build (app only)
+npm run app:build:dmg         # also produce target/PasteBar_<version>_<arch>.dmg
 npm run app:build:no-bump     # rebuild the current version
 node scripts/build-app.mjs --version 1.2.3   # explicit version
 node scripts/build-app.mjs --keep-build-dir  # keep src-tauri/target for debugging
+
+# Only the app is required; a missing DMG is the normal outcome, not a failure.
 
 # Harness gates — run this before claiming any task is done
 bash scripts/harness/check-all.sh     # every gate, same set as CI (Phase 3)

@@ -20,6 +20,7 @@
     "format": "npx prettier --write . --ignore-path .prettierignore",
     "build": "npm run app:build",
     "app:build": "node scripts/build-app.mjs",
+    "app:build:dmg": "node scripts/build-app.mjs --dmg",
     "app:build:osx:universal": "tauri build --config src-tauri/tauri.release.conf.json --target universal-apple-darwin",
     "app:build:osx:x86_64": "tauri build --config src-tauri/tauri.release.conf.json --target x86_64-apple-darwin",
     "app:build:windows:arm": "tauri build --config src-tauri/tauri.release.conf.json --target aarch64-pc-windows-msvc",

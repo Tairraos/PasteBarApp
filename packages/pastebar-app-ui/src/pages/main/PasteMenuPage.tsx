@@ -413,9 +413,16 @@ export default function PasteMenuPage() {
                 !isCollectionWithItemLoading &&
                 currentCollectionId && (
                   <Box
-                    className={`flex flex-col ${
-                      isSimplifiedLayout ? 'h-[calc(100vh-70px)]' : 'h-[calc(100vh-95px)]'
-                    } relative`}
+                    // `flex-1 min-h-0` rather than another `calc(100vh - Npx)`.
+                    //
+                    // The parent is `h-[calc(100vh-70px)]` with `pt-4 pb-4`, so its content
+                    // box is 32px shorter than its height. This child asked for
+                    // `calc(100vh - 95px)` — only 25px shorter — which is 7px MORE than the
+                    // space that exists. Nothing clipped it, so the panel pushed past its
+                    // parent's padding and took the tabs at the bottom out of view. Deriving
+                    // the height from the parent instead of re-deriving it from the viewport
+                    // removes the chance of the two disagreeing again.
+                    className="flex-1 min-h-0 flex flex-col relative"
                     id="side-panel_tour"
                   >
                     {data.length > 0 ? (
@@ -449,9 +456,16 @@ export default function PasteMenuPage() {
                       )
                     )}
                     <SimpleBar
-                      style={{
-                        maxHeight: isSimplifiedLayout ? height - 5 : height - 93,
-                      }}
+                      // `flex-1 min-h-0` instead of `maxHeight: height - 93`.
+                      //
+                      // The fixed subtraction guessed the height of everything above and
+                      // below the list. It was wrong: the search box (40px + 8px margin)
+                      // and the tabs (40px + 12px margin) come to 100px, not 93, so the
+                      // list ran 7px past the container and pushed the tabs out of view —
+                      // and it got worse whenever the header changed. `min-h-0` is required
+                      // for a flex child to shrink below its content height, without which
+                      // the list would grow the container instead of scrolling.
+                      className="flex-1 min-h-0"
                       autoHide={true}
                     >
                       <Tree
@@ -572,9 +586,12 @@ export default function PasteMenuPage() {
                           </Text>
                         )}
                     </SimpleBar>
-                    <Box className="flex-1 mt-3" />
+                    {/* The `<Box className="flex-1 mt-3" />` that used to sit here existed to
+                        push the tabs down while the list had a fixed height. With the list
+                        on `flex-1` it would compete for the same space and push the tabs out
+                        again, so the spacing is now margin on the tabs themselves. */}
                     <Tabs
-                      className="min-w-full flex flex-row justify-center h-10 items-center gap-2"
+                      className="min-w-full flex flex-row justify-center h-10 mt-3 items-center gap-2 shrink-0"
                       value={location.pathname}
                       onValueChange={pathname => {
                         navigate(pathname, { replace: true })
@@ -639,7 +656,11 @@ export default function PasteMenuPage() {
                   return (
                     height && (
                       <Box
-                        className={`p-4 py-4 pb-2 select-auto ${
+                        // `flex flex-col min-h-0` so the list below can take the leftover
+                        // height with `flex-1` instead of subtracting a guessed pixel count
+                        // from it. `min-h-0` lets this shrink inside its own parent, which
+                        // is what makes the inner `flex-1` meaningful.
+                        className={`p-4 py-4 pb-2 select-auto flex flex-col min-h-0 ${
                           isSimplifiedLayout ? 'pl-0 pr-0' : ''
                         }`}
                         id="menu-main-list_tour"
@@ -768,11 +789,11 @@ export default function PasteMenuPage() {
 
                         <Spacer h={2} />
                         <SimpleBar
-                          style={{
-                            height: isSimplifiedLayout ? height - 5 : height - 75,
-                          }}
+                          // Same reasoning as the left panel: a fixed `height - 75` cannot
+                          // know how tall the header above it really is, and when it
+                          // over-estimates the last item can never be scrolled into view.
+                          className="select-none flex-1 min-h-0"
                           autoHide={true}
-                          className="select-none"
                         >
                           <Accordion
                             type="single"
