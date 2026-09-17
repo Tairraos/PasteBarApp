@@ -8,10 +8,15 @@ use std::sync::RwLock; // Import RwLock from std::sync
 /// Chinese only, matching the product decision for the UI. English is kept as the fallback:
 /// [`Translations::get_lang`] returns it for any unrecognised code, so the menu degrades to
 /// readable English rather than to a "language not supported" message.
+// `zhCN` is the language code used by every other layer (the frontend catalogs, the stored
+// setting, `LANGUAGES`). Renaming the field to `zh_cn` would mean adding a serde rename to
+// keep the YAML key, which trades a Rust naming warning for a second name for the same
+// thing. The allow is on the struct because an attribute on the field does not silence this
+// lint.
+#[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Translations {
   en: HashMap<String, String>,
-  #[allow(non_snake_case)]
   zhCN: HashMap<String, String>,
 }
 
