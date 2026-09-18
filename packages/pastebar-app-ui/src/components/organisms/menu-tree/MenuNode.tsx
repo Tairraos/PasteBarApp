@@ -35,9 +35,23 @@ export default function Node({ node, style, dragHandle }: NodeRendererProps<unkn
         {!node.data.isSeparator ? (
           <>
             {!node.isEditing ? (
+              // Selected colours go HERE, on the element that holds the text, not on the row.
+              //
+              // The row carries `not-active-background` including `dark:text-slate-600`, and
+              // Tailwind compiles a dark variant to `:is(.dark .dark\:text-slate-600)` — four
+              // class-level selectors. A rule in `menu-tree.module.css` aimed at the row
+              // cannot outrank that without `!important`, so setting `color` there left the
+              // background selected while the text stayed the same dark grey as the fill:
+              // the selected item was invisible rather than merely hard to read. Styling the
+              // text element directly, in the idiom this file already uses, sidesteps the
+              // specificity contest instead of escalating it.
               <div
                 className={`overflow-hidden overflow-ellipsis text-[15px] ${
-                  node.data.isDisabled ? 'text-gray-500/60' : ''
+                  node.data.isDisabled
+                    ? 'text-gray-500/60'
+                    : node.isSelected
+                      ? 'text-slate-900 dark:text-slate-50'
+                      : ''
                 } `}
               >
                 {node.data.name}

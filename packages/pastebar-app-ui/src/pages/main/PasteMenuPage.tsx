@@ -74,6 +74,19 @@ import MenuCardMain from '../components/Menu/components/MenuCardMain'
 import { MenuIconMenu } from '../components/Menu/components/MenuIconMenu'
 import MenuCollapsibleItem from '../components/Menu/MenuItem'
 
+/**
+ * Height of the chrome above and below the menu tree, in the panel it scrolls in.
+ *
+ * The search box is `h-[40px] mb-2` (48px) and the tabs `h-10 mt-3` (52px). Both are fixed
+ * by their own classes, so this is a fact about the layout rather than an estimate — which
+ * is what the `85` / `93` / `75` scattered through this file were, and why they disagreed
+ * with the layout and with each other.
+ *
+ * If either element changes size, change this. The two values are named in the comment so
+ * that check is mechanical rather than a guess.
+ */
+const PANEL_CHROME_HEIGHT = 100
+
 export default function PasteMenuPage() {
   useGetCollections()
   useGetCollectionWithClips()
@@ -108,6 +121,11 @@ export default function PasteMenuPage() {
   const showNotActiveMenuItems = useSignal(false)
   const searchMenuInputRef = useRef<HTMLInputElement | null>(null)
   const scollToRef = useRef<HTMLDivElement>(null)
+  // The right panel's header (title row, buttons, spacer) varies with what is being shown,
+  // so its height is measured rather than assumed. `0` until the first measurement, which
+  // the list treats as "no space yet" rather than scrolling into nothing.
+  const menuHeaderRef = useRef<HTMLDivElement | null>(null)
+  const [menuHeaderHeight, setMenuHeaderHeight] = useState(0)
   const isDark = themeDark()
 
   const menuFullyLoaded = useMemo(() => {
@@ -127,6 +145,25 @@ export default function PasteMenuPage() {
     setReturnRoute(location.pathname)
     resetMenuCreateOrEdit()
   }, [])
+
+  // Keep `menuHeaderHeight` in step with the right panel's header.
+  //
+  // A ResizeObserver rather than a one-off measurement on mount: the header contains the
+  // collection title and a row of buttons, both of which change with the selected collection
+  // and the item count. Measuring once would leave the list mis-sized after those change,
+  // which is the same class of drift the fixed `height - 75` suffered from.
+  useEffect(() => {
+    const el = menuHeaderRef.current
+    if (!el) return
+
+    const observer = new ResizeObserver(() => {
+      setMenuHeaderHeight(el.getBoundingClientRect().height)
+    })
+    observer.observe(el)
+    setMenuHeaderHeight(el.getBoundingClientRect().height)
+
+    return () => observer.disconnect()
+  }, [menuItems.length])
 
   useEffect(() => {
     if (showEditMenuItemId?.value) {
@@ -456,16 +493,18 @@ export default function PasteMenuPage() {
                       )
                     )}
                     <SimpleBar
-                      // `flex-1 min-h-0` instead of `maxHeight: height - 93`.
+                      // An explicit height, because SimpleBar requires one.
                       //
-                      // The fixed subtraction guessed the height of everything above and
-                      // below the list. It was wrong: the search box (40px + 8px margin)
-                      // and the tabs (40px + 12px margin) come to 100px, not 93, so the
-                      // list ran 7px past the container and pushed the tabs out of view —
-                      // and it got worse whenever the header changed. `min-h-0` is required
-                      // for a flex child to shrink below its content height, without which
-                      // the list would grow the container instead of scrolling.
-                      className="flex-1 min-h-0"
+                      // SimpleBar scrolls an inner wrapper that it sizes from the outer
+                      // element's height. Handing it `flex-1` leaves that wrapper unbounded —
+                      // there is nothing to scroll, and the mouse wheel stops working. An
+                      // earlier attempt at this fix did exactly that.
+                      //
+                      // The arithmetic is the old `height - 93`, corrected. The search box is
+                      // `h-[40px] mb-2` (48px) and the tabs `h-10 mt-3` (52px), so the chrome
+                      // above and below the list occupies exactly 100px; the old 93 was 7px
+                      // short, which is what pushed the tabs out of the panel.
+                      style={{ height: height - PANEL_CHROME_HEIGHT }}
                       autoHide={true}
                     >
                       <Tree
@@ -665,7 +704,10 @@ export default function PasteMenuPage() {
                         }`}
                         id="menu-main-list_tour"
                       >
-                        <Flex className="justify-center relative h-8 pt-2 select-none">
+                        <Flex
+                          ref={menuHeaderRef}
+                          className="justify-center relative h-8 pt-2 select-none"
+                        >
                           {inactiveMenuItems.length > 0 && (
                             <Button
                               variant="ghost"
@@ -789,10 +831,21 @@ export default function PasteMenuPage() {
 
                         <Spacer h={2} />
                         <SimpleBar
-                          // Same reasoning as the left panel: a fixed `height - 75` cannot
-                          // know how tall the header above it really is, and when it
-                          // over-estimates the last item can never be scrolled into view.
-                          className="select-none flex-1 min-h-0"
+                          // Sized from the MEASURED header height, not a constant.
+                          //
+                          // This panel's header changes with what it shows, so `height - 75`
+                          // was a guess that could be wrong in either direction: too large
+                          // and the last items can never be scrolled into view, too small
+                          // and the list runs past the panel. Measuring removes both.
+                          //
+                          // An explicit height rather than `flex-1`, because SimpleBar
+                          // scrolls an inner wrapper that it sizes from this element's
+                          // height; `flex-1` leaves that wrapper unbounded and the wheel
+                          // stops working.
+                          style={{
+                            height: Math.max(height - menuHeaderHeight - 8, 0),
+                          }}
+                          className="select-none"
                           autoHide={true}
                         >
                           <Accordion

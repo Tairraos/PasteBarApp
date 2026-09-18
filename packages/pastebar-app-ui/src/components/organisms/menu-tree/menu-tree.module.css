@@ -6,26 +6,21 @@
   user-select: none;
 }
 
-/* Selected row.
+/* Selected row background.
  *
- * Target by the class the row sets, not only by `aria-selected`: the attribute is owned by
- * react-arborist, and the row already decides whether it is selectable-but-editing. One
- * predicate, one place.
+ * The text colour is NOT set here. This rule targets `[role='treeitem']`, and the row also
+ * carries Tailwind's `dark:text-slate-600` (`:is(.dark .dark\:text-slate-600)`, four
+ * class-level selectors), which outranks anything a stylesheet rule of this specificity can
+ * declare without `!important`. Setting `color` here silently lost, leaving a selected
+ * background with the text the same colour as the fill. `MenuNode.tsx` styles the element
+ * that actually holds the text instead — see the comment there.
  *
- * Background AND colour are always set together. Setting only the background left the text
- * to inherit the theme's foreground — near-white in dark mode — which against a light fill
- * was unreadable, and that is exactly how the selected item looked.
- *
- * The two themes need two pairs, not one background reused:
- *   light: slate-300-ish fill, dark text
- *   dark:  a fill darker than the surface it sits on, light text
- * The dark fill is deliberately NOT the light one: a light grey row on a near-black panel is
- * the brightest thing on screen, which reads as "disabled" rather than "selected".
+ * The dark fill is deliberately not the light one reused: a light grey row on a near-black
+ * panel is the brightest thing on screen and reads as "disabled" rather than "selected".
  */
 [role='treeitem']:has(.menu-row-selected),
 [role='treeitem']:has(.menu-row-selected):focus-visible {
   background-color: rgba(203, 213, 225, 0.9); /* slate-300 */
-  color: rgb(15 23 42); /* slate-900 */
   font-weight: 600;
   outline: none;
 }
@@ -33,15 +28,12 @@
 :global(.dark) [role='treeitem']:has(.menu-row-selected),
 :global(.dark) [role='treeitem']:has(.menu-row-selected):focus-visible {
   background-color: rgba(51, 65, 85, 0.95); /* slate-700 */
-  color: rgb(248 250 252); /* slate-50 */
 }
 
-/* Keep `aria-selected` styled too: react-arborist marks a row selected even when this
- * component suppresses the class during editing, and the stale attribute should not leave a
- * row looking selected while the user renames it. */
+/* react-arborist marks a row selected even when this component suppresses the class during
+ * editing; a stale attribute should not leave a row looking selected while it is renamed. */
 [role='treeitem'][aria-selected='true']:has(.node):not(:has(.menu-row-selected)) {
   background-color: transparent;
-  color: inherit;
 }
 
 [role='treeitem']:has(.node):focus-visible {
