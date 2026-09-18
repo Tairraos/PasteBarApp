@@ -77,6 +77,17 @@ must happen around the build and each was previously done by hand:
    `scripts/sync-version.js` copies it to the root, so a bump writes both.
    Use `--version 1.2.3` for a deliberate release, `--no-bump` to rebuild as-is.
 
+   The bump is deliberately left **uncommitted** by the script, so the commit that carries it
+   must name the version in its message — `chore(release): bump to 0.7.17`. Without that, the
+   version a given commit produced is recoverable only by reading the manifest at that
+   revision. The script prints a reminder after a bump.
+
+   Every build bumps, so the version identifies the build: the number appears in the bundle
+   name, `Info.plist`, the in-app Help menu, and the **document titles** of all three windows
+   (`PasteBar App <version>`), injected at build time by `htmlTitleVersion()` in
+   `packages/pastebar-app-ui/vite.config.mts` from the same `package.json` the rest of the
+   build reads, so the two cannot disagree.
+
 2. **Collect into `target/`.** Output lands at the project root, not buried under
    `src-tauri/`:
 
@@ -84,6 +95,8 @@ must happen around the build and each was previously done by hand:
    target/PasteBar.app
    target/PasteBar_<version>_<arch>.dmg
    ```
+
+   `target/` is git-ignored: build products never enter the repository.
 
 3. **Clean intermediates.** `src-tauri/target` reached **6.4 GB** of state that nothing
    removed. The wrapper drops `debug/`, `release/bundle/` and the standalone binary — and

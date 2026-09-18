@@ -17,6 +17,11 @@ npm start                     # dev mode: Vite on :4422 + tauri dev
 npm run app:build             # 0.7.0 -> 0.7.1, then build (app only)
 npm run app:build:dmg         # also produce target/PasteBar_<version>_<arch>.dmg
 npm run app:build:no-bump     # rebuild the current version
+
+# Every build bumps the version; the number appears in the bundle name, Info.plist, the Help
+# menu and all three window titles (`PasteBar App <version>`). The bump is left uncommitted,
+# so the commit carrying it must name the version: `chore(release): bump to 0.7.17`.
+# target/ is git-ignored — build products never enter the repository.
 node scripts/build-app.mjs --version 1.2.3   # explicit version
 node scripts/build-app.mjs --keep-build-dir  # keep src-tauri/target for debugging
 

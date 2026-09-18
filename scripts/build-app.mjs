@@ -547,6 +547,17 @@ async function main() {
     log('No DMG built (pass --dmg to also produce one)')
   }
 
+  // The version bump is left uncommitted on purpose (see the header), so the commit that
+  // carries it must say which version it produced — otherwise the number is recoverable
+  // only by reading the manifest at that revision, and "which build is this?" becomes
+  // archaeology. Printed here because this is the moment the version is known and the
+  // commit is about to be written.
+  if (version !== before) {
+    log('Reminder')
+    console.log(`  Commit the ${version} bump and name the version in the message, e.g.`)
+    console.log(`  "chore(release): bump to ${version}"`)
+  }
+
   // Only the app is required. A missing DMG is the normal outcome now, not a failure.
   if (!app) process.exit(1)
   if (wantDmg && !dmg) process.exit(1)
