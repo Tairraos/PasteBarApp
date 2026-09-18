@@ -302,6 +302,12 @@ fn build_system_tray_menu(
     menu = menu.add_item(menuitem_show);
   }
 
+  // Settings sits directly above Quit, mirroring the conventional macOS placement.
+  menu = menu.add_item(CustomMenuItem::new(
+    "settings".to_string(),
+    Translations::get("settings"),
+  ));
+
   menu = menu.add_item(menuitem_quit);
 
   menu

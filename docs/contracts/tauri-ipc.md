@@ -146,6 +146,7 @@
 | `execMenuItemById`                           | `src-tauri/src/main.rs`                        | —                                                                                    |
 | `macosx-permissions-modal`                   | `src-tauri/src/main.rs`                        | `packages/pastebar-app-ui/src/App.tsx`                                               |
 | `menu:add_first_menu_item`                   | `src-tauri/src/main.rs`                        | `packages/pastebar-app-ui/src/App.tsx`                                               |
+| `menu:open_settings`                         | `src-tauri/src/main.rs`                        | `packages/pastebar-app-ui/src/App.tsx`                                               |
 | `navigate-main`                              | —                                              | `packages/pastebar-app-ui/src/App.tsx`                                               |
 | `scheme-request-received`                    | `src-tauri/src/main.rs`                        | —                                                                                    |
 | `setting:update`                             | `src-tauri/src/main.rs`                        | `packages/pastebar-app-ui/src/App.tsx`                                               |

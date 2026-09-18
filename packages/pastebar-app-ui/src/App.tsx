@@ -449,6 +449,12 @@ function App() {
       navigate('/menu', { replace: true })
     })
 
+    // Tray → Settings. The route is named here rather than in Rust, so moving it cannot
+    // leave the tray pointing at a page that no longer exists.
+    const listenToTraySettingsUnlisten = listen('menu:open_settings', () => {
+      navigate('/app-settings/preferences', { replace: true })
+    })
+
     const listenToNavigateUnlisten = listen('navigate-main', e => {
       const { location, isSetFocus } = e.payload as {
         location: string
@@ -515,6 +521,10 @@ function App() {
       })
 
       listenToMenuUnlisten.then(unlisten => {
+        unlisten()
+      })
+
+      listenToTraySettingsUnlisten.then(unlisten => {
         unlisten()
       })
 

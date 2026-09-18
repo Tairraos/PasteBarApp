@@ -87,6 +87,9 @@ import MenuCollapsibleItem from '../components/Menu/MenuItem'
  */
 const PANEL_CHROME_HEIGHT = 100
 
+/** The right panel's `pb-2`. See the subtraction where the list is sized. */
+const MENU_PANEL_PADDING_BOTTOM = 8
+
 export default function PasteMenuPage() {
   useGetCollections()
   useGetCollectionWithClips()
@@ -708,7 +711,20 @@ export default function PasteMenuPage() {
                         // from it. `min-h-0` lets this shrink inside its own parent, which
                         // is what makes the inner `flex-1` meaningful.
                         ref={menuPanelRef}
-                        className={`p-4 py-4 pb-2 select-auto flex flex-col min-h-0 ${
+                        // `height` is REQUIRED here, not decorative.
+                        //
+                        // `react-virtualized-auto-sizer` reports a height to its child but
+                        // does not apply it: its own wrapper is `overflow: visible` and
+                        // unsized. This element therefore has to take the number, or it sizes
+                        // itself to its contents instead — 33 menu items made it taller than
+                        // the panel, and the overflow was pushed outside the visible area
+                        // where no amount of scrolling could reach it. `min-h-0` alone does
+                        // not help: it permits shrinking, it does not cause it.
+                        //
+                        // `box-border` keeps the padding inside that height, which is what
+                        // makes `height - menuListOffset` below describe the true remainder.
+                        style={{ height }}
+                        className={`p-4 py-4 pb-2 select-auto flex flex-col min-h-0 box-border ${
                           isSimplifiedLayout ? 'pl-0 pr-0' : ''
                         }`}
                         id="menu-main-list_tour"
@@ -848,8 +864,17 @@ export default function PasteMenuPage() {
                             // than `flex-1`, because SimpleBar scrolls an inner wrapper that
                             // it sizes from this element's height; `flex-1` leaves that
                             // wrapper unbounded and the mouse wheel stops working.
+                            //
+                            // The panel's bottom padding is subtracted as well. `menuListOffset`
+                            // runs from the panel's outer top edge, so `height - offset` reaches
+                            // the panel's outer bottom — past the padding, by exactly 8px
+                            // (`pb-2`). Measured: without this the list overshot the content
+                            // area by 8px, with it by 0.
                             style={{
-                              height: Math.max(height - menuListOffset, 0),
+                              height: Math.max(
+                                height - menuListOffset - MENU_PANEL_PADDING_BOTTOM,
+                                0
+                              ),
                             }}
                             className="select-none"
                             autoHide={true}

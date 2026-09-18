@@ -108,6 +108,15 @@ async fn main() {
           w.set_focus().unwrap();
           w.emit("menu:add_first_menu_item", ()).unwrap();
         }
+        "settings" => {
+          // Same shape as `add_first_menu_item`: surface the window, then let the frontend
+          // route. Keeping navigation in the frontend means the tray does not need to know
+          // the route table, and a moved route cannot silently break the menu item.
+          let w = app.get_window("main").unwrap();
+          w.show().unwrap();
+          w.set_focus().unwrap();
+          w.emit("menu:open_settings", ()).unwrap();
+        }
         "disable_history_capture" => {
           let w = app.get_window("main").unwrap();
           w.emit(

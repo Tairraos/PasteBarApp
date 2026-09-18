@@ -16,6 +16,7 @@ en:
   recent_history: Recent History
   open_pastebar: Open PasteBar
   unlock_pastebar: Unlock PasteBar
+  settings: Settings
   quit: Quit
 
 zhCN:
@@ -27,4 +28,5 @@ zhCN:
   recent_history: 最近的历史记录
   open_pastebar: 打开 PasteBar
   unlock_pastebar: 解锁 PasteBar
+  settings: 设置
   quit: 退出
