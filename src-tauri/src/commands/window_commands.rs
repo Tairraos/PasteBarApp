@@ -276,6 +276,11 @@ pub async fn open_quickpaste_window(
   // Calculate global screen size
   let mut global_width = 0;
   let mut global_height = 0;
+  // Only Windows reads this: it divides the physical cursor position by the scale factor,
+  // while macOS already reports the cursor in logical coordinates. The initialiser is
+  // therefore unused on macOS and the compiler says so. `1.0` remains the correct fallback
+  // if the monitor list is empty, which is why the variable exists outside the loop at all.
+  #[cfg_attr(target_os = "macos", allow(unused_assignments))]
   let mut scale_factor = 1.0;
 
   for monitor in &monitors {

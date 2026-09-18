@@ -4323,7 +4323,6 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tempfile",
  "thiserror 1.0.69",
- "tl",
  "tld",
  "tokio",
  "toml 0.8.23",
@@ -6308,12 +6307,6 @@ dependencies = [
  "displaydoc",
  "zerovec",
 ]
-
-[[package]]
-name = "tl"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b130bd8a58c163224b44e217b4239ca7b927d82bf6cc2fea1fc561d15056e3f7"
 
 [[package]]
 name = "tld"

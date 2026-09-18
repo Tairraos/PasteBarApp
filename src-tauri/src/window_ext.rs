@@ -45,13 +45,11 @@ impl<R: Runtime> WindowToolBar for Window<R> {
         return;
       }
 
-      let document_icon = window.standardWindowButton_(NSWindowButton::NSWindowDocumentIconButton);
-      if !document_icon.is_null() {
-        let mut doc_rect: NSRect = NSView::frame(document_icon);
-        doc_rect.origin.x = -200.0; // Move it off-screen
-                                    // document_icon.setFrameOrigin(doc_rect.origin);
-                                    // document_icon.setCanHide_(cocoa::base::YES);
-      }
+      // The document icon is intentionally left where macOS places it. The block that
+      // moved it off-screen is commented out above its own `NSView::frame` call, so the
+      // frame read and the `origin.x` write fed nothing and the compiler reported the
+      // assignment as unread. Deleting the dead statements rather than the whole block
+      // keeps the `is_null` guard, which is what documents the button's optionality.
 
       // Check superviews exist
       let superview = close.superview();

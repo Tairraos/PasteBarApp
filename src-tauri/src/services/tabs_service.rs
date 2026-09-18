@@ -50,25 +50,6 @@ pub fn delete_tab_by_tab_id(tab_id_value: &String) -> String {
   "ok".to_string()
 }
 
-pub fn get_tabs_by_collection_id(
-  collection_id_value: &String,
-) -> Result<Vec<Tabs>, diesel::result::Error> {
-  let connection = &mut establish_pool_db_connection();
-
-  tabs
-    .filter(collection_id.eq(collection_id_value))
-    .load::<Tabs>(connection)
-}
-
-pub fn get_tab_by_tab_id(tab_id_value: &String) -> Result<Option<Tabs>, diesel::result::Error> {
-  let connection = &mut establish_pool_db_connection();
-
-  tabs
-    .filter(tab_id.eq(tab_id_value))
-    .first(connection)
-    .optional()
-}
-
 pub fn create_default_tab(collection_id_value: String) -> Result<String, diesel::result::Error> {
   let default_tab = Tabs {
     tab_id: nanoid!().to_string(),

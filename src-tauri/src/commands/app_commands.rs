@@ -188,6 +188,11 @@ pub fn app_ready(app_handle: tauri::AppHandle) -> Result<String, String> {
     .get()
     .ok_or("APP_CONSTANTS not initialized")?;
 
+  // On macOS the value is always overwritten below, so the initialiser is dead there and
+  // the compiler says so; on every other target it is the whole answer. `true` is the
+  // correct default rather than a placeholder — the permission only exists on macOS, so
+  // elsewhere there is nothing to be denied.
+  #[cfg_attr(target_os = "macos", allow(unused_assignments))]
   let mut is_permissions_trusted = true;
 
   #[cfg(target_os = "macos")]

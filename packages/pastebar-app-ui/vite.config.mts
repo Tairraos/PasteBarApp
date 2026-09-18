@@ -19,6 +19,30 @@ const ReactCompilerConfig = {
 let pastebarAppPackage
 const pastebarUIVersion = require('./package.json').version
 
+/**
+ * Put the version in the document title.
+ *
+ * The window is built with `hidden_title(true)` on macOS and `decorations(false)` on
+ * Windows, so the OS title bar shows nothing — but the document title is still what the
+ * window list, Mission Control and the taskbar display, and "which build am I running?" is
+ * the first question when a packaged app misbehaves. `APP_VERSION` already carries the
+ * version into the bundle; this applies the same value to `<title>` so the two cannot
+ * disagree.
+ */
+function htmlTitleVersion(): PluginOption {
+  return {
+    name: 'pastebar-html-title-version',
+    transformIndexHtml(html: string) {
+      const version = pastebarAppPackage?.default?.version
+      if (!version) return html
+      return html.replace(
+        /<title>([^<]*)<\/title>/,
+        (_m, name: string) => `<title>${name} ${version}</title>`
+      )
+    },
+  }
+}
+
 async function loadPasteBarAppPackage() {
   try {
     const pastebarAppPath =
@@ -92,6 +116,9 @@ export default async () => {
       },
     },
     plugins: [
+      // Injects the version into <title>. Must live in this array: a second top-level
+      // `plugins` key would silently replace this one rather than merge with it.
+      htmlTitleVersion(),
       react({
         babel: {
           plugins: [

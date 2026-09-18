@@ -553,7 +553,7 @@ The upgrade is a genuine major break in two independent ways, both of which were
 ### ISSUE-036 · Fifteen dead items reported by the compiler, five of them unverified
 
 `ID | ISSUE-036`
-`位置 | src-tauri/src/db.rs:68, canonicalization, src-tauri/src/simple_cache.rs:15, src-tauri/src/clipboard/mod.rs:335, src-tauri/src/services/tabs_service.rs:53`
+`位置 | src-tauri/src/ (15 compiler-reported items; the deleted files no longer exist — see the resolution below)`
 `类型 | DEBT`
 `风险等级 | P3`
 `影响范围 | Backend maintainability; misleading signal on the module map`
@@ -563,11 +563,51 @@ The upgrade is a genuine major break in two independent ways, both of which were
 - **Confirmed dead but name-suspicious** (3): `collections_service::get_selected_collection_id`, `tabs_service::get_tabs_by_collection_id`, `tabs_service::get_tab_by_tab_id`. Checked by hand: the frontend reaches collections through the `select_collection_by_id` command, which looks up by id rather than by "the selected one" — so these are unused, not un-wired. Worth stating explicitly because dead code with a plausible name is how a missing feature hides.
 - **NOT dead — the compiler is wrong here** (1 group): `clipboard::ClipboardManager::{write_text, write_image, read_image, read_image_binary}`. `write_text` has **14 call sites** elsewhere; the warning fires because the methods are unused _through this impl_ while callers go through another type. Verifying rather than trusting the warning is the point of listing them separately.
 - **Cosmetic, and a real (if small) bug each** (3): `app_commands.rs:143` (`is_permissions_trusted` assigned then never read), `window_commands.rs:279` (`scale_factor` likewise), `window_ext.rs:50` (`doc_rect` likewise). Each is a dead store — the value is computed and discarded, which usually means the author intended to use it.
-- **Unverified** (1): `metadata/mod.rs:28`, reported as "multiple associated items are never used" without naming them. Not yet investigated.
+- **Unverified** (1): the whole `src/metadata/` module (188 lines), reported as "multiple associated items are never used" without naming them. Investigated during the fix: nothing in the crate imports it, and the real metadata parsing lives in `commands/link_metadata_commands.rs`.
   `建议方案 |` Delete the confirmed-dead set in a wave of its own (pure deletions, verified by a build and the test suite). Investigate the three dead stores — each may be a real defect rather than cleanup, since a computed-then-discarded value is what a missing assignment looks like. Do not delete the `clipboard` methods without checking call sites first: the compiler's "never used" here is a false positive, and this entry exists partly to stop someone acting on it.
-  `行为变更 | 无（删除） |
-`状态 | ⬜ 未开始 |
-  `所属阶段 | 5 (W5)`
+  `行为变更 | 有（删除死代码；另修复两个被丢弃的 Result，见下） |
+`状态 | ✅ 已修复 — 15 项全部处置；其中 1 项由本条目误判，另发现 2 个真实缺陷`
+  `修复说明 |` Every item was resolved, and the entry's own classification turned out to be wrong
+  in two places — which is the useful part.
+
+**The "confirmed dead, safe to delete" list was not all safe.** `db::try_pool_db_connection`
+was deleted on the strength of a non-test grep, and the **test build then failed**:
+`db.rs` has a test that calls it, because `establish_pool_db_connection` panics without a
+pool and this is the sanctioned way to ask the question without risking the process. It was
+restored and now carries a note. `cargo check` does not build tests, so its "never used" is
+not evidence for code that tests exercise — a plain `grep` over `src/` is not either.
+
+Deleted after re-verifying against the test build: `adjust_canonicalization`,
+`get_default_db_path_string`, `can_access_or_create`, `is_valid_json`,
+`get_selected_collection_id`, `get_tabs_by_collection_id`, `get_tab_by_tab_id`, the whole
+`simple_cache` module, the orphaned `src/metadata/` module (**188 lines, plus the `tl`
+dependency that existed only for it**), `clipboard::ClipboardManager::{write_text,
+write_image, read_image, read_image_binary}` and its never-read `terminate_flag`/`running`
+fields, `ClipboardMonitor`'s never-read `running` field, and the platform-specific imports
+those methods had been keeping alive.
+
+The `clipboard` group needed the entry's own warning heeded and extended: `read_text` **is**
+live (called at `src-tauri/src/clipboard/mod.rs:101`), so the struct was kept and only the genuinely unreachable
+methods removed.
+
+**The three dead stores were each a different thing**, and only one was a real defect:
+`is_permissions_trusted` and `scale_factor` are assigned on every platform but read on
+macOS only / Windows only respectively, so the "dead" store is an artifact of the build
+target — annotated with `#[cfg_attr(target_os = …, allow(unused_assignments))]` and a
+comment rather than deleted, because deleting them breaks the other platform.
+`window_ext.rs`'s `doc_rect` fed an already-commented-out call and was genuinely dead.
+
+**Two real defects surfaced that the entry did not list at all.** Both are ignored `Result`s
+on a destructive path: `clear_clipboard_history_older_than` and `clear_recent_clipboard_history`
+called their service for the side effect and answered `"ok"` unconditionally, so a failed
+deletion told the user their history had been cleared when it had not. Both now propagate
+the error and return `"error"`, which the frontend already handles. The first of the two
+also had its nine-arm `match` reduced to one computed `Duration`, since every arm called the
+same service with a different unit.
+
+Remaining in this family: `services::request_service.rs` `has_rules_error`, recorded as
+ISSUE-043 — a dead store that also hides a user-visible behaviour, so it is documented
+rather than silenced.
 
 ---
 
@@ -752,3 +792,63 @@ symptom was in the Paste Menu view, and rewriting the history panel's layout on 
 of a resemblance risks the view that is used most. It should be fixed and verified on its own.
 
 ---
+
+---
+
+### ISSUE-043 · A dead store in the scraper hides a "filters error" the UI can never show
+
+`ID | ISSUE-043`
+`位置 | src-tauri/src/services/request_service.rs:363, read at 371 and 440`
+`类型 | BUG`
+`风险等级 | P3`
+`影响范围 | Web-scraping test panel: the status chip shows a bare HTTP code where it is designed to say "filters error"`
+`现象与依据 |` `has_rules_error` is assigned in the `Err` arm of the scraping-rule loop and the
+very next line returns `Err`, so the flag is always `false` at both of its readers — the
+`scrapped_body` branch and the `ContentScraping` field. `cargo check` reports the assignment
+as never read.
+
+The field is not vestigial. The UI reads it as `hasFiltersError` and renders
+`"filters error"` in place of a status code (`ClipEditWebRequest.tsx:1264`, fed from
+`ClipEditContent.tsx:613`). Because a rule failure returns `Err` from the service, the
+command's caller receives an error string and never reaches a `ContentScraping` at all — so
+the branch that would say `"filters error"` is unreachable, and the user sees `"500 error"`
+instead.
+
+This is a **design contradiction inside one function**, not a missing line: the early `return`
+treats a rule failure as fatal, while the `has_rules_error` field and the `"Nothing found"`
+body treat it as a reportable outcome. Both cannot be right, and which one is intended is a
+product decision — should a bad filter abort the scrape, or return the unfiltered body with a
+warning? Resolving it by picking a side would change scraping behaviour without evidence.
+`建议方案 |` Decide the intended behaviour, then make the code match: either drop the
+`has_rules_error` field and the UI branch (fatal is correct), or replace the `return Err` with
+`has_rules_error = true` and let the function finish (reportable is correct). The frontend
+already handles both. Whichever is chosen, the `"Nothing found"` body must be revisited at
+the same time, since it is keyed off the same dead flag.
+`行为变更 | 无（记录） |
+`状态 | ⬜ 未开始 — 已就地标注为 KNOWN DEFECT`
+  `所属阶段 | 未排期`
+
+---
+
+### ISSUE-044 · `delete_all_clipboard_histories` cannot report failure
+
+`ID | ISSUE-044`
+`位置 | src-tauri/src/services/history_service.rs:818 (returns `String`), called from `commands/history_commands.rs:174``
+`类型 | BUG`
+`风险等级 | P3`
+`影响范围 | "Clear all history" with no filter: a failure is indistinguishable from success`
+`现象与依据 |` `delete_all_clipboard_histories`returns a literal`"ok".to_string()`with no`Result`, and unwraps its own queries internally (`.expect("Error deleting filtered clipboard
+histories")`). It therefore has no way to report failure, and a panic is its only failure
+mode.
+
+This surfaced while fixing the two commands around it (ISSUE-036): those now propagate real
+errors from `delete_clipboard_history_older_than` and `delete_recent_clipboard_history`, but
+the "delete everything" branch is reached through `duration_value == 0` and still cannot.
+Rather than invent an error path at the call site, the call is marked with `let _ =` and a
+comment, so the gap is visible instead of implied.
+`建议方案 |` Change the signature to `Result<String, diesel::result::Error>`, replace the two
+`.expect(...)` calls with `?`, and let the command's existing error branch handle it — the
+command was already rewritten to propagate, so this is a signature change and two operators.
+`行为变更 | 无（记录） |
+`状态 | ⬜ 未开始`
+  `所属阶段 | 未排期`

@@ -65,16 +65,6 @@ impl diesel::r2d2::CustomizeConnection<SqliteConnection, diesel::r2d2::Error>
   }
 }
 
-pub fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
-  const VERBATIM_PREFIX: &str = r#"\\?\"#;
-  let p = p.as_ref().display().to_string();
-  if p.starts_with(VERBATIM_PREFIX) {
-    p[VERBATIM_PREFIX.len()..].to_string()
-  } else {
-    p
-  }
-}
-
 fn init_connection_pool() -> Pool {
   // debug only with simple sql logger set_default_instrumentation suports only on diesel master
   // diesel::connection::set_default_instrumentation(simple_sql_logger);
@@ -217,13 +207,6 @@ pub fn is_pool_ready() -> bool {
     .unwrap_or(false)
 }
 
-/// A non-panicking connection attempt, for paths that must degrade gracefully rather than
-/// take the process down. Returns `None` if the lock is poisoned or the pool is exhausted.
-pub fn try_pool_db_connection(
-) -> Option<diesel_r2d2::PooledConnection<diesel_r2d2::ConnectionManager<SqliteConnection>>> {
-  DB_POOL_CONNECTION.read().ok()?.get().ok()
-}
-
 pub fn _establish_direct_db_connection() -> SqliteConnection {
   let db_path = get_db_path().clone();
   println!("Connecting to database at: {}", db_path);
@@ -312,12 +295,6 @@ pub fn get_clipboard_images_dir() -> PathBuf {
   get_data_dir().join("clipboard-images")
 }
 
-/// Returns the default database file path as a string.
-pub fn get_default_db_path_string() -> String {
-  let db_path = get_default_data_dir().join("pastebar-db.data");
-  db_path.to_string_lossy().into_owned()
-}
-
 /// Converts an absolute image path to a relative path with {{base_folder}} placeholder
 /// The placeholder that stands in for the (user-relocatable) data directory inside every
 /// image path this application persists. See AGENTS.md architecture rule 4.
@@ -394,32 +371,16 @@ pub fn to_absolute_image_path(relative_path: &str) -> String {
   to_absolute_image_path_in(&get_data_dir(), relative_path)
 }
 
-fn can_access_or_create(db_path: &str) -> bool {
-  let path = std::path::Path::new(db_path);
-
-  if let Some(parent) = path.parent() {
-    if let Err(e) = std::fs::create_dir_all(parent) {
-      eprintln!(
-        "Failed to create parent directory '{}': {}",
-        parent.display(),
-        e
-      );
-      return false;
-    }
-  }
-
-  match std::fs::OpenOptions::new()
-    .read(true)
-    .write(true)
-    .create(true)
-    .open(path)
-  {
-    Ok(_file) => true,
-    Err(e) => {
-      eprintln!("Failed to open custom DB path '{}': {}", db_path, e);
-      false
-    }
-  }
+/// A non-panicking connection attempt, for paths that must degrade gracefully rather than
+/// take the process down. Returns `None` if the lock is poisoned or the pool is exhausted.
+///
+/// Kept although only tests call it today: `establish_pool_db_connection` panics when there
+/// is no pool, so this is the sanctioned way to ask the question without risking the
+/// process, and the test below pins that contract. Removing it because a non-test grep
+/// found no caller would delete the only panic-free accessor the module has.
+pub fn try_pool_db_connection(
+) -> Option<diesel_r2d2::PooledConnection<diesel_r2d2::ConnectionManager<SqliteConnection>>> {
+  DB_POOL_CONNECTION.read().ok()?.get().ok()
 }
 
 /// Path to `pastebar_settings.yaml` — the file that records `custom_db_path`.

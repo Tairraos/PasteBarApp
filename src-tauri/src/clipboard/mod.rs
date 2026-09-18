@@ -1,15 +1,25 @@
 use arboard::{Clipboard, ImageData};
-use base64::{engine::general_purpose, Engine as _};
 use clipboard_master::{CallbackResult, ClipboardHandler, Master};
-use image::GenericImageView;
-use image::{ImageBuffer, RgbaImage};
-use std::borrow::Cow;
-use std::fs::File;
-use std::io::Read;
 use std::{
   collections::HashMap,
   sync::{Arc, Mutex},
 };
+
+// The Windows clipboard path decodes PNG/DIB by hand through the `image` crate; macOS goes
+// through arboard. These imports therefore have no user on macOS, and an ungated import is
+// an unused import there — `Cow` included, since both of its uses are in that path.
+#[cfg(target_os = "windows")]
+use base64::{engine::general_purpose, Engine as _};
+#[cfg(target_os = "windows")]
+use image::GenericImageView;
+#[cfg(target_os = "windows")]
+use image::{ImageBuffer, RgbaImage};
+#[cfg(target_os = "windows")]
+use std::borrow::Cow;
+#[cfg(target_os = "windows")]
+use std::fs::File;
+#[cfg(target_os = "windows")]
+use std::io::Read;
 use tauri::{self};
 use tauri::{
   plugin::{Builder, TauriPlugin},
@@ -42,7 +52,6 @@ where
 {
   // window: tauri::Window,
   app_handle: tauri::AppHandle<R>,
-  running: Arc<Mutex<bool>>,
   clipboard_manager: Arc<Mutex<ClipboardManager>>,
 }
 
@@ -50,14 +59,9 @@ impl<R> ClipboardMonitor<R>
 where
   R: Runtime,
 {
-  fn new(
-    app_handle: tauri::AppHandle<R>,
-    running: Arc<Mutex<bool>>,
-    clipboard_manager: Arc<Mutex<ClipboardManager>>,
-  ) -> Self {
+  fn new(app_handle: tauri::AppHandle<R>, clipboard_manager: Arc<Mutex<ClipboardManager>>) -> Self {
     Self {
       app_handle,
-      running,
       clipboard_manager,
     }
   }
@@ -320,11 +324,14 @@ where
   }
 }
 
+/// The local clipboard accessor used by the monitor.
+///
+/// It previously carried `terminate_flag` and `running` fields that nothing ever read —
+/// the `running` flag that actually drives shutdown is created in `init` and handed to
+/// `ClipboardMonitor` directly. Removed rather than left as a second, unused source of
+/// truth for the same state.
 #[derive(Default)]
-pub struct ClipboardManager {
-  terminate_flag: Arc<Mutex<bool>>,
-  running: Arc<Mutex<bool>>,
-}
+pub struct ClipboardManager {}
 
 impl ClipboardManager {
   pub fn read_text(&self) -> Result<String, String> {
@@ -332,137 +339,13 @@ impl ClipboardManager {
     clipboard.get_text().map_err(|err| err.to_string())
   }
 
-  pub fn write_text(&self, text: String) -> Result<(), String> {
-    let mut clipboard = Clipboard::new().unwrap();
-    clipboard.set_text(text).map_err(|err| err.to_string())
-  }
-
   // write_image function remains unchanged as it's writing, not reading
-  pub fn write_image(&self, base64_image: String) -> Result<(), String> {
-    let mut clipboard = Clipboard::new().unwrap();
-    let decoded = general_purpose::STANDARD_NO_PAD
-      .decode(base64_image)
-      .map_err(|err| err.to_string())?;
-    let img = image::load_from_memory(&decoded).map_err(|err| err.to_string())?;
-    let pixels = img
-      .pixels()
-      .flat_map(|(_, _, pixel)| pixel.0)
-      .collect::<Vec<_>>();
-    let img_data = ImageData {
-      height: img.height() as usize,
-      width: img.width() as usize,
-      bytes: Cow::Owned(pixels),
-    };
-    clipboard
-      .set_image(img_data)
-      .map_err(|err| err.to_string())?;
-    Ok(())
-  }
-
-  pub fn read_image(&self) -> Result<String, String> {
-    let mut clipboard = Clipboard::new().unwrap();
-    let image = clipboard.get_image().map_err(|err| err.to_string())?;
-
-    // Handle stride alignment
-    let bytes_per_pixel = 4; // RGBA
-    let expected_bytes_per_row = image.width * bytes_per_pixel;
-    let actual_bytes_per_row = image.bytes.len() / image.height;
-
-    let cleaned_bytes = if actual_bytes_per_row != expected_bytes_per_row {
-      // Remove stride padding
-      let mut cleaned = Vec::with_capacity(expected_bytes_per_row * image.height);
-
-      for row in 0..image.height {
-        let row_start = row * actual_bytes_per_row;
-        let row_end = row_start + expected_bytes_per_row;
-        cleaned.extend_from_slice(&image.bytes[row_start..row_end]);
-      }
-      cleaned
-    } else {
-      image.bytes.into_owned()
-    };
-
-    // Create image from cleaned bytes
-    let image2: RgbaImage = ImageBuffer::from_raw(
-      image.width.try_into().unwrap(),
-      image.height.try_into().unwrap(),
-      cleaned_bytes,
-    )
-    .ok_or_else(|| "Failed to create image from raw bytes".to_string())?;
-
-    // Save to temporary file and encode as base64
-    let tmp_dir = tempfile::Builder::new()
-      .prefix("clipboard-img")
-      .tempdir()
-      .map_err(|err| err.to_string())?;
-    let fname = tmp_dir.path().join("clipboard-img.png");
-
-    image2.save(&fname).map_err(|err| err.to_string())?;
-
-    let mut file = File::open(&fname).map_err(|err| err.to_string())?;
-    let mut buffer = vec![];
-    file
-      .read_to_end(&mut buffer)
-      .map_err(|err| err.to_string())?;
-
-    let base64_str = general_purpose::STANDARD_NO_PAD.encode(buffer);
-    Ok(base64_str)
-  }
-
   pub fn get_image_binary(&self) -> Result<ImageData<'static>, String> {
     // Use our safe image retrieval function instead of clipboard_rs
     get_image_safe()
   }
 
   // Function 2: Returns Vec<u8> of PNG file data
-  pub fn read_image_binary(&self) -> Result<Vec<u8>, String> {
-    let mut clipboard = Clipboard::new().unwrap();
-    let image = clipboard.get_image().map_err(|err| err.to_string())?;
-
-    // Handle stride alignment
-    let bytes_per_pixel = 4; // RGBA
-    let expected_bytes_per_row = image.width * bytes_per_pixel;
-    let actual_bytes_per_row = image.bytes.len() / image.height;
-
-    let cleaned_bytes = if actual_bytes_per_row != expected_bytes_per_row {
-      // Remove stride padding
-      let mut cleaned = Vec::with_capacity(expected_bytes_per_row * image.height);
-
-      for row in 0..image.height {
-        let row_start = row * actual_bytes_per_row;
-        let row_end = row_start + expected_bytes_per_row;
-        cleaned.extend_from_slice(&image.bytes[row_start..row_end]);
-      }
-      cleaned
-    } else {
-      image.bytes.into_owned()
-    };
-
-    // Create image from cleaned bytes
-    let image2: RgbaImage = ImageBuffer::from_raw(
-      image.width.try_into().unwrap(),
-      image.height.try_into().unwrap(),
-      cleaned_bytes,
-    )
-    .ok_or_else(|| "Failed to create image from raw bytes".to_string())?;
-
-    // Save to temporary file and read back
-    let tmp_dir = tempfile::Builder::new()
-      .prefix("clipboard-img")
-      .tempdir()
-      .map_err(|err| err.to_string())?;
-    let fname = tmp_dir.path().join("clipboard-img.png");
-
-    image2.save(&fname).map_err(|err| err.to_string())?;
-
-    let mut file = File::open(&fname).map_err(|err| err.to_string())?;
-    let mut buffer = vec![];
-    file
-      .read_to_end(&mut buffer)
-      .map_err(|err| err.to_string())?;
-
-    Ok(buffer)
-  }
 }
 
 // Safe image retrieval function to avoid clipboard corruption
@@ -531,11 +414,13 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
       let app_handle = app.app_handle();
 
-      let running = Arc::new(Mutex::new(false));
+      // No `running` flag is created here: `Master::new` takes only the handler, and
+      // `ClipboardMonitor` never read the copy it used to be handed. Stopping the monitor
+      // is `Master`'s to manage, so a second flag here would have been a second source of
+      // truth for the same state — and one nothing observed.
       tauri::async_runtime::spawn(async move {
         let _ = Master::new(ClipboardMonitor::new(
           app_handle,
-          running,
           Arc::clone(&clipboard_manager),
         ))
         .run();

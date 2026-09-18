@@ -588,21 +588,6 @@ pub fn add_menu_to_collection(
   }
 }
 
-pub fn get_selected_collection_id() -> Result<String, diesel::result::Error> {
-  let connection = &mut establish_pool_db_connection();
-  // Fetch the collection where is_selected is true
-  let selected_collection = collections
-    .filter(collections_dsl::is_selected.eq(true))
-    .limit(1)
-    .load::<Collection>(connection)?
-    .pop();
-
-  match selected_collection {
-    Some(collection) => Ok(collection.collection_id),
-    None => Err(diesel::result::Error::NotFound),
-  }
-}
-
 pub fn create_default_menu_item(collection_id: String) -> Result<String, diesel::result::Error> {
   let new_item = Item {
     item_id: nanoid::nanoid!(),

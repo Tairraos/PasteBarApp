@@ -3,7 +3,6 @@ use html_escape;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -171,11 +170,6 @@ pub fn remove_special_bbcode_tags(text: &str) -> String {
 
   result
 }
-
-pub fn is_valid_json(text: &str) -> bool {
-  serde_json::from_str::<Value>(text).is_ok()
-}
-
 pub fn apply_global_templates(text: &str, settings_map: &HashMap<String, Setting>) -> String {
   // Check if global templates are enabled
   let is_enabled = settings_map

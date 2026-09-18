@@ -360,6 +360,20 @@ pub async fn run_web_scraping(request: HttpScraping) -> Result<ContentScraping, 
             results = new_results;
           }
           Err(err) => {
+            // KNOWN DEFECT (ISSUE-043): this assignment is dead. The `return` on the next
+            // line discards the flag, so `has_rules_error` is always false at both of its
+            // readers — the `scrapped_body` branch below and the `ContentScraping` field.
+            //
+            // The field is not vestigial: the UI reads `hasRulesError` and renders
+            // "filters error" instead of a bare status code
+            // (`ClipEditWebRequest.tsx:1264`). Because a filter failure returns `Err`
+            // here, the command's caller sees an error string and never reaches that
+            // branch, so the user gets "500 error" where the design intends
+            // "filters error".
+            //
+            // Not fixed here: whether filter failures should abort the request or be
+            // reported through the struct is a product decision, and the two paths in
+            // this function contradict each other. Recorded rather than guessed at.
             has_rules_error = true;
             return Err(format!("Error occurred: {}", err));
           }

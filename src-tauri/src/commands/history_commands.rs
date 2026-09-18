@@ -1,7 +1,7 @@
 use crate::models::models::UpdatedHistoryData;
 use crate::models::{ClipboardHistory, Setting};
 use crate::services::history_service::{self, ClipboardHistoryWithMetaData};
-use crate::services::utils::{ensure_url_prefix, is_base64_image};
+use crate::services::utils::{debug_output, ensure_url_prefix, is_base64_image};
 use chrono::{Duration, Local};
 use url::Url;
 
@@ -169,32 +169,41 @@ pub fn clear_clipboard_history_older_than(
   let keep_pinned = keep_pinned.unwrap_or(false);
   let keep_starred = keep_starred.unwrap_or(false);
 
-  match duration_type.as_str() {
+  // The deletions used to be called for their side effect alone, so a failure — a locked
+  // database, a disk error — was discarded and this command still answered "ok". The user
+  // was told the history had been cleared when it had not, which is the worst way for a
+  // destructive operation to fail. Each arm now reports what the service reported.
+  let result = match duration_type.as_str() {
     "days" => {
       if duration_value == 0 {
-        history_service::delete_all_clipboard_histories(keep_pinned, keep_starred);
+        // `delete_all_clipboard_histories` returns a literal "ok" rather than a Result, and
+        // it unwraps its own queries internally, so there is nothing here to propagate. It
+        // is listed in ISSUE-044 rather than being given an invented error path.
+        let _ = history_service::delete_all_clipboard_histories(keep_pinned, keep_starred);
+        Ok(())
       } else {
         history_service::delete_clipboard_history_older_than(
           Duration::days(duration_value),
           keep_pinned,
           keep_starred,
-        );
+        )
+        .map(|_| ())
       }
     }
-    "weeks" => {
-      history_service::delete_clipboard_history_older_than(
-        Duration::weeks(duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
+    "weeks" => history_service::delete_clipboard_history_older_than(
+      Duration::weeks(duration_value),
+      keep_pinned,
+      keep_starred,
+    )
+    .map(|_| ()),
     "months" => {
       // Roughly considering a month as 4 weeks.
       history_service::delete_clipboard_history_older_than(
         Duration::days(30 * duration_value),
         keep_pinned,
         keep_starred,
-      );
+      )
+      .map(|_| ())
     }
     "year" => {
       // Roughly considering a year as 52 weeks.
@@ -202,15 +211,26 @@ pub fn clear_clipboard_history_older_than(
         Duration::days(356 * duration_value),
         keep_pinned,
         keep_starred,
-      );
+      )
+      .map(|_| ())
     }
     _ => {
-      println!("Unsupported duration type: {}", duration_type);
+      debug_output(|| {
+        println!("Unsupported duration type: {}", duration_type);
+      });
       return "error".to_string();
     }
-  }
+  };
 
-  "ok".to_string()
+  match result {
+    Ok(()) => "ok".to_string(),
+    Err(e) => {
+      debug_output(|| {
+        println!("Failed to clear clipboard history: {}", e);
+      });
+      "error".to_string()
+    }
+  }
 }
 
 #[tauri::command]
@@ -224,54 +244,38 @@ pub fn clear_recent_clipboard_history(
   let keep_pinned = keep_pinned.unwrap_or(false);
   let keep_starred = keep_starred.unwrap_or(false);
 
-  println!(
-    "Clearing recent clipboard history for last {} {}",
-    duration_value, duration_type
-  );
+  debug_output(|| {
+    println!(
+      "Clearing recent clipboard history for last {} {}",
+      duration_value, duration_type
+    );
+  });
 
-  match duration_type.as_str() {
-    "hour" => {
-      history_service::delete_recent_clipboard_history(
-        Duration::hours(duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
-    "days" => {
-      history_service::delete_recent_clipboard_history(
-        Duration::days(duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
-    "weeks" => {
-      history_service::delete_recent_clipboard_history(
-        Duration::weeks(duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
-    "months" => {
-      history_service::delete_recent_clipboard_history(
-        Duration::days(30 * duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
-    "year" => {
-      history_service::delete_recent_clipboard_history(
-        Duration::days(356 * duration_value),
-        keep_pinned,
-        keep_starred,
-      );
-    }
+  // Same defect as `clear_clipboard_history_older_than` above: the service's `Result` was
+  // dropped, so a failed deletion still answered "ok".
+  let duration = match duration_type.as_str() {
+    "hour" => Duration::hours(duration_value),
+    "days" => Duration::days(duration_value),
+    "weeks" => Duration::weeks(duration_value),
+    "months" => Duration::days(30 * duration_value), // roughly a month as 4 weeks
+    "year" => Duration::days(356 * duration_value),  // roughly a year as 52 weeks
     _ => {
-      println!("Unsupported duration type: {}", duration_type);
+      debug_output(|| {
+        println!("Unsupported duration type: {}", duration_type);
+      });
       return "error".to_string();
     }
-  }
+  };
 
-  "ok".to_string()
+  match history_service::delete_recent_clipboard_history(duration, keep_pinned, keep_starred) {
+    Ok(_) => "ok".to_string(),
+    Err(e) => {
+      debug_output(|| {
+        println!("Failed to clear recent clipboard history: {}", e);
+      });
+      "error".to_string()
+    }
+  }
 }
 
 #[tauri::command(async)]

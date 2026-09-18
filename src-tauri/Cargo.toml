@@ -92,7 +92,6 @@ tao = { path = "libs/tao-0.16.7" }
 mid = { path = "libs/mid-hardware-id" }
 
 linkify = "0.10.0"
-tl = { version = "0.7.7" }
 tld = "2.33.0"
 url = "2.4.1"
 html-escape = "0.2.13"
