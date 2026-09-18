@@ -1,3 +1,4 @@
+use crate::models::models::Setting;
 use crate::services::translations::translations::Translations;
 use crate::services::utils::debug_output;
 use serde::{Deserialize, Serialize};
@@ -7,6 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::Path;
+use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Translation {
@@ -17,11 +19,42 @@ pub struct Translation {
 }
 
 #[tauri::command]
-pub fn change_menu_language(language: String) -> String {
+pub fn change_menu_language(
+  language: String,
+  app_handle: tauri::AppHandle,
+  db_items_state: tauri::State<crate::menu::DbItems>,
+  db_recent_history_items_state: tauri::State<crate::menu::DbRecentHistoryItems>,
+  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
+) -> String {
   debug_output(|| {
     println!("Changing menu language to: {}", language);
   });
   Translations::set_user_language(&language);
+
+  // Rebuild the tray, or it keeps the labels of the previous language.
+  //
+  // `Translations::get` is read while the menu is CONSTRUCTED, so the new language only
+  // reaches the tray when the menu is rebuilt. Nothing else does that on a language change:
+  // the setting writes that rebuild are named in `MENU_SETTING_NAMES` and the language is
+  // not one of them. The failure is silent and cosmetic — the user switches language and the
+  // tray alone stays behind — which is why it went unnoticed.
+  //
+  // A failure here does not fail the call: the language is already applied, and the tray is
+  // rebuilt on the next menu-affecting change anyway.
+  if let Err(e) = crate::menu::update_system_menu(
+    &app_handle,
+    db_items_state,
+    db_recent_history_items_state,
+    app_settings,
+  ) {
+    debug_output(|| {
+      println!(
+        "Changed menu language but could not refresh the tray menu: {}",
+        e
+      );
+    });
+  }
+
   "ok".to_string()
 }
 
