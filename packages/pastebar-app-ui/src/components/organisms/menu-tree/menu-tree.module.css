@@ -18,21 +18,21 @@
  * The dark fill is deliberately not the light one reused: a light grey row on a near-black
  * panel is the brightest thing on screen and reads as "disabled" rather than "selected".
  */
-[role='treeitem']:has(.menu-row-selected),
-[role='treeitem']:has(.menu-row-selected):focus-visible {
+[role='treeitem']:has(.menuRowSelected),
+[role='treeitem']:has(.menuRowSelected):focus-visible {
   background-color: rgba(203, 213, 225, 0.9); /* slate-300 */
   font-weight: 600;
   outline: none;
 }
 
-:global(.dark) [role='treeitem']:has(.menu-row-selected),
-:global(.dark) [role='treeitem']:has(.menu-row-selected):focus-visible {
+:global(.dark) [role='treeitem']:has(.menuRowSelected),
+:global(.dark) [role='treeitem']:has(.menuRowSelected):focus-visible {
   background-color: rgba(51, 65, 85, 0.95); /* slate-700 */
 }
 
 /* react-arborist marks a row selected even when this component suppresses the class during
  * editing; a stale attribute should not leave a row looking selected while it is renamed. */
-[role='treeitem'][aria-selected='true']:has(.node):not(:has(.menu-row-selected)) {
+[role='treeitem'][aria-selected='true']:has(.node):not(:has(.menuRowSelected)) {
   background-color: transparent;
 }
 

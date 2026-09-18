@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { RowRendererProps } from '~/components/libs/react-arborist'
 
 import { isHoveringMenuRowId } from '.'
+import styles from './menu-tree.module.css'
 
 export default function MenuRow<T>({
   node,
@@ -35,12 +36,14 @@ export default function MenuRow<T>({
             } dark:bg-slate-900 bg-slate-200`
           : ''
       } ${
-        // Selected colours live in menu-tree.module.css, which sets background AND colour
-        // together for each theme. The `dark:!bg-slate-600 dark:!text-slate-50` that used to
-        // be here won over the stylesheet because of its `!`, giving a light grey row with
-        // near-white text — the unreadable state this replaces. Two places deciding the same
-        // thing is how they drifted apart.
-        node.isSelected && !node.isEditing ? 'menu-row-selected' : ''
+        // `styles.menuRowSelected`, NOT the literal string 'menu-row-selected'.
+        //
+        // A CSS module rewrites only the class names it can see as `styles.x` references; a
+        // bare string is passed through untouched. The stylesheet therefore defined
+        // `._menu-row-selected_lztmj_21` while this element carried `menu-row-selected`, and
+        // the two never matched — the selected background was never applied, which is why it
+        // looked unchanged no matter what the rule said.
+        node.isSelected && !node.isEditing ? styles.menuRowSelected : ''
       } transition-all overflow-hidden`}
       onFocus={e => e.stopPropagation()}
       onClick={node.handleClick}

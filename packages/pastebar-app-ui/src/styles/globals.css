@@ -368,8 +368,25 @@ div.note-content.release-notes {
   padding-left: 12px;
 }
 
+/* Selected row in the simplified layout.
+ *
+ * The colour comes from a `react-complex-tree` variable, and the `!important` here is what
+ * the tree's own theme expects. The problem is that the variable resolves to `#e4e6eb` — a
+ * fixed LIGHT grey — regardless of the app's theme, so in dark mode this painted a pale row
+ * under near-white text and the selected item was unreadable.
+ *
+ * The two variables are redefined under `.dark` rather than fighting the `!important`: that
+ * changes what the rule reads instead of out-specifying it, and leaves the third-party rule
+ * intact. The text colour is NOT set here — `MenuNode.tsx` already applies
+ * `text-slate-900 dark:text-slate-50` to the element holding the text, and a `color` with
+ * `!important` at this level would override it.
+ */
 body .simplified-layout [role='treeitem'][aria-selected='true'] {
   background-color: var(--rct-color-focustree-item-active-bg) !important;
+}
+
+.dark body .simplified-layout [role='treeitem'][aria-selected='true'] {
+  --rct-color-focustree-item-active-bg: #334155; /* slate-700 */
 }
 
 body .simplified-layout .history-box {

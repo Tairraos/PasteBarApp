@@ -121,11 +121,16 @@ export default function PasteMenuPage() {
   const showNotActiveMenuItems = useSignal(false)
   const searchMenuInputRef = useRef<HTMLInputElement | null>(null)
   const scollToRef = useRef<HTMLDivElement>(null)
-  // The right panel's header (title row, buttons, spacer) varies with what is being shown,
-  // so its height is measured rather than assumed. `0` until the first measurement, which
-  // the list treats as "no space yet" rather than scrolling into nothing.
-  const menuHeaderRef = useRef<HTMLDivElement | null>(null)
-  const [menuHeaderHeight, setMenuHeaderHeight] = useState(0)
+  // Height available to the right panel's list, measured rather than assumed.
+  //
+  // Measuring "the header" was the earlier mistake: the panel stacks THREE blocks above the
+  // list (an eye-toggle row, a title/add row carrying `mt-6`, and a `<Spacer h={2}>`), and
+  // only the first was measured, so the list was sized too tall by the other two and ran off
+  // the bottom. Measuring the space between the panel's top and the list's own top accounts
+  // for every block above it, including any added later.
+  const menuPanelRef = useRef<HTMLDivElement | null>(null)
+  const menuListRef = useRef<HTMLDivElement | null>(null)
+  const [menuListOffset, setMenuListOffset] = useState(0)
   const isDark = themeDark()
 
   const menuFullyLoaded = useMemo(() => {
@@ -146,24 +151,27 @@ export default function PasteMenuPage() {
     resetMenuCreateOrEdit()
   }, [])
 
-  // Keep `menuHeaderHeight` in step with the right panel's header.
+  // Keep `menuListOffset` in step with everything stacked above the list.
   //
-  // A ResizeObserver rather than a one-off measurement on mount: the header contains the
-  // collection title and a row of buttons, both of which change with the selected collection
-  // and the item count. Measuring once would leave the list mis-sized after those change,
-  // which is the same class of drift the fixed `height - 75` suffered from.
+  // A ResizeObserver on the panel, not a one-off measurement: the blocks above the list
+  // change with the selected collection, the item count and the editing state. Observing the
+  // panel fires whenever its contents reflow, which is exactly when the offset changes.
   useEffect(() => {
-    const el = menuHeaderRef.current
-    if (!el) return
+    const panel = menuPanelRef.current
+    const list = menuListRef.current
+    if (!panel || !list) return
 
-    const observer = new ResizeObserver(() => {
-      setMenuHeaderHeight(el.getBoundingClientRect().height)
-    })
-    observer.observe(el)
-    setMenuHeaderHeight(el.getBoundingClientRect().height)
+    const measure = () => {
+      const offset = list.getBoundingClientRect().top - panel.getBoundingClientRect().top
+      setMenuListOffset(offset)
+    }
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(panel)
+    measure()
 
     return () => observer.disconnect()
-  }, [menuItems.length])
+  }, [menuItems.length, openItemId])
 
   useEffect(() => {
     if (showEditMenuItemId?.value) {
@@ -699,15 +707,13 @@ export default function PasteMenuPage() {
                         // height with `flex-1` instead of subtracting a guessed pixel count
                         // from it. `min-h-0` lets this shrink inside its own parent, which
                         // is what makes the inner `flex-1` meaningful.
+                        ref={menuPanelRef}
                         className={`p-4 py-4 pb-2 select-auto flex flex-col min-h-0 ${
                           isSimplifiedLayout ? 'pl-0 pr-0' : ''
                         }`}
                         id="menu-main-list_tour"
                       >
-                        <Flex
-                          ref={menuHeaderRef}
-                          className="justify-center relative h-8 pt-2 select-none"
-                        >
+                        <Flex className="justify-center relative h-8 pt-2 select-none">
                           {inactiveMenuItems.length > 0 && (
                             <Button
                               variant="ghost"
@@ -830,113 +836,114 @@ export default function PasteMenuPage() {
                         )}
 
                         <Spacer h={2} />
-                        <SimpleBar
-                          // Sized from the MEASURED header height, not a constant.
-                          //
-                          // This panel's header changes with what it shows, so `height - 75`
-                          // was a guess that could be wrong in either direction: too large
-                          // and the last items can never be scrolled into view, too small
-                          // and the list runs past the panel. Measuring removes both.
-                          //
-                          // An explicit height rather than `flex-1`, because SimpleBar
-                          // scrolls an inner wrapper that it sizes from this element's
-                          // height; `flex-1` leaves that wrapper unbounded and the wheel
-                          // stops working.
-                          style={{
-                            height: Math.max(height - menuHeaderHeight - 8, 0),
-                          }}
-                          className="select-none"
-                          autoHide={true}
-                        >
-                          <Accordion
-                            type="single"
-                            collapsible
-                            value={openItemId ?? ''}
-                            className="flex items-center flex-col select-none"
+                        {/* The wrapper exists only to be measured: its top edge is where the
+                            list begins, so `height - menuListOffset` is the space left for
+                            it whatever the blocks above happen to be. */}
+                        <div ref={menuListRef} className="flex flex-col min-h-0">
+                          <SimpleBar
+                            // Sized from the MEASURED space above it, not a constant.
+                            //
+                            // `height - 75` guessed at three stacked blocks and was wrong by
+                            // however much they actually occupied. An explicit height rather
+                            // than `flex-1`, because SimpleBar scrolls an inner wrapper that
+                            // it sizes from this element's height; `flex-1` leaves that
+                            // wrapper unbounded and the mouse wheel stops working.
+                            style={{
+                              height: Math.max(height - menuListOffset, 0),
+                            }}
+                            className="select-none"
+                            autoHide={true}
                           >
-                            {orderedMenuItems.map(
-                              (item, i) =>
-                                item.itemId && (
-                                  <AccordionItem
-                                    key={`${item.itemId}`}
-                                    ref={
-                                      showLinkedMenuId.value === item.itemId
-                                        ? scollToRef
-                                        : null
-                                    }
-                                    value={item.itemId}
-                                  >
-                                    <MenuCollapsibleItem
-                                      label={item.name}
-                                      setOpenItemId={setOpenItemId}
-                                      setSelectedItemIds={setSelectedItemIds}
-                                      isLastItem={i === orderedMenuItems.length - 1}
-                                      deletingMenuItemIds={deletingMenuItemIds}
-                                      isFirstItem={i === 0}
-                                      showEditMenuItemId={showEditMenuItemId}
-                                      hasChildren={item.hasChildren}
-                                      isSeparator={item.isSeparator}
-                                      showMultiSelectItems={showMultiSelectItems}
-                                      hasSelectedItems={selectedItemIds.length > 0}
-                                      isDark={isDark}
-                                      deselectItemById={itemId => {
-                                        setSelectedItemIds(
-                                          selectedItemIds.filter(id => id !== itemId)
-                                        )
-                                      }}
-                                      selectItemById={id => {
-                                        setSelectedItemIds(prev => [...prev, id])
-                                      }}
-                                      id={item.itemId}
-                                      item={item}
-                                      isClip={item.isClip}
-                                      isForm={item.isForm && item.isClip}
-                                      isWebRequest={item.isWebRequest && item.isClip}
-                                      isWebScraping={item.isWebScraping && item.isClip}
-                                      isCommand={item.isCommand && item.isClip}
-                                      isCreatingMenuItem={isCreatingMenuItem}
-                                      indent={item.indent}
-                                      onFolderClose={id => {
-                                        setClosedFolderItemIds(prev => [...prev, id])
-                                      }}
-                                      onFolderOpen={id => {
-                                        setClosedFolderItemIds(prev =>
-                                          prev.filter(i => i !== id)
-                                        )
-                                      }}
-                                      isClosedFolder={closedFolderItemIds.includes(
-                                        item.itemId
-                                      )}
-                                      isSelected={selectedItemIds.includes(item.itemId)}
-                                      hasMultipleSelectedItems={
-                                        selectedItemIds.length > 1
+                            <Accordion
+                              type="single"
+                              collapsible
+                              value={openItemId ?? ''}
+                              className="flex items-center flex-col select-none"
+                            >
+                              {orderedMenuItems.map(
+                                (item, i) =>
+                                  item.itemId && (
+                                    <AccordionItem
+                                      key={`${item.itemId}`}
+                                      ref={
+                                        showLinkedMenuId.value === item.itemId
+                                          ? scollToRef
+                                          : null
                                       }
-                                      isOpen={openItemId === item.itemId}
+                                      value={item.itemId}
                                     >
-                                      <MenuCardMain
-                                        menuName={item.name}
-                                        isDisabled={item.isDisabled}
-                                        isMenuEdit={
-                                          showEditMenuItemId.value === item.itemId
-                                        }
-                                        isActive={item.isActive}
-                                        isDark={isDark}
-                                        isMenu={item.isMenu}
-                                        isCode={item.isCode}
-                                        isSeparator={item.isSeparator}
-                                        isFolder={item.isFolder}
-                                        isText={item.isText}
-                                        isClip={item.isClip}
+                                      <MenuCollapsibleItem
+                                        label={item.name}
+                                        setOpenItemId={setOpenItemId}
+                                        setSelectedItemIds={setSelectedItemIds}
+                                        isLastItem={i === orderedMenuItems.length - 1}
                                         deletingMenuItemIds={deletingMenuItemIds}
+                                        isFirstItem={i === 0}
+                                        showEditMenuItemId={showEditMenuItemId}
+                                        hasChildren={item.hasChildren}
+                                        isSeparator={item.isSeparator}
+                                        showMultiSelectItems={showMultiSelectItems}
+                                        hasSelectedItems={selectedItemIds.length > 0}
+                                        isDark={isDark}
+                                        deselectItemById={itemId => {
+                                          setSelectedItemIds(
+                                            selectedItemIds.filter(id => id !== itemId)
+                                          )
+                                        }}
+                                        selectItemById={id => {
+                                          setSelectedItemIds(prev => [...prev, id])
+                                        }}
+                                        id={item.itemId}
                                         item={item}
-                                      />
-                                    </MenuCollapsibleItem>
-                                  </AccordionItem>
-                                )
-                            )}
-                          </Accordion>
-                          <Spacer h={3} />
-                        </SimpleBar>
+                                        isClip={item.isClip}
+                                        isForm={item.isForm && item.isClip}
+                                        isWebRequest={item.isWebRequest && item.isClip}
+                                        isWebScraping={item.isWebScraping && item.isClip}
+                                        isCommand={item.isCommand && item.isClip}
+                                        isCreatingMenuItem={isCreatingMenuItem}
+                                        indent={item.indent}
+                                        onFolderClose={id => {
+                                          setClosedFolderItemIds(prev => [...prev, id])
+                                        }}
+                                        onFolderOpen={id => {
+                                          setClosedFolderItemIds(prev =>
+                                            prev.filter(i => i !== id)
+                                          )
+                                        }}
+                                        isClosedFolder={closedFolderItemIds.includes(
+                                          item.itemId
+                                        )}
+                                        isSelected={selectedItemIds.includes(item.itemId)}
+                                        hasMultipleSelectedItems={
+                                          selectedItemIds.length > 1
+                                        }
+                                        isOpen={openItemId === item.itemId}
+                                      >
+                                        <MenuCardMain
+                                          menuName={item.name}
+                                          isDisabled={item.isDisabled}
+                                          isMenuEdit={
+                                            showEditMenuItemId.value === item.itemId
+                                          }
+                                          isActive={item.isActive}
+                                          isDark={isDark}
+                                          isMenu={item.isMenu}
+                                          isCode={item.isCode}
+                                          isSeparator={item.isSeparator}
+                                          isFolder={item.isFolder}
+                                          isText={item.isText}
+                                          isClip={item.isClip}
+                                          deletingMenuItemIds={deletingMenuItemIds}
+                                          item={item}
+                                        />
+                                      </MenuCollapsibleItem>
+                                    </AccordionItem>
+                                  )
+                              )}
+                            </Accordion>
+                            <Spacer h={3} />
+                          </SimpleBar>
+                        </div>
                       </Box>
                     )
                   )
