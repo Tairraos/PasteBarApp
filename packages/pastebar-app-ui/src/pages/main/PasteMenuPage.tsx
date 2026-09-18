@@ -87,9 +87,6 @@ import MenuCollapsibleItem from '../components/Menu/MenuItem'
  */
 const PANEL_CHROME_HEIGHT = 100
 
-/** The right panel's `pb-2`. See the subtraction where the list is sized. */
-const MENU_PANEL_PADDING_BOTTOM = 8
-
 export default function PasteMenuPage() {
   useGetCollections()
   useGetCollectionWithClips()
@@ -132,8 +129,6 @@ export default function PasteMenuPage() {
   // the bottom. Measuring the space between the panel's top and the list's own top accounts
   // for every block above it, including any added later.
   const menuPanelRef = useRef<HTMLDivElement | null>(null)
-  const menuListRef = useRef<HTMLDivElement | null>(null)
-  const [menuListOffset, setMenuListOffset] = useState(0)
   const isDark = themeDark()
 
   const menuFullyLoaded = useMemo(() => {
@@ -153,28 +148,6 @@ export default function PasteMenuPage() {
     setReturnRoute(location.pathname)
     resetMenuCreateOrEdit()
   }, [])
-
-  // Keep `menuListOffset` in step with everything stacked above the list.
-  //
-  // A ResizeObserver on the panel, not a one-off measurement: the blocks above the list
-  // change with the selected collection, the item count and the editing state. Observing the
-  // panel fires whenever its contents reflow, which is exactly when the offset changes.
-  useEffect(() => {
-    const panel = menuPanelRef.current
-    const list = menuListRef.current
-    if (!panel || !list) return
-
-    const measure = () => {
-      const offset = list.getBoundingClientRect().top - panel.getBoundingClientRect().top
-      setMenuListOffset(offset)
-    }
-
-    const observer = new ResizeObserver(measure)
-    observer.observe(panel)
-    measure()
-
-    return () => observer.disconnect()
-  }, [menuItems.length, openItemId])
 
   useEffect(() => {
     if (showEditMenuItemId?.value) {
@@ -721,8 +694,8 @@ export default function PasteMenuPage() {
                         // where no amount of scrolling could reach it. `min-h-0` alone does
                         // not help: it permits shrinking, it does not cause it.
                         //
-                        // `box-border` keeps the padding inside that height, which is what
-                        // makes `height - menuListOffset` below describe the true remainder.
+                        // `box-border` keeps the padding inside that height, so the flex
+                        // child below gets the true remainder.
                         style={{ height }}
                         className={`p-4 py-4 pb-2 select-auto flex flex-col min-h-0 box-border ${
                           isSimplifiedLayout ? 'pl-0 pr-0' : ''
@@ -852,31 +825,25 @@ export default function PasteMenuPage() {
                         )}
 
                         <Spacer h={2} />
-                        {/* The wrapper exists only to be measured: its top edge is where the
-                            list begins, so `height - menuListOffset` is the space left for
-                            it whatever the blocks above happen to be. */}
-                        <div ref={menuListRef} className="flex flex-col min-h-0">
+                        {/* `flex-1` takes the space the listbox has left after the blocks
+                            above it, whatever they are. This is what the measured
+                            `menuListOffset` was approximating, and why each correction to it
+                            moved the error instead of removing it: the layout engine already
+                            knows the answer, and asking it costs nothing. Safe here because
+                            the listbox has an explicit height, so "what is left" is bounded. */}
+                        <div className="flex flex-col min-h-0 flex-1">
                           <SimpleBar
-                            // Sized from the MEASURED space above it, not a constant.
+                            // `h-full`, i.e. exactly the wrapper's height.
                             //
-                            // `height - 75` guessed at three stacked blocks and was wrong by
-                            // however much they actually occupied. An explicit height rather
-                            // than `flex-1`, because SimpleBar scrolls an inner wrapper that
-                            // it sizes from this element's height; `flex-1` leaves that
-                            // wrapper unbounded and the mouse wheel stops working.
-                            //
-                            // The panel's bottom padding is subtracted as well. `menuListOffset`
-                            // runs from the panel's outer top edge, so `height - offset` reaches
-                            // the panel's outer bottom — past the padding, by exactly 8px
-                            // (`pb-2`). Measured: without this the list overshot the content
-                            // area by 8px, with it by 0.
-                            style={{
-                              height: Math.max(
-                                height - menuListOffset - MENU_PANEL_PADDING_BOTTOM,
-                                0
-                              ),
-                            }}
-                            className="select-none"
+                            // The previous `height - offset - 8` was arithmetic on three
+                            // quantities, and the user kept finding it a line short: each
+                            // correction moved the error rather than removing it. The wrapper
+                            // above is `flex-1` inside a listbox that now has an explicit
+                            // height, so its height IS the leftover space, computed by the
+                            // layout engine instead of by hand. `h-full` passes that through
+                            // unchanged, which also gives SimpleBar the definite height it
+                            // needs to size its inner scroll wrapper.
+                            className="select-none h-full"
                             autoHide={true}
                           >
                             <Accordion
