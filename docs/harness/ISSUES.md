@@ -867,3 +867,17 @@ command was already rewritten to propagate, so this is a signature change and tw
 
 `状态 | ✅ 已修复`
 `修复说明 |` 缩略图在 `add_clipboard_history_from_image` 入库时落盘为 `{id}_thumb.png`；存量行在 `transform_image_path_for_frontend` 里用已有的 low-res blob 惰性补齐缩略图文件（一次性迁移），blob 保留在库中供 items 流程（`create_item` / `update_item_value_by_history_id`）继续使用。列表负载不再携带 `image_data_url` / `image_data_low_res`，新增 `image_thumb_path` 字段；两个历史行组件改用它经 `convertFileSrc` 渲染，并包了 `memo`（自定义比较器：`style` 按值比较、事件回调视为相等，见 `row-props-equal.ts`）。`get_clipboard_history` 等四个查询命令改为 `async`，不再阻塞主线程。两个页面的 `setRowHeight` 只在高度真实变化时才 `resetAfterIndex`（QuickPaste 原来每次都从第 0 行全量重置）。所有删除路径（单条、按时段、清空、选择性清空）通过 `delete_history_image_files` 一并删除缩略图，顺带修正了删除时不展开 `{{base_folder}}` 占位符导致文件残留的问题。`create_item` 在 `history_id` 存在且负载缺 data URL 时从 blob 现场派生，复制到看板/菜单的链路行为不变。**行为变更：允许（BUG）。**
+
+### ISSUE-046 · Linux builds never compiled: the release pipeline exposed 27 errors in the main crate
+
+`ID | ISSUE-046`
+`位置 | the linux-only code paths of src-tauri/src (tauri command macros, paste simulation, menu construction); src-tauri/libs/mid-hardware-id/src/linux.rs:8; src-tauri/libs (wry 0.24.11 glob imports)`
+`类型 | BUG`
+`风险等级 | P2`
+`影响范围 | The ubuntu-22.04 release leg and any local Linux build; no shipped artifact is affected (macOS and Windows builds are unchanged).`
+`现象与依据 |` Setting up the tag-triggered Release pipeline (D-010 era) added an ubuntu-22.04 leg, which compiled the Linux target for the first time and failed four times in a row, each round surfacing the next layer: (1) `libudev-sys` could not find `libudev` (fixed by installing `libudev-dev`); (2) `wry` 0.24.11 failed with seven E0599 "trait `SettingsExt` ... not in scope" — its webkitgtk module imports traits via a glob that does not resolve; upstream fixed it in wry 0.24.12 by importing each trait explicitly (bumped in the lockfile, verified by cross-checking the linux target locally); (3) `mid-hardware-id` imported `crate::utils::run_shell_comand`, which was never written (implemented in the vendored lib, cfg-gated to Linux); (4) the main crate itself fails with 27 errors on Linux: missing `__cmd__*` tauri command shims under linux cfg, `cursor_x_scale`/`cursor_y_scale` undefined in linux branches, `KeybdKey::press_enter`/`press_tab` missing from the vendored inputbotlinux, `get_image_safe` missing, and menu construction returning the wrong types. AGENTS.md has documented "macOS + Windows only" all along — the Linux leg was inherited from the release template, not a project capability.
+`建议方案 |` Treat Linux as a porting project, not a CI fix: implement the missing linux command shims and paste/image-capture paths, extend inputbotlinux with the missing KeybdKey methods, fix menu construction types, then add the ubuntu-22.04 leg back to release.yml and keep it green. Until then the Release matrix ships macOS (aarch64/x86_64) and Windows only.
+`行为变更 | 无（记录）`
+`所属阶段 | 未排期`
+
+`状态 | ⬜ 未开始`

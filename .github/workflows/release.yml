@@ -1,5 +1,5 @@
 name: Release
-# 触发：推送 v 开头的 tag（如 v0.7.18）→ guard 校验版本并预建 Release → 四平台构建并上传产物。
+# 触发：推送 v 开头的 tag（如 v0.7.18）→ guard 校验版本并预建 Release → 三平台构建并上传产物。
 # 模板来自 calcbook 已验证的 release.yml，按本项目实际适配的差异：
 # - 包管理器 pnpm（版本取自 package.json 的 packageManager 字段），node 24。
 # - Tauri 1.x：Linux 依赖是 libwebkit2gtk-4.0-dev（ubuntu-22.04 的包名；Tauri 2.x 才是 4.1）。
@@ -7,6 +7,10 @@ name: Release
 # - 用 src-tauri/tauri.ci.conf.json 把 bundle.targets 收窄为 app/dmg/nsis/appimage：
 #   本仓库没有 updater 的签名私钥（TAURI_PRIVATE_KEY），targets 里留 updater 会让
 #   macOS 构建在打更新包这一步直接失败。拿到私钥后配置 secret 并把 updater 加回 targets。
+# - 没有 Linux 构建腿：本项目的 Linux 支持从未完成（AGENTS.md「macOS + Windows only」），
+#   主 crate 在 linux 目标下有 27 个编译错误（tauri 命令宏缺失、inputbotlinux 缺
+#   KeybdKey::press_enter/press_tab、get_image_safe 缺失、菜单构建类型不匹配等），
+#   见 ISSUE-046。恢复 Linux 构建需要先完成移植，再在矩阵里加回 ubuntu-22.04 一行。
 on:
   push:
     tags: ['v*']
@@ -49,9 +53,6 @@ jobs:
             rust-targets: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
           - platform: windows-latest
-            rust-targets: ''
-            args: ''
-          - platform: ubuntu-22.04
             rust-targets: ''
             args: ''
     runs-on: ${{ matrix.platform }}
