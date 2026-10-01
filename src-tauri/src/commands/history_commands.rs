@@ -11,12 +11,15 @@ use std::io::Write;
 use std::sync::Mutex;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 
+// Async so the query, thumbnail resolution and JSON serialization run on Tauri's async
+// runtime instead of blocking the main thread — this command used to freeze the UI when
+// the history contained many images.
 #[tauri::command]
-pub fn get_clipboard_history(
-  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
+pub async fn get_clipboard_history(
+  app_settings: tauri::State<'_, Mutex<HashMap<String, Setting>>>,
   limit: Option<i64>,
   offset: Option<i64>,
-) -> Vec<ClipboardHistoryWithMetaData> {
+) -> Result<Vec<ClipboardHistoryWithMetaData>, ()> {
   let mut auto_mask_words_list = Vec::new();
 
   {
@@ -39,8 +42,10 @@ pub fn get_clipboard_history(
     }
   }
 
-  history_service::get_clipboard_histories(limit, offset, auto_mask_words_list)
-    .unwrap_or_else(|_| Vec::new())
+  Ok(
+    history_service::get_clipboard_histories(limit, offset, auto_mask_words_list)
+      .unwrap_or_else(|_| Vec::new()),
+  )
 }
 
 #[tauri::command]
@@ -54,22 +59,24 @@ pub fn delete_clipboard_history_by_ids(history_ids: Vec<String>) -> String {
 }
 
 #[tauri::command]
-pub fn find_clipboard_histories_by_value_or_filters(
+pub async fn find_clipboard_histories_by_value_or_filters(
   query: String,
   filters: Vec<String>,
   code_filters: Vec<String>,
   app_filters: Vec<String>,
-  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
-) -> Vec<ClipboardHistoryWithMetaData> {
-  history_service::find_clipboard_histories_by_value_or_filter(
-    &query,
-    &filters,
-    &code_filters,
-    &app_filters,
-    100,
-    app_settings,
+  app_settings: tauri::State<'_, Mutex<HashMap<String, Setting>>>,
+) -> Result<Vec<ClipboardHistoryWithMetaData>, ()> {
+  Ok(
+    history_service::find_clipboard_histories_by_value_or_filter(
+      &query,
+      &filters,
+      &code_filters,
+      &app_filters,
+      100,
+      app_settings,
+    )
+    .unwrap_or_else(|_| Vec::new()),
   )
-  .unwrap_or_else(|_| Vec::new())
 }
 
 #[tauri::command]
@@ -81,23 +88,25 @@ pub async fn get_history_items_source_apps() -> Result<Vec<Option<String>>, Stri
 }
 
 #[tauri::command]
-pub fn search_clipboard_histories_by_value_or_filters(
+pub async fn search_clipboard_histories_by_value_or_filters(
   query: String,
   filters: Vec<String>,
-  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
-) -> Vec<ClipboardHistoryWithMetaData> {
+  app_settings: tauri::State<'_, Mutex<HashMap<String, Setting>>>,
+) -> Result<Vec<ClipboardHistoryWithMetaData>, ()> {
   let code_filters = Vec::new();
   let app_filters = Vec::new();
 
-  history_service::find_clipboard_histories_by_value_or_filter(
-    &query,
-    &filters,
-    &code_filters,
-    &app_filters,
-    300,
-    app_settings,
+  Ok(
+    history_service::find_clipboard_histories_by_value_or_filter(
+      &query,
+      &filters,
+      &code_filters,
+      &app_filters,
+      300,
+      app_settings,
+    )
+    .unwrap_or_else(|_| Vec::new()),
   )
-  .unwrap_or_else(|_| Vec::new())
 }
 
 /// Returns the most recent history rows.
@@ -113,9 +122,9 @@ pub fn get_recent_clipboard_histories(limit: i64) -> Result<Vec<ClipboardHistory
 }
 
 #[tauri::command]
-pub fn get_clipboard_history_pinned(
-  app_settings: tauri::State<Mutex<HashMap<String, Setting>>>,
-) -> Vec<ClipboardHistoryWithMetaData> {
+pub async fn get_clipboard_history_pinned(
+  app_settings: tauri::State<'_, Mutex<HashMap<String, Setting>>>,
+) -> Result<Vec<ClipboardHistoryWithMetaData>, ()> {
   let mut auto_mask_words_list = Vec::new();
 
   {
@@ -138,8 +147,10 @@ pub fn get_clipboard_history_pinned(
     }
   }
 
-  history_service::get_pinned_clipboard_histories(auto_mask_words_list)
-    .unwrap_or_else(|_| Vec::new())
+  Ok(
+    history_service::get_pinned_clipboard_histories(auto_mask_words_list)
+      .unwrap_or_else(|_| Vec::new()),
+  )
 }
 
 #[tauri::command]

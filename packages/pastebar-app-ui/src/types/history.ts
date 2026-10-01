@@ -31,6 +31,7 @@ export type ClipboardHistoryItem = {
   isImage: boolean
   imageDataUrl: string | null
   imagePathFullRes: string | null
+  imageThumbPath: string | null
   imageHeight: number
   imageWidth: number
   imagePreviewHeight: number

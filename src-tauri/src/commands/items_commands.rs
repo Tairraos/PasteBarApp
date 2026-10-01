@@ -322,9 +322,21 @@ pub fn link_clip_to_menu_item(
 
 #[tauri::command]
 pub fn create_item(item: CreateItem) -> String {
+  // History list payloads no longer carry a base64 thumbnail, so when an item is created
+  // from a history image the data URL is derived from the history blob here, at copy time.
+  let mut resolved_image_data_url = item.image_data_url.clone();
+
   let value = match &item.history_id {
     Some(history_id) => {
       if let Some(h_item) = history_service::get_clipboard_history_by_id(history_id) {
+        if resolved_image_data_url.is_none() && h_item.is_image == Some(true) {
+          if let Some(_image_data_low_res) = &h_item.image_data_low_res {
+            let base64_encoded: String =
+              general_purpose::STANDARD_NO_PAD.encode(_image_data_low_res);
+            resolved_image_data_url = Some(format!("data:image/png;base64,{}", base64_encoded));
+          }
+        }
+
         let masked_value = if item.is_masked == Some(true) && h_item.value.is_some() {
           format!("[mask]{}[/mask]", h_item.value.unwrap())
         } else {
@@ -387,7 +399,7 @@ pub fn create_item(item: CreateItem) -> String {
     request_options: None,
     form_template_options: None,
     has_masked_words: Some(item.has_masked_words.unwrap_or(false)),
-    image_data_url: item.image_data_url,
+    image_data_url: resolved_image_data_url,
     image_path_full_res: new_item_image_path_full_res,
     image_height: item.image_height,
     image_width: item.image_width,

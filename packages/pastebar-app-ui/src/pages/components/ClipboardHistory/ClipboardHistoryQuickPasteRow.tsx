@@ -1,6 +1,7 @@
 import {
   CSSProperties,
   Dispatch,
+  memo,
   SetStateAction,
   useEffect,
   useLayoutEffect,
@@ -8,6 +9,7 @@ import {
   useRef,
 } from 'react'
 import { UniqueIdentifier, useDraggable } from '@dnd-kit/core'
+import { convertFileSrc } from '@tauri-apps/api/tauri'
 import NoWrapIcon from '~/assets/icons/nowrap'
 import WrapIcon from '~/assets/icons/wrap'
 import { MINUTE_IN_MS } from '~/constants'
@@ -38,6 +40,7 @@ import {
   hyperlinkText,
   hyperlinkTextWithPreview,
 } from '../helpers'
+import { areHistoryRowPropsEqual } from './row-props-equal'
 
 interface ClipboardHistoryQuickPasteRowProps {
   index?: number
@@ -182,7 +185,7 @@ export function ClipboardHistoryQuickPasteRowComponent({
     data: {
       isPinned: isPinnedTop,
     },
-    id: isPinnedTop ? `${clipboard?.historyId}::pinned` : clipboard?.historyId ?? 'id',
+    id: isPinnedTop ? `${clipboard?.historyId}::pinned` : (clipboard?.historyId ?? 'id'),
   })
 
   useLayoutEffect(() => {
@@ -560,10 +563,13 @@ export function ClipboardHistoryQuickPasteRowComponent({
                       : hyperlinkText(textValue, clipboard.arrLinks)}
                   </code>
                 </Box>
-              ) : clipboard.isImage && clipboard.imageDataUrl ? (
+              ) : clipboard.isImage &&
+                (clipboard.imageThumbPath || clipboard.imagePathFullRes) ? (
                 <Box className="px-0 py-1.5 flex items-center justify-center w-full">
                   <img
-                    src={clipboard.imageDataUrl}
+                    src={convertFileSrc(
+                      clipboard.imageThumbPath ?? clipboard.imagePathFullRes ?? ''
+                    )}
                     draggable={false}
                     decoding="async"
                     height={clipboard.imageHeight}
@@ -899,4 +905,7 @@ export function ClipboardHistoryQuickPasteRowComponent({
   )
 }
 
-export const ClipboardHistoryQuickPasteRow = ClipboardHistoryQuickPasteRowComponent
+export const ClipboardHistoryQuickPasteRow = memo(
+  ClipboardHistoryQuickPasteRowComponent,
+  areHistoryRowPropsEqual
+)

@@ -1,6 +1,7 @@
 import {
   CSSProperties,
   Dispatch,
+  memo,
   SetStateAction,
   useEffect,
   useLayoutEffect,
@@ -8,6 +9,7 @@ import {
   useRef,
 } from 'react'
 import { UniqueIdentifier, useDraggable } from '@dnd-kit/core'
+import { convertFileSrc } from '@tauri-apps/api/tauri'
 import NoWrapIcon from '~/assets/icons/nowrap'
 import WrapIcon from '~/assets/icons/wrap'
 import { MINUTE_IN_MS } from '~/constants'
@@ -57,6 +59,7 @@ import {
   hyperlinkTextWithPreview,
 } from '../helpers'
 import ContextMenuTrigger from './context-menu/ContextMenuTrigger'
+import { areHistoryRowPropsEqual } from './row-props-equal'
 
 interface ClipboardHistoryRowProps {
   index?: number
@@ -218,7 +221,7 @@ export function ClipboardHistoryRowComponent({
     data: {
       isPinned: isPinnedTop,
     },
-    id: isPinnedTop ? `${clipboard?.historyId}::pinned` : clipboard?.historyId ?? 'id',
+    id: isPinnedTop ? `${clipboard?.historyId}::pinned` : (clipboard?.historyId ?? 'id'),
   })
 
   useLayoutEffect(() => {
@@ -762,10 +765,13 @@ export function ClipboardHistoryRowComponent({
                         : hyperlinkText(stringValue, clipboard.arrLinks)}
                     </code>
                   </Box>
-                ) : clipboard.isImage && clipboard.imageDataUrl ? (
+                ) : clipboard.isImage &&
+                  (clipboard.imageThumbPath || clipboard.imagePathFullRes) ? (
                   <Box className="px-0 py-1.5 flex items-center justify-center w-full">
                     <img
-                      src={clipboard.imageDataUrl}
+                      src={convertFileSrc(
+                        clipboard.imageThumbPath ?? clipboard.imagePathFullRes ?? ''
+                      )}
                       draggable={false}
                       decoding="async"
                       height={clipboard.imageHeight}
@@ -1269,4 +1275,7 @@ export function ClipboardHistoryRowComponent({
   )
 }
 
-export const ClipboardHistoryRow = ClipboardHistoryRowComponent
+export const ClipboardHistoryRow = memo(
+  ClipboardHistoryRowComponent,
+  areHistoryRowPropsEqual
+)

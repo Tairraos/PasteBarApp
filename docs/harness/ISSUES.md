@@ -567,7 +567,7 @@ The upgrade is a genuine major break in two independent ways, both of which were
   `建议方案 |` Delete the confirmed-dead set in a wave of its own (pure deletions, verified by a build and the test suite). Investigate the three dead stores — each may be a real defect rather than cleanup, since a computed-then-discarded value is what a missing assignment looks like. Do not delete the `clipboard` methods without checking call sites first: the compiler's "never used" here is a false positive, and this entry exists partly to stop someone acting on it.
   `行为变更 | 有（删除死代码；另修复两个被丢弃的 Result，见下） |
 `状态 | ✅ 已修复 — 15 项全部处置；其中 1 项由本条目误判，另发现 2 个真实缺陷`
-  `修复说明 |` Every item was resolved, and the entry's own classification turned out to be wrong
+`修复说明 |` Every item was resolved, and the entry's own classification turned out to be wrong
   in two places — which is the useful part.
 
 **The "confirmed dead, safe to delete" list was not all safe.** `db::try_pool_db_connection`
@@ -852,3 +852,18 @@ command was already rewritten to propagate, so this is a signature change and tw
 `行为变更 | 无（记录） |
 `状态 | ⬜ 未开始`
   `所属阶段 | 未排期`
+
+### ISSUE-045 · Image thumbnails shipped as base64 over IPC froze the history list
+
+`ID | ISSUE-045`
+`位置 | src-tauri/src/services/history_service.rs:194 (transform_image_path_for_frontend), src-tauri/src/services/history_service.rs:225 (thumbnail_path_for), src-tauri/src/services/history_service.rs:240 (delete_history_image_files), src-tauri/src/commands/history_commands.rs:18 (get_clipboard_history), packages/pastebar-app-ui/src/pages/components/ClipboardHistory/ClipboardHistoryRow.tsx:773, packages/pastebar-app-ui/src/pages/main/ClipboardHistoryPage.tsx:1722`
+`类型 | BUG`
+`风险等级 | P1`
+`影响范围 | Clipboard history list in all three windows (main, history, QuickPaste); every list query, every clipboard-update invalidation; memory growth on long scrolls`
+`现象与依据 |` Every list query base64-encoded each row's low-res image blob into `image_data_url` inside `process_history_item`, so a 50-row page could carry tens of MB of JSON. The command was synchronous, so encoding + serialization ran on Tauri's main thread and froze the UI; the webview then had to base64-decode + PNG-decode every row, and React Query's infinite-query cache retained all loaded pages' base64 strings, so memory grew without bound while scrolling. The rows were not memoized, and each image `onLoad` called `resetAfterIndex`, cascading a re-layout of every following row as images loaded one by one. Same family as ISSUE-023 (`value` crossing IPC in full on every query).
+`建议方案 |` Persist the 400px thumbnail as a file next to the full-resolution image, return its path (`image_thumb_path`) from list queries, and render it in the rows through the asset protocol (`convertFileSrc`); make the list commands `async`; memoize the row components; only call `resetAfterIndex` when a measured height actually changes.
+`行为变更 | BUG（允许）`
+`所属阶段 | 1 记录 → 4 → 5.4`
+
+`状态 | ✅ 已修复`
+`修复说明 |` 缩略图在 `add_clipboard_history_from_image` 入库时落盘为 `{id}_thumb.png`；存量行在 `transform_image_path_for_frontend` 里用已有的 low-res blob 惰性补齐缩略图文件（一次性迁移），blob 保留在库中供 items 流程（`create_item` / `update_item_value_by_history_id`）继续使用。列表负载不再携带 `image_data_url` / `image_data_low_res`，新增 `image_thumb_path` 字段；两个历史行组件改用它经 `convertFileSrc` 渲染，并包了 `memo`（自定义比较器：`style` 按值比较、事件回调视为相等，见 `row-props-equal.ts`）。`get_clipboard_history` 等四个查询命令改为 `async`，不再阻塞主线程。两个页面的 `setRowHeight` 只在高度真实变化时才 `resetAfterIndex`（QuickPaste 原来每次都从第 0 行全量重置）。所有删除路径（单条、按时段、清空、选择性清空）通过 `delete_history_image_files` 一并删除缩略图，顺带修正了删除时不展开 `{{base_folder}}` 占位符导致文件残留的问题。`create_item` 在 `history_id` 存在且负载缺 data URL 时从 blob 现场派生，复制到看板/菜单的链路行为不变。**行为变更：允许（BUG）。**

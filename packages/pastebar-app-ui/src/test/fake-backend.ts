@@ -237,6 +237,7 @@ export function makeHistoryItem(
     isImage: false,
     imageDataUrl: null,
     imagePathFullRes: null,
+    imageThumbPath: null,
     imageHeight: 0,
     imageWidth: 0,
     imagePreviewHeight: 0,

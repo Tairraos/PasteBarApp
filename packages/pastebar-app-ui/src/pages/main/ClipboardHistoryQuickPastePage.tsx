@@ -438,9 +438,16 @@ export default function ClipboardHistoryQuickPastePage() {
   }
 
   function setRowHeight(index: number, size: number) {
-    // @ts-expect-error - resetAfterIndex is not in the types
-    listRef.current?.resetAfterIndex && listRef.current?.resetAfterIndex(0)
+    // ISSUE-045: only invalidate the list layout when the measured height actually
+    // changed, and only from the changed row — the previous version reset the cache from
+    // row 0 on every call, so a batch of asynchronously loading images re-laid-out the
+    // whole list.
+    if (rowHeights.current[index] === size) {
+      return
+    }
     rowHeights.current = { ...rowHeights.current, [index]: size }
+    // @ts-expect-error - resetAfterIndex is not in the types
+    listRef.current?.resetAfterIndex && listRef.current?.resetAfterIndex(index)
   }
 
   const setBrokenImageItem = useCallback(

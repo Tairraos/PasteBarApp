@@ -14,7 +14,6 @@ use linkify::LinkFinder;
 use regex::Regex;
 use serde_json::to_string;
 
-use base64::{engine::general_purpose, Engine as _};
 use chrono::{Duration, NaiveDateTime, Utc};
 use std::{collections::HashMap, sync::Mutex};
 
@@ -40,8 +39,8 @@ use crate::schema::link_metadata::dsl::link_metadata as link_metadata_dsl;
 use img_hash::{HasherConfig, ImageHash};
 
 use crate::services::utils::{
-  debug_output, delete_file_and_maybe_parent, has_emoji, has_valid_tld, is_base64_image,
-  is_image_url, is_youtube_url, mask_value, remove_dir_if_exists,
+  debug_output, has_emoji, has_valid_tld, is_base64_image, is_image_url, is_youtube_url,
+  mask_value, remove_dir_if_exists,
 };
 
 type ImageHashSize = [u8; 8];
@@ -107,6 +106,9 @@ pub struct ClipboardHistoryWithMetaData {
   pub value_hash: Option<String>,
   pub is_image: Option<bool>,
   pub image_path_full_res: Option<String>,
+  /// Absolute path of the on-disk thumbnail file, derived from `image_path_full_res`.
+  /// The list views render this via the asset protocol instead of a base64 data URL.
+  pub image_thumb_path: Option<String>,
   pub image_data_low_res: Option<Vec<u8>>,
   pub image_preview_height: Option<i32>,
   pub image_height: Option<i32>,
@@ -150,6 +152,7 @@ impl ClipboardHistoryWithMetaData {
       value_hash: history.value_hash,
       is_image: history.is_image,
       image_path_full_res: history.image_path_full_res,
+      image_thumb_path: None,
       image_data_low_res: history.image_data_low_res,
       image_preview_height: history.image_preview_height,
       image_height: history.image_height,
@@ -182,10 +185,79 @@ impl ClipboardHistoryWithMetaData {
     history_with_metadata
   }
 
-  /// Transforms the image_path_full_res field from relative to absolute path for frontend consumption
+  /// Transforms the image_path_full_res field from relative to absolute path for frontend consumption.
+  ///
+  /// ISSUE-045. Also resolves the on-disk thumbnail path and strips the heavy image
+  /// payloads (`image_data_low_res` blob, base64 `image_data_url`) so list queries never
+  /// serialize them over IPC. For rows written before thumbnails lived on disk, the
+  /// thumbnail file is created lazily from the stored low-res blob — a one-time migration
+  /// per image.
   pub fn transform_image_path_for_frontend(&mut self) {
     if let Some(ref mut path) = self.image_path_full_res {
       *path = crate::db::to_absolute_image_path(path);
+
+      let thumb_path = thumbnail_path_for(Path::new(path));
+      if !thumb_path.exists() {
+        if let Some(blob) = &self.image_data_low_res {
+          // One-time lazy migration: the blob already is the 400px PNG thumbnail.
+          if let Err(e) = fs::write(&thumb_path, blob) {
+            eprintln!(
+              "Error writing thumbnail file {}: {}",
+              thumb_path.display(),
+              e
+            );
+          }
+        }
+      }
+      if thumb_path.exists() {
+        self.image_thumb_path = Some(thumb_path.to_string_lossy().into_owned());
+      }
+    }
+
+    // Never ship the blob or a base64 data URL over IPC in list payloads; the frontend
+    // renders `image_thumb_path` / `image_path_full_res` through the asset protocol.
+    self.image_data_low_res = None;
+    self.image_data_url = None;
+  }
+}
+
+/// Derives the thumbnail file path for a full-resolution image path:
+/// `/dir/abc123.png` -> `/dir/abc123_thumb.png`.
+pub fn thumbnail_path_for(image_path: &Path) -> PathBuf {
+  let stem = image_path
+    .file_stem()
+    .map(|s| s.to_string_lossy().into_owned())
+    .unwrap_or_default();
+  let extension = image_path
+    .extension()
+    .map(|s| s.to_string_lossy().into_owned())
+    .unwrap_or_else(|| "png".to_string());
+  image_path.with_file_name(format!("{}_thumb.{}", stem, extension))
+}
+
+/// Deletes the full-resolution image file and its thumbnail for a history item, then
+/// removes the parent folder if it is left empty. Accepts either the stored
+/// `{{base_folder}}`-relative form or an absolute path.
+fn delete_history_image_files(stored_image_path: &str) {
+  let absolute = crate::db::to_absolute_image_path(stored_image_path);
+  let full_path = PathBuf::from(&absolute);
+  let thumb_path = thumbnail_path_for(&full_path);
+
+  for path in [&full_path, &thumb_path] {
+    if path.exists() {
+      if let Err(e) = fs::remove_file(path) {
+        eprintln!("Error deleting image file {}: {}", path.display(), e);
+      }
+    }
+  }
+
+  if let Some(parent) = full_path.parent() {
+    let is_empty = parent
+      .read_dir()
+      .map(|mut entries| entries.next().is_none())
+      .unwrap_or(false);
+    if is_empty {
+      let _ = fs::remove_dir(parent);
     }
   }
 }
@@ -281,6 +353,17 @@ pub fn add_clipboard_history_from_image(
 
     let image_file_name = folder_path.join(format!("{}.png", &_history_id));
     let _ = image.save(&image_file_name);
+
+    // Persist the 400px thumbnail alongside the full-resolution image so list views can
+    // render it through the asset protocol instead of a base64 payload over IPC.
+    let thumb_file_name = thumbnail_path_for(&image_file_name);
+    if let Err(e) = fs::write(&thumb_file_name, &_image_data_low_res) {
+      eprintln!(
+        "Error writing thumbnail file {}: {}",
+        thumb_file_name.display(),
+        e
+      );
+    }
 
     // Convert absolute path to relative path before storing
     let relative_image_path = image_file_name
@@ -669,9 +752,7 @@ pub fn delete_clipboard_history_older_than(
 
   for item in image_items_to_delete.iter() {
     if let Some(ref path) = item.image_path_full_res {
-      if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
-        eprintln!("Error deleting image file {}: {}", path, e);
-      }
+      delete_history_image_files(path);
     }
   }
 
@@ -764,9 +845,7 @@ pub fn delete_recent_clipboard_history(
 
   for item in image_items {
     if let Some(ref path) = item.image_path_full_res {
-      if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
-        eprintln!("Error deleting image file {}: {}", path, e);
-      }
+      delete_history_image_files(path);
     }
   }
 
@@ -848,9 +927,7 @@ pub fn delete_all_clipboard_histories(keep_pinned: bool, keep_starred: bool) -> 
     for item in items_to_delete.iter() {
       if item.is_image == Some(true) {
         if let Some(ref path) = item.image_path_full_res {
-          if let Err(e) = delete_file_and_maybe_parent(Path::new(path)) {
-            eprintln!("Error deleting image file {}: {}", path, e);
-          }
+          delete_history_image_files(path);
         }
       }
     }
@@ -891,10 +968,7 @@ pub fn delete_clipboard_history_by_ids(history_ids_value: &[String]) -> String {
 
   for item in image_items_to_delete.iter() {
     if let Some(ref path) = item.image_path_full_res {
-      match delete_file_and_maybe_parent(Path::new(path)) {
-        Ok(_) => println!("Successfully deleted image file: {}", path),
-        Err(e) => eprintln!("Error deleting image file {}: {}", path, e),
-      }
+      delete_history_image_files(path);
     }
   }
 
@@ -1342,11 +1416,7 @@ fn process_history_item(
     }
   });
 
-  if history_item.is_image == Some(true) {
-    if let Some(_image_data_low_res) = &history_item.image_data_low_res {
-      let base64_encoded: String = general_purpose::STANDARD_NO_PAD.encode(_image_data_low_res);
-      history_item.image_data_low_res = None;
-      history_item.image_data_url = Some(format!("data:image/png;base64,{}", base64_encoded));
-    }
-  }
+  // NOTE: image thumbnails are no longer base64-encoded here. The on-disk thumbnail path
+  // is resolved and the heavy image payloads are stripped in
+  // `transform_image_path_for_frontend`, which every list query runs before returning.
 }

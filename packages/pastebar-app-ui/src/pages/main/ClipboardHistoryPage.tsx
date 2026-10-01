@@ -347,7 +347,7 @@ export default function ClipboardHistoryPage() {
       if (keyboardSelectedItemId.value) {
         // Calculate next selection before deletion
         const currentIndex = keyboardSelectedItemId.value
-          ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+          ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
           : -1
         let nextSelectedId: UniqueIdentifier | null = null
         if (currentIndex !== -1) {
@@ -813,7 +813,7 @@ export default function ClipboardHistoryPage() {
 
           setSelectHistoryItem(keyboardSelectedItemId.value)
           const currentItemIndex = keyboardSelectedItemId.value
-            ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+            ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
             : -1
           const nextItem = clipboardHistory[currentItemIndex + 1]
           if (nextItem) {
@@ -1021,7 +1021,7 @@ export default function ClipboardHistoryPage() {
         currentNavigationContext.value === null
       ) {
         const currentItemIndex = keyboardSelectedItemId.value
-          ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+          ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
           : -1
         const nextItem = clipboardHistory[currentItemIndex + 1]
         if (nextItem) {
@@ -1155,7 +1155,7 @@ export default function ClipboardHistoryPage() {
         currentNavigationContext.value === null
       ) {
         const currentItemIndex = keyboardSelectedItemId.value
-          ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+          ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
           : -1
         const prevItem = clipboardHistory[currentItemIndex - 1]
         if (prevItem) {
@@ -1361,7 +1361,7 @@ export default function ClipboardHistoryPage() {
       ) {
         // Move up by 5 items in history
         const currentIndex = keyboardSelectedItemId.value
-          ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+          ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
           : -1
         const newIndex = Math.max(0, currentIndex - 5)
         if (clipboardHistory[newIndex]) {
@@ -1412,7 +1412,7 @@ export default function ClipboardHistoryPage() {
       ) {
         // Move down by 5 items in history
         const currentIndex = keyboardSelectedItemId.value
-          ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+          ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
           : -1
         const newIndex = Math.min(clipboardHistory.length - 1, currentIndex + 5)
         if (clipboardHistory[newIndex]) {
@@ -1606,7 +1606,7 @@ export default function ClipboardHistoryPage() {
   useEffect(() => {
     if (keyboardSelectedItemId.value && listRef.current) {
       const selectedIndex = keyboardSelectedItemId.value
-        ? historyIndexMap.get(keyboardSelectedItemId.value) ?? -1
+        ? (historyIndexMap.get(keyboardSelectedItemId.value) ?? -1)
         : -1
       if (selectedIndex !== -1) {
         // @ts-expect-error - scrollToItem is not in the types
@@ -1715,6 +1715,13 @@ export default function ClipboardHistoryPage() {
   }
 
   function setRowHeight(index: number, size: number) {
+    // ISSUE-045: resetAfterIndex clears the size cache for every row after `index` and
+    // re-renders them, so only pay that cost when the measured height actually changed —
+    // image rows report their height asynchronously on load and used to cascade resets
+    // through the whole list.
+    if (rowHeightCache.current.get(index) === size) {
+      return
+    }
     rowHeightCache.current.set(index, size)
     // @ts-expect-error - resetAfterIndex is not in the types
     listRef.current?.resetAfterIndex?.(index)
