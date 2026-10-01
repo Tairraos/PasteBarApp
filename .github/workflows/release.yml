@@ -76,7 +76,7 @@ jobs:
             libwebkit2gtk-4.0-dev libgtk-3-dev build-essential curl wget file pkg-config \
             libssl-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libx11-dev libxtst-dev libsecret-1-dev libdbus-1-dev \
-            patchelf libfuse2
+            libudev-dev patchelf libfuse2
       - run: pnpm install --frozen-lockfile
       - name: 构建安装包
         id: build
