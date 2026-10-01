@@ -670,7 +670,8 @@ fn return_attribute_value_or_text(
 ) -> Option<String> {
   if let Some(attr_name) = return_attribute {
     if !attr_name.trim().is_empty() {
-      if let Some(attr_value) = element.value().attr(attr_name) {
+      {
+        let attr_value = element.value().attr(attr_name)?;
         if let Some(ref attr_text) = return_attribute_text {
           let attr_value_lower = attr_value.to_lowercase();
           let attr_text_lower = attr_text.to_lowercase();
@@ -683,8 +684,6 @@ fn return_attribute_value_or_text(
         } else {
           return Some(attr_value.to_string());
         }
-      } else {
-        return None;
       }
     }
     if !text.is_empty() {

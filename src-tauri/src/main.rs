@@ -167,10 +167,7 @@ async fn main() {
 
           if let Some(item) = item_opt {
             debug_output(|| {
-              println!(
-                "Found item in db_items_state with value: {:?} ",
-                &item.value
-              );
+              println!("Found item in db_items_state with value: {:?} ", item.value);
             });
 
             let mut manager = app.clipboard_manager();
@@ -656,7 +653,7 @@ async fn main() {
 
       tauri_plugin_deep_link::register("pastebar", move |request| {
         debug_output(|| {
-          println!("scheme request received: {:?}", &request);
+          println!("scheme request received: {:?}", request);
         });
         if request.starts_with("pastebar://") {
           w.show().unwrap();

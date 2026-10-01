@@ -431,7 +431,7 @@ fn create_recent_history_items(
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+
   use std::str::FromStr;
 
   /// Every shortcut the tray can be asked to render must be one the accelerator parser

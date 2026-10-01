@@ -781,7 +781,7 @@ pub fn save_item_image_from_history_item(
   let folder_path = db::get_clip_images_dir().join(folder_name);
   ensure_dir_exists(&folder_path);
 
-  let clip_image_file_name = folder_path.join(format!("{}.png", &item_id));
+  let clip_image_file_name = folder_path.join(format!("{}.png", item_id));
 
   let image_data = fs::read(history_image_path).map_err(|e| {
     debug_output(|| {

@@ -114,7 +114,7 @@ pub fn init(app: &mut tauri::App) {
     );
 
     #[cfg(debug_assertions)]
-    println!("Local App dev path is {}", &local_dev_path.display());
+    println!("Local App dev path is {}", local_dev_path.display());
   }
 
   ensure_dir_exists(&tauri::api::path::app_data_dir(&config).unwrap()); // canonicalize will work only if path exists

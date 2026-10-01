@@ -351,7 +351,7 @@ pub fn add_clipboard_history_from_image(
     let folder_path = base_dir.join(folder_name);
     ensure_dir_exists(&folder_path);
 
-    let image_file_name = folder_path.join(format!("{}.png", &_history_id));
+    let image_file_name = folder_path.join(format!("{}.png", _history_id));
     let _ = image.save(&image_file_name);
 
     // Persist the 400px thumbnail alongside the full-resolution image so list views can
@@ -633,7 +633,7 @@ pub fn add_clipboard_history_from_text(
       image_hash: None,
       is_image_data: Some(_is_image_data),
       is_masked: None,
-      links: Some(found_links_json).filter(|_| _is_link),
+      links: _is_link.then_some(found_links_json),
       detected_language: detected_language_str,
       pinned_order_number: None,
       created_at: Utc::now().timestamp_millis(),

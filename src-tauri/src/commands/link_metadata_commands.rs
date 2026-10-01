@@ -430,34 +430,28 @@ fn extract_metadata(html: &str, domain: &str) -> Result<Metadata, String> {
     .select(&title_selector)
     .next()
     .map(|e| e.inner_html())
-    .and_then(|s| if s.trim().is_empty() { None } else { Some(s) });
+    .filter(|s| !s.trim().is_empty());
 
   let og_title = document
     .select(&og_title_selector)
     .next()
     .and_then(|e| e.value().attr("content").map(String::from))
-    .and_then(|s| if s.trim().is_empty() { None } else { Some(s) });
+    .filter(|s| !s.trim().is_empty());
 
   let description = document
     .select(&description_selector)
     .next()
     .and_then(|e| e.value().attr("content").map(String::from))
-    .and_then(|s| if s.trim().is_empty() { None } else { Some(s) });
+    .filter(|s| !s.trim().is_empty());
 
   let extract_image = |selector: &Selector, attr: &str| {
     document
       .select(selector)
       .next()
       .and_then(|e| e.value().attr(attr).map(String::from))
-      .and_then(|s| if s.trim().is_empty() { None } else { Some(s) })
+      .filter(|s| !s.trim().is_empty())
       .map(|s| fix_image_url(&s, domain))
-      .and_then(|s| {
-        if is_valid_image_url(&s) {
-          Some(s)
-        } else {
-          None
-        }
-      })
+      .filter(|s| is_valid_image_url(s))
   };
 
   let og_image = extract_image(&og_image_selector, "content");
