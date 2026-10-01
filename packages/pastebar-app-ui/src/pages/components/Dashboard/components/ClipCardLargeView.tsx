@@ -51,9 +51,13 @@ export function ClipCardLargeView({
   const [timeAgoCreated, timeAgoUpdated] = useMemo(() => {
     return [
       clip?.createdAt &&
-        timeAgoInstance().format(clip.createdAt ?? 0, { round: 'floor' }),
+        timeAgoInstance().format(clip.createdAt ?? 0, undefined, {
+          round: 'floor',
+        }),
       clip?.updatedAt &&
-        timeAgoInstance().format(clip.updatedAt ?? 0, { round: 'floor' }),
+        timeAgoInstance().format(clip.updatedAt ?? 0, undefined, {
+          round: 'floor',
+        }),
     ]
   }, [clip])
 

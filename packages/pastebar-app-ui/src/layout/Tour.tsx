@@ -63,11 +63,11 @@ const Tour = ({
       return
     }
     resetBoarding()
-    const stepsTranslation: BoardingSteps = t(tourName, {
+    const stepsTranslation = t(tourName, {
       returnObjects: true,
       defaultValue: [],
       ns: 'tours',
-    })
+    }) as BoardingSteps
 
     const stepTours = !element
       ? stepsTranslation

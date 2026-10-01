@@ -26,10 +26,6 @@ for arg in "$@"; do
   esac
 done
 
-# npm on this machine picks up a global ~/.npmrc that breaks the nested install of the
-# two GitHub dependencies; --userconfig /dev/null neutralises it. CI is unaffected.
-NPM_CI_ARGS="--no-audit --no-fund --ignore-scripts --userconfig /dev/null"
-
 FAILED=""
 PASSED=0
 SKIPPED=0
@@ -153,7 +149,7 @@ gate_i18n() {
 # ---------------------------------------------------------------------------
 gate_typecheck() {
   if [ ! -d node_modules/typescript ]; then
-    echo "typescript not installed; run: npm ci $NPM_CI_ARGS" >&2
+    echo "typescript not installed; run: pnpm install --frozen-lockfile" >&2
     return 1
   fi
   # Ratchet (was ADVISORY — DECISIONS D-005's exit condition is met). The dependency prune
@@ -172,7 +168,7 @@ gate_typecheck() {
 # ---------------------------------------------------------------------------
 gate_lint() {
   if [ ! -d node_modules/eslint ]; then
-    echo "eslint not installed; run: npm ci $NPM_CI_ARGS" >&2
+    echo "eslint not installed; run: pnpm install --frozen-lockfile" >&2
     return 1
   fi
   mkdir -p node_modules/.cache

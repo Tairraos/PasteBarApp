@@ -57,10 +57,10 @@ Integration tests that need a database live in `src-tauri/tests/`.
 | ------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
 | `utils::mask_value`                                                 | security-relevant masking; edge cases at 1–2 char words    | `services/utils.rs` `#[cfg(test)]`    |
 | `utils::apply_global_templates`                                     | regex substitution over user-supplied templates            | same                                  |
-| `db::to_relative_image_path` ↔ `to_absolute_image_path`            | **round-trip property**; the on-disk format contract       | `src-tauri/tests/path_transform.rs`   |
+| `db::to_relative_image_path` ↔ `to_absolute_image_path`             | **round-trip property**; the on-disk format contract       | `src-tauri/tests/path_transform.rs`   |
 | `history_service::process_history_item`                             | preview truncation, mask application                       | `src-tauri/tests/history.rs`          |
 | `history_service` retention (`delete_clipboard_history_older_than`) | data-loss-adjacent; pinned/starred preservation            | `src-tauri/tests/retention.rs`        |
-| `format_converter` round-trips                                      | json ↔ yaml ↔ csv are pure functions                     | `src-tauri/tests/format.rs`           |
+| `format_converter` round-trips                                      | json ↔ yaml ↔ csv are pure functions                       | `src-tauri/tests/format.rs`           |
 | language detection thresholds                                       | `min_lines_required`, enabled/prioritized lists            | `src-tauri/tests/language.rs`         |
 | `user_settings_service` config bootstrap                            | ISSUE-001: config found / custom path set / config missing | `src-tauri/tests/config_bootstrap.rs` |
 

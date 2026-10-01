@@ -26,7 +26,7 @@ done
 
 if [ ! -d "$ROOT/packages/pastebar-app-ui/node_modules/vitest" ] && [ ! -d "$ROOT/node_modules/vitest" ]; then
   echo "ERROR: vitest is not installed." >&2
-  echo "       run: npm ci --no-audit --no-fund" >&2
+  echo "       run: pnpm install --frozen-lockfile" >&2
   exit 1
 fi
 

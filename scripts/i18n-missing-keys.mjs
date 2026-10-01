@@ -301,7 +301,7 @@ function main() {
 
       const after = src.slice(m.index, m.index + 400)
       const nsMatch = /ns=(?:"([\w-]+)"|'([\w-]+)')/.exec(after)
-      const ns = nsMatch ? nsMatch[1] ?? nsMatch[2] : null
+      const ns = nsMatch ? (nsMatch[1] ?? nsMatch[2]) : null
       if (ns && !allowed.has(ns)) continue
 
       const candidates = ns ? [catalogs.get(ns)] : [...catalogs.values()]

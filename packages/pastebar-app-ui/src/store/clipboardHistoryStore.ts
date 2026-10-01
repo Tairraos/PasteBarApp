@@ -164,7 +164,7 @@ export const clipboardHistoryStore = createStore<ClipboardHistoryStoreState>()(
         let cacheEntry = timeAgoCache.get(updatedAt)
 
         if (!cacheEntry || now - cacheEntry.timestamp > 60 * 1000 || i === 0) {
-          const clipboardItemTimeAgo = timeAgoInstance().format(updatedAt, {
+          const clipboardItemTimeAgo = timeAgoInstance().format(updatedAt, undefined, {
             round: 'floor',
           })
           const clipboardItemTimeAgoShort = timeAgoInstance().format(

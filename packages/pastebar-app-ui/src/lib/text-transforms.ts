@@ -71,9 +71,8 @@ const toPascalCase = (text: string): string => {
 
 // Transform functions for Whitespace & Lines
 const trimWhiteSpace = (text: string): string => text.trim()
-const removeLineFeeds = (
-  text: string
-): string => // More aggressive removal of multiple line feeds to single space
+const removeLineFeeds = (text: string): string =>
+  // More aggressive removal of multiple line feeds to single space
   text
     .replace(/\r?\n|\r/g, ' ')
     .replace(/\s+/g, ' ')
@@ -501,5 +500,5 @@ export const getAllCategoryIds = (): string[] => TRANSFORM_CATEGORIES.map(c => c
 // Helper to get all transform IDs in a category
 export const getTransformIdsInCategory = (categoryId: string): string[] => {
   const category = getCategoryById(categoryId)
-  return category ? category.transforms?.map(t => t.id) ?? [] : []
+  return category ? (category.transforms?.map(t => t.id) ?? []) : []
 }

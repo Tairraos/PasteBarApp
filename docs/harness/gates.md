@@ -227,12 +227,15 @@ plus `cargo fmt`. `cargo fmt --check` is skipped under `--fast`.
 
 **Purpose:** nothing in this repository had ever run a dependency audit. `npm audit` was
 not scripted, no workflow ran it, and every install site passed `--no-audit`, suppressing
-even npm's own warning.
+even npm's own warning. Since D-010 the gate reads `pnpm audit --prod --json` — npm is no
+longer the package manager — and derives counts per vulnerable module, worst severity
+winning, so the baseline semantics did not change.
 
-**First run: 51 production advisories, 30 of them high** (ISSUE-032). **Now 28 / 9** — the
-dependency prune (ISSUE-033) deleted 22 of them along with the 315 packages nothing imported,
-and the `linkify-it` 5 → 6.1.0 upgrade (ISSUE-035) closed the last reachable high-severity
-advisory. Three were direct
+**First run: 51 production advisories, 30 of them high** (ISSUE-032). The npm-based
+baseline reached **28 / 9** (the dependency prune ISSUE-033 deleted 22 along with the 315
+packages nothing imported, and the `linkify-it` 5 → 6.1.0 upgrade ISSUE-035 closed the last
+reachable high-severity advisory). The pnpm-based baseline (D-010, per-module counting over
+the pnpm lockfile) reads **2 / 0**. Three advisories were direct
 dependencies that reach the shipped renderer — `react-router-dom` (XSS via open redirect,
 imported at `main.tsx:16`), `lodash-es` (code injection via `_.template`) and `js-yaml`
 (prototype pollution). A desktop app ships its renderer, and that webview holds the user's

@@ -6,9 +6,9 @@ name: Quality Gates
 # Design notes:
 # - ubuntu-latest runs the cheap gates; the Rust job needs macos-latest because tray and
 #   accessibility code is #[cfg(target_os = "macos")]-gated.
-# - `npm ci` is used without --ignore-scripts: the local EALLOWSCRIPTS failure documented
-#   in docs/harness/DECISIONS.md (D-007) is caused by a developer's user-level npmrc, which
-#   CI runners do not have.
+# - Installs are pnpm (`pnpm install --frozen-lockfile`); the pnpm version is pinned by
+#   package.json > packageManager. See docs/harness/DECISIONS.md D-010 for why the npm
+#   lockfiles are gone — D-007's npmrc problem dissolved with npm itself.
 # - Blocking a PR is intentional; see docs/harness/DEBT-BASELINE.md for the exemptions that
 #   keep the gates green on pre-existing debt.
 
@@ -40,15 +40,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Gate — repository hygiene
         run: bash scripts/harness/check-hygiene.sh
@@ -107,12 +108,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -125,7 +127,7 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Gate — rustfmt
         # Checks each file individually rather than `cargo fmt --check`, so the generated
@@ -150,15 +152,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Gate — vitest + coverage ratchet
         # Coverage may only go up against docs/harness/coverage-baseline.json.
@@ -183,15 +186,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Production advisories (strict)
         # Fails on ANY high/critical production advisory, so the debt surfaces on a timer.

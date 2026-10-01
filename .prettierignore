@@ -16,9 +16,8 @@ tailwind-safelist.txt
 packages/pastebar-app-ui/assets/markdown/markdown.js
 packages/pastebar-app-ui/assets/styles/
 
-# --- lockfiles (managed by npm, not by hand) -----------------------------------------
-package-lock.json
-packages/pastebar-app-ui/package-lock.json
+# --- lockfiles (managed by the package manager, not by hand) -------------------------
+pnpm-lock.yaml
 
 # --- editor state (gitignored, so it must be ignored here too) -----------------------
 # `.gitignore` excludes `.vscode/*` except `extensions.json`, but Prettier reads its own

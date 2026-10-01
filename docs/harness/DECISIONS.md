@@ -248,3 +248,29 @@ would produce a pool that is correctly synchronised around the wrong file. W1 ad
 together.
 
 **Revisit when.** W1 starts on `db.rs`.
+
+---
+
+## D-010 · Package management moved from npm to pnpm
+
+**Date:** 2026-10-01 · **Phase:** release engineering (tag-triggered multi-platform CI build)
+
+**Context.** Setting up the tag-triggered Release workflow needed a frozen install in CI.
+The working tree had already drifted to pnpm in practice (pnpm-shaped `node_modules`,
+`pnpm-lock.yaml`, `pnpm-workspace.yaml` build-script allowlist) while the repository still
+tracked npm lockfiles — two lockfiles for one dependency tree, only one of them maintained.
+D-007's `EALLOWSCRIPTS` failure is npm-userconfig-shaped and dissolves with npm itself.
+
+**Decision.** pnpm is the single package manager: `pnpm-lock.yaml` is authoritative,
+`packageManager` pins `pnpm@12.4.2`, both `package-lock.json` files are removed, and every
+install site (quality.yml, harness hints) uses `pnpm install --frozen-lockfile`. The audit
+ratchet reads `pnpm audit --prod --json` (registry bulk-advisory format, counts derived per
+module) instead of `npm audit`, with unchanged baseline semantics.
+
+**Rationale.** One dependency tree cannot carry two sources of truth: the next `pnpm add`
+would have left `package-lock.json` stale and broken `npm ci` in quality.yml mysteriously.
+Keeping npm "for the audit gate" would mean regenerating an npm lockfile nobody installs
+from.
+
+**Revisit when.** A contributor genuinely cannot use pnpm — that is a decision change,
+not a per-PR workaround.

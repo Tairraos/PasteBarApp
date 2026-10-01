@@ -1104,7 +1104,7 @@ export const settingsStore = createStore<SettingsStoreState & Settings>()((set, 
 
     return Boolean(
       skipVersion &&
-        (skipVersion === newVersion || semverCompare(skipVersion, newVersion) >= 0)
+      (skipVersion === newVersion || semverCompare(skipVersion, newVersion) >= 0)
     )
   },
   setUpdaterRemindLater: (isReset?: boolean) => {

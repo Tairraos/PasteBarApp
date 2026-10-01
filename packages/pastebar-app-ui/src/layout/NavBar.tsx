@@ -1251,9 +1251,9 @@ export function NavBar() {
                   <LibrarySquare className="mr-1.5 text-slate-500" size={18} />
                   <Box className="overflow-hidden text-ellipsis max-w-[16rem]">
                     {isShowCollectionNameOnNavBar
-                      ? collections.find(
+                      ? (collections.find(
                           ({ collectionId }) => collectionId === currentCollectionId
-                        )?.title ?? t('Collections', { ns: 'collections' })
+                        )?.title ?? t('Collections', { ns: 'collections' }))
                       : t('Collections', { ns: 'collections' })}
                   </Box>
                 </Flex>

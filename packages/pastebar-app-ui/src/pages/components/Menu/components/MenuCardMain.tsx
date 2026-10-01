@@ -189,7 +189,7 @@ export default function MenuCardMain({
       imageHash={imageHash}
       imageWidthHeight={imageWidth ? `${imageWidth}x${imageHeight}` : null}
       imageType={imageType}
-      arrLinks={item.links ? JSON.parse(item.links as string) ?? [] : []}
+      arrLinks={item.links ? (JSON.parse(item.links as string) ?? []) : []}
       value={value}
     />
   )

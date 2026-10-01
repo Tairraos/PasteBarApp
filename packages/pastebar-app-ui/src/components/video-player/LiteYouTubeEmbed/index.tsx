@@ -1,11 +1,7 @@
 import * as React from 'react'
 
 export type imgResolution =
-  | 'default'
-  | 'mqdefault'
-  | 'hqdefault'
-  | 'sddefault'
-  | 'maxresdefault'
+  'default' | 'mqdefault' | 'hqdefault' | 'sddefault' | 'maxresdefault'
 
 export interface LiteYouTubeProps {
   announce?: string

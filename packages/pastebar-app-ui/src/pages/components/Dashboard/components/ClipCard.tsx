@@ -201,11 +201,7 @@ export type ClipWebRequestOptions = {
   scrapingRules?: {
     id?: string
     ruleType?:
-      | 'cssselector'
-      | 'regexfind'
-      | 'regexreplace'
-      | 'regexmatch'
-      | 'regexmatchfoundgroup'
+      'cssselector' | 'regexfind' | 'regexreplace' | 'regexmatch' | 'regexmatchfoundgroup'
     value?: string
     replace?: string
     filterText?: string

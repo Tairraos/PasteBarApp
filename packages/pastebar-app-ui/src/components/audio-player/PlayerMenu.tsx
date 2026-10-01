@@ -168,8 +168,8 @@ export const PlayerMenu = ({
         <DndContext
           sensors={sensors}
           modifiers={[restrictToVerticalAxis]}
-          onDragStart={({ active }: { active: Active & { src: string } }) => {
-            setActive(active)
+          onDragStart={event => {
+            setActive(event.active as Active & { src: string })
           }}
           onDragEnd={({ active, over }) => {
             if (over && active.id !== over.id) {

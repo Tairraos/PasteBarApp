@@ -108,7 +108,7 @@
 | 2.3 后端模块文档              | `docs/modules/backend-*.md`：commands 层、services 层（history/items/collections/request/link_metadata）、clipboard 采集链、db.rs 与路径变换约定（`{{base_folder}}`）、menu/多窗口/事件流；每篇含**职责边界、输入输出、异常定义、已知限制** |
 | 2.4 前端模块文档              | `docs/modules/frontend-*.md`：多入口（main/history/quickpaste）、store 清单与同步机制、`lib/commands.ts` invoke 封装约定、i18n、vendored libs 豁免说明                                                                                      |
 | 2.5 IPC 契约文档              | `docs/contracts/tauri-ipc.md`：全部命令与事件的**请求/响应 shape、错误字符串约定、调用方**；由脚本从代码生成初稿（阶段 3 做漂移门禁），人工补语义                                                                                           |
-| 2.6 架构图                    | mermaid：模块依赖图（commands→services→models/db 分层图、前端 store↔页面、多窗口事件流），入 `docs/architecture.md`                                                                                                                        |
+| 2.6 架构图                    | mermaid：模块依赖图（commands→services→models/db 分层图、前端 store↔页面、多窗口事件流），入 `docs/architecture.md`                                                                                                                         |
 | 2.7 过时文档清理              | CLAUDE.md 中"无测试"等表述随阶段 5 更新；`WHATS_NEW_0.7.0.md`、`BUILD_GUIDE_ARM64_WINDOWS.md` 移入 `docs/reference/` 并加"最后核对日期"；`docs/harness/GOLDEN-RULES.md`（黄金原则，阶段 3/4 lint 规则的依据文档）                           |
 
 ### 4.2 产出物
@@ -225,7 +225,7 @@
 | 5.2 IPC 层假后端   | 内存版 Tauri command 处理器（按 `docs/contracts/tauri-ipc.md` schema 校验请求/响应），所有前端 store/hooks 测试跑在其上                                                                                                                     |
 | 5.3 后端单测       | `cargo test`：services 层纯逻辑（脱敏、路径变换 `{{base_folder}}`、时间清理、格式转换、语言检测）+ 基于 SQLite in-memory 跑 Diesel 查询（migration 用真实 `migrations/`）                                                                   |
 | 5.4 边界与异常用例 | 对阶段 1 清单每条 P0/P1：至少 1 正例 + 1 边界 + 1 异常（空 DB、超长文本、非 ASCII 路径、并发写入、损坏图片引用、脱敏正则回溯）                                                                                                              |
-| 5.5 回归/冒烟测试  | `quickcheck`/proptest 覆盖路径变换往返、格式转换往返（json↔yaml↔csv 等纯函数）                                                                                                                                                            |
+| 5.5 回归/冒烟测试  | `quickcheck`/proptest 覆盖路径变换往返、格式转换往返（json↔yaml↔csv 等纯函数）                                                                                                                                                              |
 | 5.6 覆盖率棘轮     | `vitest --coverage` + `cargo-tllvm` 太重，改用：前端 istanbul 覆盖率入基线文件；后端仅对 `services/` 出报告。CI 门禁 `coverage >= 基线值`，基线只许上调；目标：阶段 5 结束 前端 lib/store/hooks ≥50%、后端 services ≥60%，重构波及文件 ≥80% |
 | 5.7 门禁接入       | 阶段 3 的 `test` job 由"骨架"转为全量；`npm test` 与 `cargo test` 均为 PR 必过；测试文件命名与目录约定入 GOLDEN-RULES                                                                                                                       |
 

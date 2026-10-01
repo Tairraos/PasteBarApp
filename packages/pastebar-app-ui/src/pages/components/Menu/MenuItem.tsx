@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { Signal } from '@preact/signals-react'
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
+import type * as CollapsiblePrimitive from '@radix-ui/react-collapsible'
 import ClipboardRun from '~/assets/icons/clipboard-run'
 import SpinnerIcon from '~/assets/icons/spinner-icon'
 import {
@@ -53,9 +54,9 @@ import MenuCreateMenu from './components/MenuAddMenu'
 import { MenuEditName } from './components/MenuCardEdit'
 
 type MenuItemProps = {
-  rootProps?: AccordionPrimitive.CollapsibleProps
-  triggerProps?: AccordionPrimitive.CollapsibleTriggerProps
-  contentProps?: AccordionPrimitive.CollapsibleContentProps
+  rootProps?: CollapsiblePrimitive.CollapsibleProps
+  triggerProps?: CollapsiblePrimitive.CollapsibleTriggerProps
+  contentProps?: CollapsiblePrimitive.CollapsibleContentProps
   indent?: number
   label: string
   item: Item

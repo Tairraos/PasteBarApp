@@ -35,20 +35,22 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const BASELINE = path.join(ROOT, 'docs/harness/audit-baseline.json')
 const ARGS = new Set(process.argv.slice(2))
 
-// --omit=dev: only what ships. Dev-only advisories are real but are a different problem
+// --prod: only what ships. Dev-only advisories are real but are a different problem
 // with a different blast radius, and mixing them makes the number useless as a signal.
-// npm exits non-zero when advisories exist; the JSON is still emitted.
+// pnpm exits non-zero when advisories exist; the JSON is still emitted.
+let completed = false
 let raw
 try {
-  raw = execFileSync('npm', ['audit', '--omit=dev', '--json'], {
+  raw = execFileSync('pnpm', ['audit', '--prod', '--json'], {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
+  completed = true
 } catch (e) {
   raw = e.stdout
   if (!raw) {
-    console.error('audit-ratchet: npm audit produced no output')
+    console.error('audit-ratchet: pnpm audit produced no output')
     console.error(e.stderr?.slice(0, 500) ?? e.message)
     process.exit(1)
   }
@@ -58,24 +60,25 @@ let report
 try {
   report = JSON.parse(raw)
 } catch {
-  console.error('audit-ratchet: could not parse npm audit output')
+  console.error('audit-ratchet: could not parse pnpm audit output')
   process.exit(1)
 }
 
-// Distinguish "no advisories" from "could not ask". npm reports both as a zero count when
-// the registry is unreachable (`audit endpoint returned an error`, or a JSON body with an
-// `error` field), and a security gate that reports OK because the network was down is
-// worse than no gate: it is a false green that trains people to ignore the job.
+// Distinguish "no advisories" from "could not ask": a security gate that reports OK
+// because the network was down is worse than no gate — it is a false green that trains
+// people to ignore the job.
 //
-// The signal used here is `metadata.dependencies.prod`: npm only fills it from a completed
-// audit. A missing or zero dependency count means the audit did not complete.
-if (report.error || !report.metadata?.dependencies?.prod) {
+// The signal: `pnpm audit --json` speaks the registry bulk-advisory format, an object
+// keyed by advisory id under `advisories`. A completed audit with zero findings prints
+// that key (empty) with exit 0; a failed audit either throws with no stdout or emits an
+// `error` body. So an empty map is only believed when the command itself exited 0.
+if (report.error || (!completed && !report.advisories)) {
   const detail =
     typeof report.error === 'object'
       ? JSON.stringify(report.error)
       : String(report.error ?? '')
   console.error('AUDIT GATE INCONCLUSIVE: the advisory database could not be reached.')
-  if (detail) console.error(`  npm said: ${detail.slice(0, 300)}`)
+  if (detail) console.error(`  pnpm said: ${detail.slice(0, 300)}`)
   console.error(
     '\nThis is not a pass. Re-run when the registry is reachable:\n' +
       '  node scripts/harness/audit-ratchet.mjs --report'
@@ -83,21 +86,42 @@ if (report.error || !report.metadata?.dependencies?.prod) {
   process.exit(1)
 }
 
-const counts = report.metadata?.vulnerabilities ?? {}
-const total = counts.total ?? 0
-const high = (counts.high ?? 0) + (counts.critical ?? 0)
+// The bulk format is keyed by advisory, but one module can carry several advisories.
+// Counts follow npm's v2 semantics: one entry per vulnerable module, with the module's
+// severity set to the worst advisory affecting it.
+const SEVERITY_RANK = { low: 1, moderate: 2, high: 3, critical: 4 }
+const byModule = new Map()
+for (const advisory of Object.values(report.advisories ?? {})) {
+  const name = advisory.module_name
+  const module = byModule.get(name) ?? { severity: 'low', titles: [], direct: false }
+  if ((SEVERITY_RANK[advisory.severity] ?? 0) > SEVERITY_RANK[module.severity]) {
+    module.severity = advisory.severity
+  }
+  if (
+    advisory.title &&
+    !module.titles.includes(advisory.title) &&
+    module.titles.length < 2
+  ) {
+    module.titles.push(advisory.title)
+  }
+  for (const finding of advisory.findings ?? []) {
+    if (finding.dev) continue
+    // paths are dependency chains rooted at the workspace, joined with '>': a direct
+    // dependency sits exactly one hop from the root ('.<name>').
+    if ((finding.paths ?? []).some(p => p.split('>').length === 2)) module.direct = true
+  }
+  byModule.set(name, module)
+}
+
+const counts = { low: 0, moderate: 0, high: 0, critical: 0 }
+for (const module of byModule.values()) counts[module.severity] += 1
+const total = byModule.size
+const high = counts.high + counts.critical
 
 /** Direct dependencies only — these are the ones a human can act on. */
-const actionable = Object.entries(report.vulnerabilities ?? {})
-  .filter(([, v]) => v.isDirect && (v.severity === 'high' || v.severity === 'critical'))
-  .map(([name, v]) => ({
-    name,
-    severity: v.severity,
-    titles: (v.via ?? [])
-      .filter(x => typeof x === 'object')
-      .map(x => x.title)
-      .slice(0, 2),
-  }))
+const actionable = [...byModule.entries()]
+  .filter(([, m]) => m.direct && (m.severity === 'high' || m.severity === 'critical'))
+  .map(([name, m]) => ({ name, severity: m.severity, titles: m.titles }))
   .sort((a, b) => a.name.localeCompare(b.name))
 
 if (ARGS.has('--report')) {
@@ -120,7 +144,7 @@ if (ARGS.has('--update')) {
     JSON.stringify(
       {
         $comment:
-          'Production dependency advisory baseline (npm audit --omit=dev). Counts may only ' +
+          'Production dependency advisory baseline (pnpm audit --prod). Counts may only ' +
           'go DOWN (docs/harness/GOLDEN-RULES.md R9). A PR fails if the count grows; the ' +
           'scheduled CI job fails on any high/critical. See ISSUE-032 in docs/harness/ISSUES.md. ' +
           'Regenerate: node scripts/harness/audit-ratchet.mjs --update',

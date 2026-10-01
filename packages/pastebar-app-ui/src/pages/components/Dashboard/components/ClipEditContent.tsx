@@ -1699,9 +1699,9 @@ export function ClipEditContent({
                           showCommandTestRunError.value = false
                           showCommandOutputTemplateError.value = Boolean(
                             webrequestLocalOptions.value.outputTemplate?.id &&
-                              !webrequestLocalOptions.value.outputTemplate?.value?.includes(
-                                '{{output}}'
-                              )
+                            !webrequestLocalOptions.value.outputTemplate?.value?.includes(
+                              '{{output}}'
+                            )
                           )
                         } catch (e) {
                           commandTestOutput.value = e as string

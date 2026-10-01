@@ -53,11 +53,11 @@ npm run build    # → dist-ui/
 npm run build:ts # tsc && vite build
 ```
 
-**Dependency install note.** `npm ci` fails on machines whose global `~/.npmrc` contains an
-`allow-scripts` entry, because npm forwards it to the nested install of the two GitHub
-dependencies (`tauri-plugin-log-api`, `tauri-plugin-positioner-api`). Work around it with
-`npm ci --ignore-scripts --userconfig /dev/null`, or delete the `allow-scripts` line from
-`~/.npmrc`. CI is unaffected (no such user config).
+**Dependency install note.** The package manager is pnpm, pinned in `package.json`
+(`packageManager`). Install with `pnpm install` (CI uses `pnpm install --frozen-lockfile`).
+The npm lockfiles were removed (see `docs/harness/DECISIONS.md` D-010): do not run
+`npm ci`/`npm install` — it would replace the pnpm-style `node_modules` layout and break
+local dev. The `npm run …` script aliases in this file keep working.
 
 ---
 
