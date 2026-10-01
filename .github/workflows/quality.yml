@@ -129,6 +129,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend dist-ui
+        # The tauri context is generated at compile time (custom-protocol) and embeds the
+        # dist-ui assets, so a fresh checkout without a frontend build fails cargo test
+        # with a proc-macro panic instead of a test result. The tests job builds the same
+        # tree separately; this build is not shared with it.
+        run: cd packages/pastebar-app-ui && npx vite build
+
       - name: Gate — rustfmt
         # Checks each file individually rather than `cargo fmt --check`, so the generated
         # src/schema.rs (4-space indent, from `diesel print-schema`) can be skipped on

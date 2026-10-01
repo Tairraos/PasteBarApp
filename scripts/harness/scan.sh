@@ -33,7 +33,9 @@ done
 # Excluded from all metrics: vendored third-party copies and generated files.
 VENDOR_RE='packages/pastebar-app-ui/src/components/libs/|src-tauri/libs/|packages/pastebar-app-ui/tailwind-safelist.txt|\.timestamp-'
 
-LIST=$(mktemp -t pastebar-scan) || exit 1
+# Plain `mktemp` (no -t): GNU mktemp requires Xs in the -t template while BSD accepts
+# a bare prefix, so the macOS-style invocation exits 1 on Linux.
+LIST=$(mktemp) || exit 1
 trap 'rm -f "$LIST"' EXIT
 
 RUST_COUNT=0
