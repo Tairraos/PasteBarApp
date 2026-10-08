@@ -91,7 +91,7 @@ jobs:
         run: |
           LOG=build.log
           if [ -f "$LOG" ]; then
-            grep -nE "^error|error\[|error:|Error:|cannot |failed|not found|No such|失败|错误|Traceback" "$LOG" | tail -n 10 > errors.txt || true
+            grep -anE "^error|error\[|error:|Error:|cannot |failed|not found|No such|失败|错误|Traceback" "$LOG" | tail -n 10 > errors.txt || true
             [ -s errors.txt ] || tail -n 10 "$LOG" > errors.txt
           else
             echo "未生成 build.log（构建未开始或输出未捕获）" > errors.txt
