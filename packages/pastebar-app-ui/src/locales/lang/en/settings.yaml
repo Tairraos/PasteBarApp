@@ -31,6 +31,7 @@ Auto-Update on Capture: Auto-Update on Capture
 Auto-delete clipboard history after: Auto-delete clipboard history after
 Automatically create link card preview in the clipboard history. This allows to quickly view website details without opening or pasting the link.: Automatically create link card preview in the clipboard history. This allows to quickly view website details without opening or pasting the link.
 Back: Back
+Backup: Backup
 Capture History: Capture History
 Capture History Text Length Limits: Capture History Text Length Limits
 Change Custom Data Folder...: Change Custom Data Folder...
@@ -43,7 +44,9 @@ Change the application user interface font size scale: Change the application us
 Change the application user interface language: Change the application user interface language
 Changing the database location requires an application restart to take effect.: Changing the database location requires an application restart to take effect.
 Clip Notes Popup Maximum Dimensions: Clip Notes Popup Maximum Dimensions
+Clipboard: Clipboard
 Clipboard History Settings: Clipboard History Settings
+Collections: Collections
 'Complete details:': 'Complete details:'
 Configure settings to automatically delete clipboard history items after a specified duration.: Configure settings to automatically delete clipboard history items after a specified duration.
 ConfirmRevertToDefaultDbPathMessage: Are you sure you want to revert to the default data location? Your application data will be moved to the default path.
@@ -142,6 +145,7 @@ Password is incorrect. <br/>{{screenLockRecoveryPasswordMasked}}: Password is in
 Password is incorrect. {{screenLockRecoveryPasswordMasked}}: Password is incorrect. {{screenLockRecoveryPasswordMasked}}
 Passwords do not match: Passwords do not match
 PasteBar Settings: PasteBar Settings
+Preferences: Preferences
 Pin Window: Pin Window
 Pin on Top Window: Pin on Top Window
 Please set up a Passcode and recovery password in Security Settings to enable Screen Lock and ensure better security.: Please set up a Passcode and recovery password in Security Settings to enable Screen Lock and ensure better security.

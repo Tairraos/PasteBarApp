@@ -258,15 +258,6 @@ export default function UserPreferences() {
             <Box className="p-4 py-6 select-none min-w-[320px]">
               <Box className="text-xl my-2 mx-2 flex items-center justify-between">
                 <Text className="light">{t('User Preferences', { ns: 'settings' })}</Text>
-                <Link to={returnRoute} replace>
-                  <Button
-                    variant="ghost"
-                    className="text-sm bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
-                    size="sm"
-                  >
-                    {t('Back', { ns: 'common' })}
-                  </Button>
-                </Link>
               </Box>
               <Spacer h={3} />
 

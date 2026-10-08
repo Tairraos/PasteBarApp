@@ -26,6 +26,7 @@ Auto-Trim Spaces on Capture: 捕获时自动删除空格
 Auto-delete clipboard history after: 自动删除剪贴板历史时间
 Automatically create link card preview in the clipboard history. This allows to quickly view website details without opening or pasting the link.: 在剪贴板历史中自动创建链接卡预览。这允许快速查看网站详情，无需打开或粘贴链接。
 Back: 返回
+Backup: 备份
 Capture History: 捕获历史
 Capture History Text Length Limits: 捕获历史文本长度限制
 Change the application UI font size scale: 更改应用 UI 字体大小比例
@@ -34,7 +35,9 @@ Change the application user interface color theme: 更改应用用户界面颜�
 Change the application user interface font size scale: 更改应用用户界面字体大小比例
 Change the application user interface language: 更改应用用户界面语言
 Clip Notes Popup Maximum Dimensions: 剪辑注释弹出窗口最大尺寸
+Clipboard: 剪贴板
 Clipboard History Settings: 剪贴板历史设置
+Collections: 收藏集
 'Complete details:': '完整详情：'
 Configure settings to automatically delete clipboard history items after a specified duration.: 配置设置以在指定时间后自动删除剪贴板历史项目。
 Create a preview card on link hover in the clipboard history. This allows you to preview the link before opening or pasting it.: 在剪贴板历史中悬停链接时创建预览卡片。这允许您在打开或粘贴链接前预览它。
@@ -111,6 +114,7 @@ Password is incorrect.: 密码不正确。
 'Password is incorrect. {{screenLockRecoveryPasswordMasked}}': 密码不正确。{{screenLockRecoveryPasswordMasked}}
 Passwords do not match: 密码不匹配
 PasteBar Settings: PasteBar 设置
+Preferences: 偏好
 Pin Window: 固定窗口
 Pin on Top Window: 固定在顶部窗口
 Please set up a Passcode and recovery password in Security Settings to enable Screen Lock and ensure better security.: 请在安全设置中设置密码和恢复密码以启用屏幕锁定并确保更好的安全性。
@@ -123,7 +127,7 @@ Programming Language Selection: 编程语言选择
 Protect your data by requiring screen unlock authentication whenever the application starts.: 通过要求应用程序启动时进行屏幕解锁认证来保护您的数据。
 Recovery Password for Lock Screen Passcode: 锁屏密码的恢复密码
 Recovery password is set.: 已设置恢复密码。
-Refresh Application UI: 刷新应用程序 UI
+Refresh Application UI: 刷新界面
 Refresh UI: 刷新 UI
 Require Screen Unlock at Application Start: 应用程序启动时要求屏幕解锁
 Require screen unlock at application launch to enhance security. This setting ensures that only authorized users can access the application, protecting your data from unauthorized access right from the start.: 要求应用程序启动时解锁屏幕以增强安全性。此设置确保只有授权用户可以访问应用程序，从一开始就保护您的数据免受未授权访问。

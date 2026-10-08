@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api'
 import { onUpdaterEvent } from '@tauri-apps/api/updater'
 import { appWindow } from '@tauri-apps/api/window'
-import { LANGUAGES } from '~/locales/languges'
-import { GlobalSearch } from '~/pages/components/Dashboard/components/GlobalSearch'
 import {
   APP_TOURS,
   availableVersionBody,
@@ -41,10 +39,8 @@ import {
   BellOff,
   BellRing,
   Check,
-  Columns2,
   Download,
   ExternalLink,
-  FileCog,
   LibrarySquare,
   LockKeyhole,
   Maximize,
@@ -59,7 +55,6 @@ import {
   Settings,
   SkipBack,
   SkipForward,
-  TabletSmartphone,
   X,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -101,7 +96,7 @@ import Logo from './Logo'
 import { TranslatedBoardingSteps } from './Tour'
 
 export function NavBar() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const [isAutoStartEnabled, setIsAutoStartEnabled] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -125,8 +120,7 @@ export function NavBar() {
 
   const { deleteClipboardHistoryByIds } = useDeleteClipboardHistoryByIds()
 
-  const { currentCollectionId, collections, pinnedClips } =
-    useAtomValue(collectionsStoreAtom)
+  const { currentCollectionId, collections } = useAtomValue(collectionsStoreAtom)
   const { selectCollectionById } = useSelectCollectionById()
   const isDark = themeDark()
 
@@ -188,10 +182,6 @@ export function NavBar() {
     setIsShowCollectionNameOnNavBar,
     setIsHideCollectionsOnNavBar,
     setIsShowNavBarItemsOnHoverOnly,
-    copyPasteDelay,
-    setCopyPasteDelay,
-    setIsHistoryEnabled,
-    isHistoryEnabled,
     setUpdaterSkipVersion,
     setUpdaterRemindLater,
     relaunchApp,
@@ -201,13 +191,9 @@ export function NavBar() {
     appToursSkippedList,
     setAppToursCompletedList,
     setAppToursSkippedList,
-    setIsHistoryAutoUpdateOnCaputureEnabled,
-    isHistoryAutoUpdateOnCaputureEnabled,
     setIsShowDisabledCollectionsOnNavBarMenu,
     isShowNavBarItemsOnHoverOnly,
     isHideCollectionsOnNavBar,
-    isImageCaptureDisabled,
-    setIsImageCaptureDisabled,
     isHistoryPanelVisibleOnly,
     setIsHistoryPanelVisibleOnly,
     isSavedClipsPanelVisibleOnly,
@@ -227,13 +213,11 @@ export function NavBar() {
     increaseFontSize,
     resetFontSize,
     setIsSwapPanels,
-    isShowPinned,
     isSplitPanelView,
     setIsHideMainWindow,
     toggleIsSplitPanelView,
     toggleHistoryQuickPasteWindow,
     isWindows,
-    setIsShowPinned,
     isSwapPanels,
   } = useAtomValue(uiStoreAtom)
 
@@ -591,199 +575,16 @@ export function NavBar() {
               </MenubarShortcut>
             </MenubarItem>
 
-            <MenubarSub>
-              <MenubarSubTrigger>
-                {t('Settings', { ns: 'settings' })} ...
-              </MenubarSubTrigger>
-              <MenubarSubContent className="w-[230px] dark:text-slate-300">
-                <MenubarItem
-                  onClick={() => {
-                    navigate('/app-settings/history', { replace: true })
-                  }}
-                >
-                  {t('Clipboard History Settings', { ns: 'settings' })}
-                  <MenubarShortcut>
-                    <Shortcut keys="ALT+H" />
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    navigate('/app-settings/collections', { replace: true })
-                  }}
-                >
-                  {t('Manage Collections', { ns: 'settings' })}
-                  <MenubarShortcut>
-                    <Shortcut keys="ALT+С" />
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    navigate('/app-settings/preferences', { replace: true })
-                  }}
-                >
-                  {t('User Preferences', { ns: 'settings' })}
-                  <MenubarShortcut>
-                    <Shortcut keys="ALT+U" />
-                  </MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    navigate('/app-settings/backup-restore', { replace: true })
-                  }}
-                >
-                  {t('Backup and Restore', { ns: 'backuprestore' })}
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    navigate('/app-settings/security', { replace: true })
-                  }}
-                >
-                  {t('Security', { ns: 'settings' })}
-                </MenubarItem>
-                <MenubarSeparator />
-                <MenubarSub>
-                  <MenubarSubTrigger>
-                    {t('Capture History', { ns: 'history' })} ...
-                  </MenubarSubTrigger>
-                  <MenubarSubContent className="dark:text-slate-300 text-slate-800">
-                    <MenubarCheckboxItem
-                      checked={isHistoryEnabled}
-                      onClick={e => {
-                        e.preventDefault()
-                        setIsHistoryEnabled(!isHistoryEnabled)
-                      }}
-                    >
-                      <Text
-                        className={`mr-2 ${
-                          !isHistoryEnabled ? 'text-slate-900/50' : 'text-slate-800'
-                        }`}
-                      >
-                        {t('Enable Capture History', { ns: 'history' })}
-                      </Text>
-                      <MenubarShortcut className="ml-auto">
-                        <Shortcut keys="CTRL+H" />
-                      </MenubarShortcut>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={isHistoryAutoUpdateOnCaputureEnabled}
-                      onClick={e => {
-                        e.preventDefault()
-                        setIsHistoryAutoUpdateOnCaputureEnabled(
-                          !isHistoryAutoUpdateOnCaputureEnabled
-                        )
-                      }}
-                    >
-                      <Text
-                        className={`mr-2 ${
-                          !isHistoryAutoUpdateOnCaputureEnabled
-                            ? 'text-slate-900/50'
-                            : 'text-slate-800'
-                        }`}
-                      >
-                        {t('Auto Update on Capture', { ns: 'history' })}
-                      </Text>
-                      <MenubarShortcut className="ml-auto">
-                        <Shortcut keys="CTRL+A" />
-                      </MenubarShortcut>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={!isImageCaptureDisabled}
-                      onClick={e => {
-                        e.preventDefault()
-                        setIsImageCaptureDisabled(!isImageCaptureDisabled)
-                      }}
-                    >
-                      <Text
-                        className={`mr-2 ${
-                          isImageCaptureDisabled ? 'text-slate-900/50' : 'text-slate-800'
-                        }`}
-                      >
-                        {t('Enable Image Capture', { ns: 'history' })}
-                      </Text>
-                    </MenubarCheckboxItem>
-                    <MenubarSeparator />
-                    <MenubarItem
-                      onClick={() => {
-                        navigate('/app-settings/history', { replace: true })
-                      }}
-                    >
-                      <FileCog className="mr-2 h-4 w-4" />
-                      {t('All History Settings', { ns: 'history' })} ...
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-
-                <MenubarSub>
-                  <MenubarSubTrigger>
-                    <>
-                      {t('Paste Delay', { ns: 'contextMenus' })}
-                      ...
-                      {copyPasteDelay && (
-                        <Badge
-                          className="ml-2 py-0 bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
-                          variant="outline"
-                        >
-                          {copyPasteDelay}s
-                        </Badge>
-                      )}
-                    </>
-                  </MenubarSubTrigger>
-                  <MenubarSubContent className="w-[235px] dark:text-slate-300">
-                    <MenubarCheckboxItem
-                      checked={copyPasteDelay === 1}
-                      onSelect={() => {
-                        setCopyPasteDelay(1)
-                      }}
-                    >
-                      <Text>1 {t('second', { ns: 'common' })}</Text>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={copyPasteDelay === 2}
-                      onSelect={() => {
-                        setCopyPasteDelay(2)
-                      }}
-                    >
-                      <Text>2 {t('seconds', { ns: 'common' })}</Text>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={copyPasteDelay === 3}
-                      onSelect={() => {
-                        setCopyPasteDelay(3)
-                      }}
-                    >
-                      <Text>3 {t('seconds', { ns: 'common' })}</Text>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={copyPasteDelay === 4}
-                      onSelect={() => {
-                        setCopyPasteDelay(4)
-                      }}
-                    >
-                      <Text>4 {t('seconds', { ns: 'common' })}</Text>
-                    </MenubarCheckboxItem>
-                    <MenubarCheckboxItem
-                      checked={copyPasteDelay === 5}
-                      onSelect={() => {
-                        setCopyPasteDelay(5)
-                      }}
-                    >
-                      <Text>5 {t('seconds', { ns: 'common' })}</Text>
-                    </MenubarCheckboxItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSeparator />
-                <MenubarItem
-                  onClick={() => {
-                    window.location.reload()
-                  }}
-                >
-                  {t('Refresh Application UI', { ns: 'settings' })}
-                  <MenubarShortcut>
-                    <Shortcut keys="ALT+R" />
-                  </MenubarShortcut>
-                </MenubarItem>
-              </MenubarSubContent>
-            </MenubarSub>
+            <MenubarItem
+              onClick={() => {
+                navigate('/app-settings/history', { replace: true })
+              }}
+            >
+              {t('Settings', { ns: 'settings' })}
+              <MenubarShortcut>
+                <Shortcut keys="ALT+H" />
+              </MenubarShortcut>
+            </MenubarItem>
             <MenubarSeparator />
             <MenubarItem
               onClick={() => {
@@ -793,6 +594,16 @@ export function NavBar() {
               {t('Lock App Screen', { ns: 'navbar' })}
               <MenubarShortcut className="ml-2">
                 <Shortcut keys="CTRL+L" />
+              </MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem
+              onClick={() => {
+                window.location.reload()
+              }}
+            >
+              {t('Refresh Application UI', { ns: 'settings' })}
+              <MenubarShortcut>
+                <Shortcut keys="ALT+R" />
               </MenubarShortcut>
             </MenubarItem>
             <MenubarItem onClick={hideWindow}>
@@ -1199,41 +1010,6 @@ export function NavBar() {
             >
               {t('Reset Font Size', { ns: 'settings' })}
             </MenubarItem>
-            <MenubarSeparator />
-            <MenubarSub>
-              <MenubarSubTrigger>
-                {t('Language', { ns: 'navbar' })} ...
-                {/* {LANGUAGES.filter(({ code }) => code === i18n.language).map(
-                  ({ flag }) => (
-                    <span className="flags ml-2">{flag}</span>
-                  )
-                )} */}
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {LANGUAGES.map(
-                  ({
-                    code,
-                    name,
-                    flag,
-                  }: {
-                    code: string
-                    name: string
-                    flag: string
-                  }) => (
-                    <MenubarCheckboxItem
-                      key={code}
-                      checked={i18n.language === code}
-                      className={`pr-6 ${i18n.language === code ? 'font-semibold' : ''}`}
-                      onClick={() => {
-                        i18n.changeLanguage(code)
-                      }}
-                    >
-                      <span className="flags mr-3">{flag}</span> {name}
-                    </MenubarCheckboxItem>
-                  )
-                )}
-              </MenubarSubContent>
-            </MenubarSub>
           </MenubarContent>
         </MenubarMenu>
 
@@ -1360,74 +1136,7 @@ export function NavBar() {
           className={`inline-flex h-full w-full items-center justify-center ${
             isShowNavBarItems ? 'opacity-1' : 'opacity-0'
           }`}
-        >
-          {!isSinglePanelView && (
-            <>
-              {!isSplitPanelView ? (
-                <Button
-                  onClick={() => {
-                    toggleIsSplitPanelView()
-                  }}
-                  id="navbar-toggle-history-split"
-                  title={t('Open History Window', { ns: 'common' })}
-                  variant="ghost"
-                  className="relative h-7 focus:outline-none px-2 mr-0 ml-2 !bg-slate-50 text-slate-400 dark:!bg-slate-900 dark:hover:!bg-slate-800 hover:text-slate-600 dark:text-slate-400"
-                >
-                  <TabletSmartphone size={19} className="stroke-[1.8px]" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => {
-                    toggleIsSplitPanelView()
-                  }}
-                  id="navbar-toggle-history-split"
-                  title={t('Close History Window', { ns: 'common' })}
-                  variant="ghost"
-                  className="relative h-7 focus:outline-none px-2 mr-0 ml-2 !bg-slate-50 text-slate-400 dark:!bg-slate-900 dark:hover:!bg-slate-800 hover:text-slate-600 dark:text-slate-400"
-                >
-                  <Columns2 size={19} className="stroke-[1.8px]" />
-                </Button>
-              )}
-            </>
-          )}
-          {!isHistoryPanelVisibleOnly && <GlobalSearch isDark={isDark} />}
-          {!isHistoryPanelVisibleOnly &&
-            (!isShowPinned ? (
-              <Button
-                onClick={() => {
-                  setIsShowPinned(true)
-                }}
-                id="navbar-pinned_tour"
-                title={t('Show Pinned', { ns: 'pinned' })}
-                variant="ghost"
-                className="relative h-7 focus:outline-none px-2 mx-2 !bg-slate-50 text-slate-400 dark:!bg-slate-900 dark:hover:!bg-slate-800 hover:text-slate-600 dark:text-slate-400"
-              >
-                <Icons.pin size={18} />
-                {pinnedClips.length > 0 && (
-                  <Badge
-                    variant="outline"
-                    className="bg-orange-100 dark:bg-orange-900/80 dark:border-orange-950 border absolute border-orange-50 cursor-pointer px-1.5 left-[30px] top"
-                  >
-                    <Text className="font-mono !text-orange-400 font-semibold">
-                      {pinnedClips.length}
-                    </Text>
-                  </Badge>
-                )}
-              </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  setIsShowPinned(false)
-                }}
-                id="navbar-pinned_tour"
-                title={t('Hide Pinned', { ns: 'pinned' })}
-                variant="ghost"
-                className="relative h-7 focus:outline-none px-2 mx-2 !bg-slate-50 text-slate-400 dark:!bg-slate-900 dark:hover:!bg-slate-800 hover:text-slate-600 dark:text-slate-400"
-              >
-                <Icons.pinoff size={18} />
-              </Button>
-            ))}
-        </div>
+        ></div>
 
         <div data-tauri-drag-region className="inline-flex h-full justify-end">
           {showUpdateAvailable.value ? (

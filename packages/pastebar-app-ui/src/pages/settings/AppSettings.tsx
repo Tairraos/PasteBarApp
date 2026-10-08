@@ -1,15 +1,9 @@
 import { settingsStoreAtom, uiStoreAtom } from '~/store'
 import { useAtomValue } from 'jotai'
-import { Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router-dom'
 
 import Spacer from '~/components/atoms/spacer'
-import {
-  SplitPanePrimary,
-  SplitPaneSecondary,
-  SplitView,
-} from '~/components/libs/split-view'
 import { Box, Button, Flex, Separator, Text } from '~/components/ui'
 
 import { MainContainer } from '../../layout/Layout'
@@ -19,127 +13,72 @@ export default function AppSettingsPage() {
   const { isSimplifiedLayout } = useAtomValue(settingsStoreAtom)
   const { t } = useTranslation()
 
+  const settingsNavItems = [
+    {
+      to: '/app-settings/history',
+      id: 'app-settings-history_tour',
+      label: t('Clipboard', { ns: 'settings' }),
+    },
+    {
+      to: '/app-settings/collections',
+      id: 'app-settings-collections_tour',
+      label: t('Collections', { ns: 'settings' }),
+    },
+    {
+      to: '/app-settings/preferences',
+      id: 'app-settings-preferences_tour',
+      label: t('Preferences', { ns: 'settings' }),
+    },
+    {
+      to: '/app-settings/backup-restore',
+      id: 'app-settings-backup-restore_tour',
+      label: t('Backup', { ns: 'settings' }),
+    },
+    {
+      to: '/app-settings/security',
+      id: 'app-settings-security_tour',
+      label: t('Security', { ns: 'settings' }),
+    },
+  ]
+
   return (
     <MainContainer>
       <Box className="w-full">
-        <SplitView
-          minSize={290}
-          maxSize={360}
-          defaultSize={290}
-          autoSaveId="app-main-panel-settings"
-        >
-          <SplitPanePrimary>
-            <Box
-              className={`${
-                isSimplifiedLayout
-                  ? 'h-[calc(100vh-40px)]'
-                  : 'h-[calc(100vh-70px)] shadow-sm rounded-xl'
-              } flex flex-col bg-slate-200 dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.8] py-6 px-3 pr-3`}
-            >
-              <Box className="animate-in fade-in">
-                <Box className="flex flex-rowrounded-md p-0 items-center justify-end pr-5 h-[40px]">
-                  <Text className="text-lg font-semibold text-center flex items-center">
-                    <Settings className="mr-2" />
-                    {t('PasteBar Settings', { ns: 'settings' })}
-                  </Text>
-                </Box>
-                <Spacer h={3} />
-
-                <NavLink
-                  to="/app-settings/history"
-                  replace
-                  id="app-settings-history_tour"
-                >
+        <Flex>
+          <Box
+            className={`${
+              isSimplifiedLayout
+                ? 'h-[calc(100vh-40px)]'
+                : 'h-[calc(100vh-70px)] shadow-sm rounded-xl'
+            } flex w-[90px] shrink-0 flex-col bg-slate-200 dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.8] py-6 px-1`}
+          >
+            <Box className="animate-in fade-in flex flex-col flex-1 min-h-0">
+              {settingsNavItems.map(({ to, id, label }) => (
+                <NavLink key={to} to={to} replace id={id}>
                   {({ isActive }) => (
                     <Text
-                      className={`pr-5 py-3 text-lg justify-end text-right items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
+                      className={`pr-2 text-right py-3 text-lg justify-end items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
                         isActive &&
                         '!font-bold text-[19px] dark:!text-slate-300 !_text-slate-600'
                       }`}
                     >
-                      {t('Clipboard History Settings', { ns: 'settings' })}
+                      {label}
                     </Text>
                   )}
                 </NavLink>
+              ))}
 
-                <NavLink
-                  to="/app-settings/collections"
-                  replace
-                  id="app-settings-collections_tour"
-                >
-                  {({ isActive }) => (
-                    <Text
-                      className={`pr-5 text-right py-3 text-lg justify-end items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
-                        isActive &&
-                        '!font-bold text-[19px] dark:!text-slate-300 !_text-slate-600'
-                      }`}
-                    >
-                      {t('Manage Collections', { ns: 'settings' })}
-                    </Text>
-                  )}
-                </NavLink>
-
-                <NavLink
-                  to="/app-settings/preferences"
-                  replace
-                  id="app-settings-preferences_tour"
-                >
-                  {({ isActive }) => (
-                    <Text
-                      className={`pr-5 text-right py-3 text-lg justify-end items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
-                        isActive &&
-                        '!font-bold text-[19px] dark:!text-slate-300 !_text-slate-600'
-                      }`}
-                    >
-                      {t('User Preferences', { ns: 'settings' })}
-                    </Text>
-                  )}
-                </NavLink>
-
-                <NavLink
-                  to="/app-settings/backup-restore"
-                  replace
-                  id="app-settings-backup-restore_tour"
-                >
-                  {({ isActive }) => (
-                    <Text
-                      className={`pr-5 text-right py-3 text-lg justify-end items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
-                        isActive &&
-                        '!font-bold text-[19px] dark:!text-slate-300 !_text-slate-600'
-                      }`}
-                    >
-                      {t('Backup and Restore', { ns: 'backuprestore' })}
-                    </Text>
-                  )}
-                </NavLink>
-
-                <NavLink
-                  to="/app-settings/security"
-                  replace
-                  id="app-settings-security_tour"
-                >
-                  {({ isActive }) => (
-                    <Text
-                      className={`pr-5 text-right py-3 text-lg justify-end items-center animate fade-in transition-fonts duration-100 dark:!text-slate-400 ${
-                        isActive &&
-                        '!font-bold text-[19px] dark:!text-slate-300 !_text-slate-600'
-                      }`}
-                    >
-                      {t('Security', { ns: 'settings' })}
-                    </Text>
-                  )}
-                </NavLink>
-
+              <Box className="mt-auto">
                 <Spacer h={6} />
-                <Flex className="mr-5 justify-end">
+                <Flex className="justify-end">
                   <Separator decorative className="bg-gray-300 dark:bg-gray-600" />
                 </Flex>
                 <Spacer h={6} />
                 <NavLink to={returnRoute} replace id="app-settings-back_tour">
-                  <Box className="pr-5 font-right text-right py-3 text-md animate fade-in transition-fonts duration-100">
+                  <Box className="pr-2 text-right py-3 text-md animate fade-in transition-fonts duration-100">
                     <Button
                       variant="secondary"
-                      className="text-sm bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
+                      className="text-sm bg-slate-200 dark:bg-slate-700 dark:text-slate-200 px-2"
                     >
                       {t('Back', { ns: 'common' })}
                     </Button>
@@ -147,23 +86,21 @@ export default function AppSettingsPage() {
                 </NavLink>
               </Box>
             </Box>
-          </SplitPanePrimary>
-          <SplitPaneSecondary>
-            <Box
-              className={`${
-                isSimplifiedLayout
-                  ? 'h-[calc(100vh-40px)]'
-                  : 'h-[calc(100vh-70px)] shadow-sm rounded-xl border-0'
-              } flex flex-col ${
-                !isSimplifiedLayout
-                  ? 'bg-slate-50 dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]'
-                  : ''
-              }`}
-            >
-              <Outlet />
-            </Box>
-          </SplitPaneSecondary>
-        </SplitView>
+          </Box>
+          <Box
+            className={`${
+              isSimplifiedLayout
+                ? 'h-[calc(100vh-40px)]'
+                : 'h-[calc(100vh-70px)] shadow-sm rounded-xl border-0'
+            } flex flex-col flex-1 min-w-0 ${
+              !isSimplifiedLayout
+                ? 'bg-slate-50 dark:bg-gray-800 dark:border-gray-700 dark:shadow-slate-700/[.7]'
+                : ''
+            }`}
+          >
+            <Outlet />
+          </Box>
+        </Flex>
       </Box>
     </MainContainer>
   )

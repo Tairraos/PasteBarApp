@@ -163,15 +163,6 @@ export default function SecuritySettings() {
                 <Text className="light">
                   {t('Security Settings', { ns: 'settings' })}
                 </Text>
-                <Link to={returnRoute} replace>
-                  <Button
-                    variant="ghost"
-                    className="text-sm bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
-                    size="sm"
-                  >
-                    {t('Back', { ns: 'common' })}
-                  </Button>
-                </Link>
               </Box>
               <Spacer h={3} />
               <SimpleBar style={{ maxHeight: height - 85 }} autoHide={true}>

@@ -10,13 +10,11 @@ import {
   openProtectedContentModal,
   pendingProtectedCollectionId,
   settingsStoreAtom,
-  uiStoreAtom,
 } from '~/store'
 import { useAtomValue } from 'jotai'
 import { CheckSquare, ChevronDown, LockKeyhole, Trash, Trash2 } from 'lucide-react'
 // Added ChevronDown, ListFilter
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { useHoverIntent } from 'react-use-hoverintent'
 import AutoSize from 'react-virtualized-auto-sizer'
 
@@ -85,7 +83,6 @@ export default function ManageCollectionsSection({
   const { deleteCollectionById } = useDeleteCollectionById()
   const { currentCollectionId, menuItems, collections } =
     useAtomValue(collectionsStoreAtom)
-  const { returnRoute } = useAtomValue(uiStoreAtom)
 
   const [isHovering, hoverRef] = useHoverIntent({
     timeout: 10,
@@ -183,15 +180,6 @@ export default function ManageCollectionsSection({
                 <Text className="light">
                   {t('Manage Collections', { ns: 'collections' })}
                 </Text>
-                <Link to={returnRoute} replace>
-                  <Button
-                    variant="ghost"
-                    className="text-sm bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
-                    size="sm"
-                  >
-                    {t('Back', { ns: 'common' })}
-                  </Button>
-                </Link>
               </Box>
               <Spacer h={3} />
               <SimpleBar style={{ maxHeight: height - 85 }} autoHide={true}>
